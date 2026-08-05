@@ -10,7 +10,7 @@ export default async function Home() {
   const role = session?.role ?? "reader";
   const { board, columns, dependencies } = await getBoardWithContents();
   return (
-    <main className="flex-1 flex flex-col">
+    <main className="flex-1 flex flex-col min-h-0">
       <div className="border-b border-slate-200 dark:border-ocean-4 px-6 py-3 flex items-center justify-between bg-white dark:bg-ocean-2">
         <h1 className="text-lg font-semibold tracking-tight text-ocean-1 dark:text-white">{board.name}</h1>
         <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-skyblue-2">

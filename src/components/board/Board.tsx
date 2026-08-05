@@ -15,7 +15,7 @@ export function Board({
   canEdit?: boolean;
 }) {
   return (
-    <div className="flex gap-6 overflow-x-auto p-6 min-h-full items-start">
+    <div className="flex-1 min-h-0 flex gap-6 overflow-x-auto p-6 items-stretch">
       <DndBoard columns={columns} dependencies={dependencies} canEdit={canEdit} />
       {canEdit && (
         <div className="shrink-0 w-72">

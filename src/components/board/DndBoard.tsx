@@ -140,7 +140,7 @@ export function DndBoard({
   }
 
   return (
-    <div ref={containerRef} className="relative flex gap-6">
+    <div ref={containerRef} className="relative flex gap-6 h-full min-h-0 items-stretch">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
