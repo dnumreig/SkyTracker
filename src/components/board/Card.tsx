@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import type { CardModel } from "@/generated/prisma/models";
 import type { DependencyModel } from "@/generated/prisma/models";
 import { parseTags, TASK_TYPE_LABELS, TASK_TYPE_COLORS } from "@/features/board/types";
-import { formatDate } from "@/features/board/dates";
+import { formatDate, formatDateTime } from "@/features/board/dates";
 import { adoWorkItemEditUrl } from "@/features/ado/config";
 import { EditCardModal } from "./EditCardModal";
 
@@ -25,6 +25,7 @@ export function Card({
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const tags = parseTags(card.tags);
   const typeColors = TASK_TYPE_COLORS[card.taskType] ?? TASK_TYPE_COLORS.OTHER;
+  const completed = card.completedAt != null;
 
   function handlePointerDown(e: React.PointerEvent) {
     pointerStart.current = { x: e.clientX, y: e.clientY };
@@ -45,7 +46,16 @@ export function Card({
       <article
         onPointerDown={handlePointerDown}
         onClick={handleClick}
-        className={`group border border-slate-300 dark:border-ocean-4 rounded-md bg-white dark:bg-ocean-2 px-3 py-2 flex gap-3 items-stretch ${canEdit ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-ocean-3" : ""} transition-colors h-[84px] overflow-hidden ${typeColors.border ? `border-l-[3px] ${typeColors.border}` : ""}`}
+        className={`group border rounded-md px-3 py-2 flex gap-3 items-stretch ${
+          canEdit ? "cursor-pointer" : ""
+        } transition-colors h-[84px] overflow-hidden ${
+          completed
+            ? "border-green-500 border-l-[3px] border-l-green-500 bg-green-50 dark:bg-green-500/10 " +
+              (canEdit ? "hover:bg-green-100 dark:hover:bg-green-500/20" : "")
+            : "border-slate-300 dark:border-ocean-4 bg-white dark:bg-ocean-2 " +
+              (canEdit ? "hover:bg-slate-50 dark:hover:bg-ocean-3 " : "") +
+              (typeColors.border ? `border-l-[3px] ${typeColors.border}` : "")
+        }`}
       >
         <div className="flex-1 flex flex-col gap-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
@@ -85,6 +95,11 @@ export function Card({
               </a>
             )}
           </div>
+          {completed && card.completedAt && (
+            <span className="text-[10px] text-green-600 dark:text-green-400 mt-auto truncate">
+              ✓ Completed · {formatDateTime(new Date(card.completedAt))}
+            </span>
+          )}
         </div>
 
         <div className="shrink-0 flex flex-col text-[10px] border-l border-slate-200 dark:border-ocean-4 -my-2 -mr-1 divide-y divide-slate-200 dark:divide-ocean-4">
