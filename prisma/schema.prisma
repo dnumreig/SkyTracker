@@ -127,6 +127,7 @@ model Card {
   position       Int
   tags           Json         @default("[]") // [{ name: "Backend", applicable: true }, ...]
   adoWorkItemId  Int?         // Azure DevOps work item id when linked
+  completedAt    DateTime?    // null = active; set = completed (also drives history ordering)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
