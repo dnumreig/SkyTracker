@@ -112,7 +112,7 @@ export function SortableColumn({
           )}
 
           {/* Anchor: top of the active list. Sits at the bottom when there are no active cards. */}
-          <div ref={anchorRef} data-active-anchor className="scroll-mt-2" />
+          <div ref={anchorRef} data-active-anchor />
 
           <SortableContext items={activeIds} strategy={verticalListSortingStrategy}>
             <div ref={setNodeRef} className="flex flex-col gap-2 min-h-[40px]">
@@ -134,6 +134,7 @@ export function SortableColumn({
           <button
             type="button"
             onClick={() => scrollToAnchor(true)}
+            aria-label="Jump to active cards"
             className="absolute left-1/2 -translate-x-1/2 bottom-2 z-10 rounded-full px-3 py-1 text-xs font-medium shadow-md bg-ocean-5 text-white hover:bg-ocean-6 transition"
           >
             {anchorPos === "below" ? "↓ Active" : "↑ Active"}

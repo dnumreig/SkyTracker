@@ -310,7 +310,9 @@ export async function updateCard(formData: FormData) {
       select: { completedAt: true },
     });
     const completedAt =
-      parsed.completed === "true" ? existing.completedAt ?? new Date() : null;
+      parsed.isGap !== "true" && parsed.completed === "true"
+        ? existing.completedAt ?? new Date()
+        : null;
 
     const card = await prisma.card.update({
       where: { id: parsed.id },
