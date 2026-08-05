@@ -29,6 +29,19 @@ export function AddCardForm({ columnId }: { columnId: string }) {
           className="w-20 bg-transparent border-b border-slate-200 dark:border-ocean-4 focus:outline-none"
         />
       </div>
+      {/*
+        Explicit submit button. Without one, HTML "implicit submission" (Enter in
+        a text field) only fires when the form has a single field that blocks
+        implicit submission. This form has two such fields — title (text) and
+        sprintNumber (number) — so pressing Enter did nothing until this button
+        was added. It also gives an explicit affordance, matching AddColumnForm.
+      */}
+      <button
+        type="submit"
+        className="text-xs self-start text-slate-500 dark:text-ocean-6 hover:text-ocean-5 dark:hover:text-skyblue-1"
+      >
+        Add
+      </button>
     </form>
   );
 }

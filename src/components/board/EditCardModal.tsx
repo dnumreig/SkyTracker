@@ -43,12 +43,18 @@ export function EditCardModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       // The modal renders inside the dnd-kit draggable card wrapper, which
-      // carries the PointerSensor's drag listeners. Without this, pointerdowns
-      // on the modal's form controls bubble up to the sensor and (once the
+      // carries the drag sensors' listeners. Without this, pointerdowns on the
+      // modal's form controls bubble up to the PointerSensor and (once the
       // pointer moves past the 5px activation distance — easily triggered in
       // Safari) start a drag, detaching the card and discarding the edit on the
       // resulting revalidate. Stop the pointer event here so the sensor never sees it.
       onPointerDown={(e) => e.stopPropagation()}
+      // Same problem for the keyboard: the wrapper's listeners include the
+      // KeyboardSensor's onKeyDown activator, which starts a drag on Space/Enter.
+      // Typing a space in any field (or pressing Enter to submit) would bubble up,
+      // pick the card up (opacity drops to 0.3 — it "disappears" behind the modal),
+      // and the keystroke never lands in the field. Stop keydown here too.
+      onKeyDown={(e) => e.stopPropagation()}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
