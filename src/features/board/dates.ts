@@ -11,6 +11,11 @@ export function computeEstimatedDates(cards: CardModel[]): Map<string, Date | nu
   cursor.setHours(0, 0, 0, 0);
 
   for (const card of cards) {
+    if (card.completedAt != null) {
+      result.set(card.id, null); // completed work has no future date and doesn't consume time
+      continue;
+    }
+
     if (card.isGap) {
       if (card.estimateType === "HARD_DATE" && card.estimateDate) {
         const hard = new Date(card.estimateDate);
@@ -68,4 +73,9 @@ function addWeeks(date: Date, weeks: number): Date {
 
 export function formatDate(date: Date): string {
   return date.toLocaleDateString("nb-NO", { day: "numeric", month: "short" });
+}
+
+export function formatDateTime(date: Date): string {
+  const time = date.toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit" });
+  return `${formatDate(date)} ${time}`;
 }
