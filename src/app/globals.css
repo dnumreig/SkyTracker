@@ -35,3 +35,28 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Column scroll viewport: transparent track always; thin thumb visible only on hover. */
+.column-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.column-scroll:hover {
+  scrollbar-color: #294285 transparent; /* ocean-4 */
+}
+.column-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.column-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.column-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.column-scroll:hover::-webkit-scrollbar-thumb {
+  background: #294285; /* ocean-4 */
+  background-clip: padding-box;
+}

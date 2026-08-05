@@ -69,7 +69,7 @@ export function SortableColumn({
         const scrollerTop = scroller.getBoundingClientRect().top;
         setAnchorPos(anchorTop < scrollerTop ? "above" : "below");
       },
-      { root: scroller, threshold: 0 },
+      { root: scroller, threshold: 0, rootMargin: "0px 0px -8px 0px" },
     );
     io.observe(anchor);
     return () => io.disconnect();
@@ -90,17 +90,18 @@ export function SortableColumn({
         <div
           ref={scrollRef}
           data-column-scroll={column.id}
-          className="h-full overflow-y-auto flex flex-col gap-2 pr-1"
+          className="column-scroll h-full overflow-y-auto flex flex-col gap-2 pr-1"
         >
           {completed.map((card) => (
-            <Card
-              key={card.id}
-              card={card}
-              estimatedDone={null}
-              allCards={allCards}
-              dependencies={dependencies}
-              canEdit={canEdit}
-            />
+            <div key={card.id} data-card-id={card.id}>
+              <Card
+                card={card}
+                estimatedDone={null}
+                allCards={allCards}
+                dependencies={dependencies}
+                canEdit={canEdit}
+              />
+            </div>
           ))}
 
           {completed.length > 0 && (
@@ -130,14 +131,24 @@ export function SortableColumn({
           </SortableContext>
         </div>
 
-        {anchorPos !== "visible" && (
+        {anchorPos === "above" && (
+          <button
+            type="button"
+            onClick={() => scrollToAnchor(true)}
+            aria-label="Jump to active cards"
+            className="absolute left-1/2 -translate-x-1/2 top-2 z-10 rounded-full px-3 py-1 text-xs font-medium shadow-md bg-ocean-5 text-white hover:bg-ocean-6 transition"
+          >
+            ↑ Active
+          </button>
+        )}
+        {anchorPos === "below" && (
           <button
             type="button"
             onClick={() => scrollToAnchor(true)}
             aria-label="Jump to active cards"
             className="absolute left-1/2 -translate-x-1/2 bottom-2 z-10 rounded-full px-3 py-1 text-xs font-medium shadow-md bg-ocean-5 text-white hover:bg-ocean-6 transition"
           >
-            {anchorPos === "below" ? "↓ Active" : "↑ Active"}
+            ↓ Active
           </button>
         )}
       </div>
