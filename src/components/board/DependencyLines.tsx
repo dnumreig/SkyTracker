@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, type RefObject } from "react";
 import type { DependencyModel } from "@/generated/prisma/models";
+import { clampEndpointToBand, stubOffset, type Stub } from "@/features/board/deplines-geometry";
 
 type CardBox = {
   id: string;
@@ -25,6 +26,8 @@ type RoutedLine = {
   x2: number;
   y2: number;
   colorIndex: number;
+  stub1: Stub; // blocker (source) endpoint
+  stub2: Stub; // blocked (target) endpoint
 };
 
 const HOP_RADIUS = 5;
@@ -107,6 +110,7 @@ export function DependencyLines({
   containerRef: RefObject<HTMLDivElement | null>;
 }) {
   const [lines, setLines] = useState<RoutedLine[]>([]);
+  const [band, setBand] = useState<{ top: number; bottom: number } | null>(null);
 
   const measure = useCallback(() => {
     const container = containerRef.current;
@@ -116,6 +120,21 @@ export function DependencyLines({
     }
 
     const containerRect = container.getBoundingClientRect();
+
+    const INSET = 4;
+    const scrollEls = Array.from(container.querySelectorAll("[data-column-scroll]"));
+    let bandTop = -Infinity;
+    let bandBottom = Infinity;
+    for (const el of scrollEls) {
+      const r = el.getBoundingClientRect();
+      bandTop = Math.max(bandTop, r.top - containerRect.top + INSET);
+      bandBottom = Math.min(bandBottom, r.bottom - containerRect.top - INSET);
+    }
+    if (!Number.isFinite(bandTop) || !Number.isFinite(bandBottom) || bandBottom <= bandTop) {
+      bandTop = 0;
+      bandBottom = container.clientHeight;
+    }
+    setBand({ top: bandTop, bottom: bandBottom });
 
     const cardEls = container.querySelectorAll("[data-card-id]");
     const cardBoxes: CardBox[] = [];
@@ -147,8 +166,13 @@ export function DependencyLines({
       const blockerRect = blockerEl.getBoundingClientRect();
       const blockedRect = blockedEl.getBoundingClientRect();
 
-      const y1 = blockerRect.top + blockerRect.height / 2 - containerRect.top;
-      const y2 = blockedRect.top + blockedRect.height / 2 - containerRect.top;
+      const rawY1 = blockerRect.top + blockerRect.height / 2 - containerRect.top;
+      const rawY2 = blockedRect.top + blockedRect.height / 2 - containerRect.top;
+      const c1 = clampEndpointToBand(rawY1, bandTop, bandBottom);
+      const c2 = clampEndpointToBand(rawY2, bandTop, bandBottom);
+      if (c1.stub !== "none" && c2.stub !== "none") continue; // both endpoints off-screen
+      const y1 = c1.y;
+      const y2 = c2.y;
 
       const blockedIsRight = blockedRect.left > blockerRect.right - 10;
       const blockedIsLeft = blockedRect.right < blockerRect.left + 10;
@@ -201,7 +225,27 @@ export function DependencyLines({
         id: dep.id,
         x1, y1, vx1, clearY, vx2, x2, y2,
         colorIndex: groupColorMap.get(dep.blockedCardId) ?? 0,
+        stub1: c1.stub,
+        stub2: c2.stub,
       });
+    }
+
+    // Spread stubbed endpoints that land on the same edge near the same x so they don't overlap.
+    const COL_BUCKET = 100; // px; approximate a column by bucketing x
+    const groupCounts = new Map<string, number>();
+    for (const line of result) {
+      if (line.stub1 !== "none") {
+        const key = `${line.stub1}:${Math.round(line.x1 / COL_BUCKET)}`;
+        const idx = groupCounts.get(key) ?? 0;
+        groupCounts.set(key, idx + 1);
+        line.x1 += stubOffset(idx);
+      }
+      if (line.stub2 !== "none") {
+        const key = `${line.stub2}:${Math.round(line.x2 / COL_BUCKET)}`;
+        const idx = groupCounts.get(key) ?? 0;
+        groupCounts.set(key, idx + 1);
+        line.x2 += stubOffset(idx);
+      }
     }
 
     setLines(result);
@@ -214,14 +258,29 @@ export function DependencyLines({
       if (timerId !== null) clearTimeout(timerId);
       timerId = setTimeout(measure, 150);
     };
+    let rafId: number | null = null;
+    const rafMeasure = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        measure();
+      });
+    };
     const observer = new MutationObserver(debouncedMeasure);
-    if (containerRef.current) {
-      observer.observe(containerRef.current, { childList: true, subtree: true, attributes: true });
+    const container = containerRef.current;
+    const scrollEls = container
+      ? Array.from(container.querySelectorAll("[data-column-scroll]"))
+      : [];
+    if (container) {
+      observer.observe(container, { childList: true, subtree: true, attributes: true });
     }
+    scrollEls.forEach((el) => el.addEventListener("scroll", rafMeasure, { passive: true }));
     window.addEventListener("resize", measure);
     return () => {
       if (timerId !== null) clearTimeout(timerId);
+      if (rafId !== null) cancelAnimationFrame(rafId);
       observer.disconnect();
+      scrollEls.forEach((el) => el.removeEventListener("scroll", rafMeasure));
       window.removeEventListener("resize", measure);
     };
   }, [measure, containerRef]);
@@ -286,21 +345,36 @@ export function DependencyLines({
             <path d="M 0 0 L 10 5 L 0 10 z" fill={DEP_COLORS[ci]} />
           </marker>
         ))}
+        {band && (
+          <clipPath id="dep-clip">
+            <rect x={0} y={band.top} width="100%" height={Math.max(0, band.bottom - band.top)} />
+          </clipPath>
+        )}
       </defs>
-      {lines.map((line) => {
-        const hops = hopsMap.get(line.id) ?? { vx1Hops: [], vx2Hops: [] };
-        const color = DEP_COLORS[line.colorIndex];
-        return (
-          <path
-            key={line.id}
-            d={buildPath(line, hops.vx1Hops, hops.vx2Hops)}
-            stroke={color}
-            strokeWidth={1.5}
-            fill="none"
-            markerEnd={`url(#dep-arrow-${line.colorIndex})`}
-          />
-        );
-      })}
+      <g clipPath={band ? "url(#dep-clip)" : undefined}>
+        {lines.map((line) => {
+          const hops = hopsMap.get(line.id) ?? { vx1Hops: [], vx2Hops: [] };
+          const color = DEP_COLORS[line.colorIndex];
+          const targetStubbed = line.stub2 !== "none";
+          return (
+            <g key={line.id}>
+              <path
+                d={buildPath(line, hops.vx1Hops, hops.vx2Hops)}
+                stroke={color}
+                strokeWidth={1.5}
+                fill="none"
+                markerEnd={targetStubbed ? undefined : `url(#dep-arrow-${line.colorIndex})`}
+              />
+              {line.stub1 !== "none" && (
+                <path d={chevron(line.x1, line.y1, line.stub1)} stroke={color} strokeWidth={1.5} fill="none" />
+              )}
+              {line.stub2 !== "none" && (
+                <path d={chevron(line.x2, line.y2, line.stub2)} stroke={color} strokeWidth={1.5} fill="none" />
+              )}
+            </g>
+          );
+        })}
+      </g>
     </svg>
   );
 }
@@ -365,4 +439,16 @@ function buildPath(
   if (Math.abs(x2 - vx2) > 0.5) d += ` H ${x2}`;
 
   return d;
+}
+
+// A small ▲ (edge "top") or ▼ (edge "bottom") centered at (x, y), marking an off-screen endpoint.
+function chevron(x: number, y: number, edge: Stub): string {
+  const w = 4;
+  const h = 4;
+  if (edge === "top") {
+    // pointing up
+    return `M ${x - w} ${y + h} L ${x} ${y} L ${x + w} ${y + h}`;
+  }
+  // edge === "bottom", pointing down
+  return `M ${x - w} ${y - h} L ${x} ${y} L ${x + w} ${y - h}`;
 }
