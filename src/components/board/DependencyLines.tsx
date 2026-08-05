@@ -347,7 +347,7 @@ export function DependencyLines({
         ))}
         {band && (
           <clipPath id="dep-clip">
-            <rect x={0} y={band.top} width="100%" height={Math.max(0, band.bottom - band.top)} />
+            <rect x={-10000} y={band.top} width={20000} height={Math.max(0, band.bottom - band.top)} />
           </clipPath>
         )}
       </defs>
