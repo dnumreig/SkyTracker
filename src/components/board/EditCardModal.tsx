@@ -116,6 +116,19 @@ export function EditCardModal({
           </fieldset>
 
           <div className="flex gap-6 flex-wrap">
+            {!card.isGap && (
+              <label className="flex items-center gap-2 text-sm text-ocean-1 dark:text-white">
+                <input type="hidden" name="completed" value="false" />
+                <input
+                  type="checkbox"
+                  name="completed"
+                  value="true"
+                  defaultChecked={card.completedAt != null}
+                  className="accent-green-600"
+                />
+                Completed
+              </label>
+            )}
             <label className="flex items-center gap-2 text-sm text-ocean-1 dark:text-white">
               <input type="hidden" name="isGap" value="false" />
               <input
