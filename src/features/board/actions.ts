@@ -275,6 +275,7 @@ const updateCardSchema = z.object({
   codeReview: z.enum(["true", "false"]),
   backendApplicable: z.enum(["true", "false"]),
   frontendApplicable: z.enum(["true", "false"]),
+  completed: z.enum(["true", "false"]),
 });
 
 export async function updateCard(formData: FormData) {
@@ -296,12 +297,20 @@ export async function updateCard(formData: FormData) {
       codeReview: formData.getAll("codeReview").includes("true") ? "true" : "false",
       backendApplicable: formData.getAll("backendApplicable").includes("true") ? "true" : "false",
       frontendApplicable: formData.getAll("frontendApplicable").includes("true") ? "true" : "false",
+      completed: formData.getAll("completed").includes("true") ? "true" : "false",
     });
 
     const tags: CardTag[] = [
       { name: "Backend", applicable: parsed.backendApplicable === "true" },
       { name: "Frontend", applicable: parsed.frontendApplicable === "true" },
     ];
+
+    const existing = await prisma.card.findUniqueOrThrow({
+      where: { id: parsed.id },
+      select: { completedAt: true },
+    });
+    const completedAt =
+      parsed.completed === "true" ? existing.completedAt ?? new Date() : null;
 
     const card = await prisma.card.update({
       where: { id: parsed.id },
@@ -316,6 +325,7 @@ export async function updateCard(formData: FormData) {
         isGap: parsed.isGap === "true",
         gapSize: parsed.gapSize ? Math.max(1, parseInt(parsed.gapSize, 10)) : 1,
         codeReview: parsed.codeReview === "true",
+        completedAt,
         tags,
       },
     });
@@ -325,6 +335,7 @@ export async function updateCard(formData: FormData) {
       taskType: parsed.taskType,
       estimateType: parsed.estimateType,
       codeReview: parsed.codeReview === "true",
+      completed: parsed.completed === "true",
     });
     revalidatePath("/");
   } catch (error) {
