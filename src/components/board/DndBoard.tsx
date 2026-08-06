@@ -7,6 +7,7 @@ import {
   closestCorners,
   KeyboardSensor,
   PointerSensor,
+  MeasuringStrategy,
   useSensor,
   useSensors,
   type DragStartEvent,
@@ -147,6 +148,11 @@ export function DndBoard({
         id="skytracker-board"
         sensors={sensors}
         collisionDetection={closestCorners}
+        // Cards live inside each column's overflow-y-auto scroll viewport. With the
+        // default (measure-once-at-drag-start) strategy, dnd-kit failed to detect a
+        // drop target (over stayed null) so drops snapped back. Always-measure keeps
+        // droppable rects current inside the scroll container so reordering works.
+        measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
