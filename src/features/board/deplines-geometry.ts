@@ -19,3 +19,10 @@ export function stubOffset(indexWithinGroup: number, step = 8): number {
   const magnitude = Math.ceil(indexWithinGroup / 2) * step;
   return indexWithinGroup % 2 === 1 ? magnitude : -magnitude;
 }
+
+/** True only when BOTH endpoints are off-screen on the SAME side (both above, or both below).
+ *  Such a line lies entirely outside the visible band and should be skipped. When the two ends
+ *  are on OPPOSITE sides the line spans the viewport and must still be drawn. */
+export function bothOffScreenSameSide(a: Stub, b: Stub): boolean {
+  return a !== "none" && b !== "none" && a === b;
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { clampEndpointToBand, stubOffset } from "./deplines-geometry";
+import { clampEndpointToBand, stubOffset, bothOffScreenSameSide } from "./deplines-geometry";
 
 describe("clampEndpointToBand", () => {
   it("returns the center unchanged and stub 'none' when inside the band", () => {
@@ -30,5 +30,21 @@ describe("stubOffset", () => {
   it("honors a custom step", () => {
     expect(stubOffset(1, 10)).toBe(10);
     expect(stubOffset(2, 10)).toBe(-10);
+  });
+});
+
+describe("bothOffScreenSameSide", () => {
+  it("is true only when both stubs are off-screen on the same side", () => {
+    expect(bothOffScreenSameSide("top", "top")).toBe(true);
+    expect(bothOffScreenSameSide("bottom", "bottom")).toBe(true);
+  });
+  it("is false when the two ends are on opposite sides (line spans the viewport)", () => {
+    expect(bothOffScreenSameSide("top", "bottom")).toBe(false);
+    expect(bothOffScreenSameSide("bottom", "top")).toBe(false);
+  });
+  it("is false when either end is on-screen", () => {
+    expect(bothOffScreenSameSide("none", "top")).toBe(false);
+    expect(bothOffScreenSameSide("bottom", "none")).toBe(false);
+    expect(bothOffScreenSameSide("none", "none")).toBe(false);
   });
 });

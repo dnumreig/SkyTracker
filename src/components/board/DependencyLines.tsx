@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, type RefObject } from "react";
 import type { DependencyModel } from "@/generated/prisma/models";
-import { clampEndpointToBand, stubOffset, type Stub } from "@/features/board/deplines-geometry";
+import { clampEndpointToBand, stubOffset, bothOffScreenSameSide, type Stub } from "@/features/board/deplines-geometry";
 
 type CardBox = {
   id: string;
@@ -170,7 +170,9 @@ export function DependencyLines({
       const rawY2 = blockedRect.top + blockedRect.height / 2 - containerRect.top;
       const c1 = clampEndpointToBand(rawY1, bandTop, bandBottom);
       const c2 = clampEndpointToBand(rawY2, bandTop, bandBottom);
-      if (c1.stub !== "none" && c2.stub !== "none") continue; // both endpoints off-screen
+      // Skip only when BOTH ends are off-screen on the SAME side (line lies entirely outside the
+      // band). Opposite sides (one above, one below) span the viewport and must still be drawn.
+      if (bothOffScreenSameSide(c1.stub, c2.stub)) continue;
       const y1 = c1.y;
       const y2 = c2.y;
 
@@ -218,6 +220,19 @@ export function DependencyLines({
           const midXMin = Math.min(vx1, vx2);
           const midXMax = Math.max(vx1, vx2);
           clearY = findClearY(y1, midXMin, midXMax, cardBoxes, excludeIds);
+        }
+      }
+
+      // If exactly ONE endpoint is off-screen, drop a straight vertical from the VISIBLE endpoint
+      // to the band edge, rather than routing across to the off-screen card's column (which would
+      // "cross over to nothing"). The off-screen end keeps its clamped Y; its X collapses onto the
+      // visible endpoint's channel.
+      const oneOffscreen = (c1.stub === "none") !== (c2.stub === "none");
+      if (oneOffscreen) {
+        if (c2.stub !== "none") {
+          x2 = x1; vx1 = x1; vx2 = x1; clearY = y1; // target off-screen -> vertical at source's x
+        } else {
+          x1 = x2; vx1 = x2; vx2 = x2; clearY = y2; // source off-screen -> vertical at target's x
         }
       }
 

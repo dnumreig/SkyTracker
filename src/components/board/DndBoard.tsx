@@ -21,6 +21,7 @@ import type { ColumnWithCards } from "./Board";
 import { SortableColumn } from "./SortableColumn";
 import { CardOverlay } from "./CardOverlay";
 import { DependencyLines } from "./DependencyLines";
+import { useDepsVisible } from "./DepsVisibility";
 
 export function DndBoard({
   columns: initialColumns,
@@ -35,6 +36,7 @@ export function DndBoard({
   const [prevInitialColumns, setPrevInitialColumns] = useState(initialColumns);
   const [activeCard, setActiveCard] = useState<CardModel | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { show: showDeps } = useDepsVisible();
 
   if (initialColumns !== prevInitialColumns) {
     setPrevInitialColumns(initialColumns);
@@ -142,6 +144,7 @@ export function DndBoard({
   return (
     <div ref={containerRef} className="relative flex gap-6 h-full min-h-0 items-stretch">
       <DndContext
+        id="skytracker-board"
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
@@ -155,7 +158,7 @@ export function DndBoard({
           {activeCard ? <CardOverlay card={activeCard} /> : null}
         </DragOverlay>
       </DndContext>
-      <DependencyLines dependencies={dependencies} containerRef={containerRef} />
+      {showDeps && <DependencyLines dependencies={dependencies} containerRef={containerRef} />}
     </div>
   );
 }
