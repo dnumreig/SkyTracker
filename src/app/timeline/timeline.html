@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skytale × Telenor — Planleggingsverktøy (Gantt)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Archivo:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f7f4ee;
+    --paper-deep:#efe9df;
+    --ink:#13202f;
+    --ink-soft:#41505f;
+    --ink-faint:#8a95a1;
+    --line:#ddd5c7;
+    --line-soft:#e9e3d7;
+    --accent:#c3441c;
+    --sea:#0e5a72;
+    --pine:#2e5d3f;
+    --gold:#8a6d1f;
+    --steel:#31586b;
+    --card:#fffdf9;
+    --month-w:96px;
+    --row-h:46px;
+    --label-w:296px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:var(--paper);color:var(--ink);
+    font-family:'Archivo',sans-serif;font-size:15px;line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.5;z-index:0;
+    background-image:radial-gradient(rgba(19,32,47,.028) 1px, transparent 1px);
+    background-size:22px 22px;
+  }
+  .wrap{position:relative;z-index:1;max-width:1500px;margin:0 auto;padding:40px 36px 80px}
+
+  /* ---------- topp ---------- */
+  .meta-row{
+    display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px;
+    border-bottom:2px solid var(--ink);padding-bottom:12px;
+    font-family:'Spline Sans Mono',monospace;font-size:11.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--ink-soft);
+  }
+  .meta-row .brand{font-weight:600;color:var(--ink)}
+  .meta-row .brand em{font-style:normal;color:var(--accent)}
+  .titlebar{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin:26px 0 8px}
+  h1{font-family:'Fraunces',serif;font-weight:500;font-size:clamp(28px,4vw,42px);letter-spacing:-.015em;line-height:1.05}
+  h1 .accent{color:var(--accent);font-style:italic;font-weight:400}
+  .hint{font-size:12.5px;color:var(--ink-soft);max-width:58ch;margin-top:10px}
+  .hint b{color:var(--ink)}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button{
+    font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    background:var(--card);border:1px solid var(--ink);color:var(--ink);
+    padding:8px 14px;cursor:pointer;border-radius:2px;transition:background .15s ease,color .15s ease;
+  }
+  button:hover{background:var(--ink);color:var(--paper)}
+  button.ghost{border-color:var(--line);color:var(--ink-soft)}
+  button.ghost:hover{border-color:var(--ink);background:var(--card);color:var(--ink)}
+  .dirty-note{font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--gold);min-width:120px;text-align:right}
+
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0 24px;font-size:12px;color:var(--ink-soft);align-items:center}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .sw{width:22px;height:11px;border-radius:2px;flex:none}
+  .sw.styring{background:var(--pine)}
+  .sw.org{background:var(--gold)}
+  .sw.produkt{background:var(--steel)}
+  .sw.kommers{background:var(--sea)}
+  .sw.sikkerhet{background:var(--accent)}
+  .sw.t2sw{background:repeating-linear-gradient(135deg,#fff, #fff 3px, #d8c98f 3px, #d8c98f 6px);border:1px dashed var(--gold)}
+  .sw.depsw{width:26px;height:0;border-top:1.5px solid var(--ink-faint);position:relative}
+  .sw.depsw::after{content:"";position:absolute;right:-1px;top:-4px;border:4px solid transparent;border-left-color:var(--ink-faint)}
+
+  /* ---------- hjelpepanel ---------- */
+  .help{
+    display:none;margin:0 0 22px;border:1px solid var(--ink);background:var(--card);
+    padding:20px 22px 22px;position:relative;
+  }
+  .help.open{display:block}
+  .help h3{
+    font-family:'Fraunces',serif;font-weight:600;font-size:19px;letter-spacing:-.01em;margin-bottom:14px;
+  }
+  .help .close-help{
+    position:absolute;top:14px;right:14px;width:26px;height:26px;padding:0;line-height:1;font-size:14px;
+  }
+  .help-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .help-card{border:1px solid var(--line);background:var(--paper);padding:14px 16px}
+  .help-card .hc-head{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+  .help-card .ico{
+    flex:none;width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+    background:var(--ink);color:var(--paper);border-radius:3px;font-size:13px;
+  }
+  .help-card h4{font-size:13px;font-weight:700;letter-spacing:-.005em}
+  .help-card p{font-size:12.5px;color:var(--ink-soft);line-height:1.55}
+  .help-card p b{color:var(--ink)}
+  .help-card kbd{
+    font-family:'Spline Sans Mono',monospace;font-size:10.5px;background:var(--paper-deep);
+    border:1px solid var(--line);border-radius:3px;padding:0 5px;color:var(--ink);
+  }
+  @media (max-width:900px){.help-grid{grid-template-columns:1fr}}
+
+  /* ---------- link-modus banner ---------- */
+  .link-banner{
+    display:none;position:sticky;top:0;z-index:50;
+    background:var(--ink);color:var(--paper);padding:10px 18px;margin:0 0 14px;
+    font-family:'Spline Sans Mono',monospace;font-size:12px;letter-spacing:.04em;
+    border-radius:2px;align-items:center;justify-content:space-between;gap:14px;
+  }
+  body.linking .link-banner{display:flex}
+  .link-banner b{color:#e8a184}
+  .link-banner button{background:transparent;border-color:rgba(247,244,238,.5);color:var(--paper);padding:4px 10px}
+  body.linking .bar, body.linking .task-label{cursor:crosshair !important}
+  body.linking .bar.link-source{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* ---------- gantt ---------- */
+  .gantt{
+    border:1px solid var(--line);background:var(--card);
+    display:grid;grid-template-columns:var(--label-w) 1fr;
+    box-shadow:0 1px 0 rgba(19,32,47,.04);
+  }
+  .labels{border-right:2px solid var(--ink)}
+  .labels .corner{
+    height:58px;border-bottom:1px solid var(--line);display:flex;align-items:flex-end;
+    padding:0 16px 8px;font-family:'Spline Sans Mono',monospace;font-size:10.5px;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);
+  }
+  .lane-label{
+    height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 16px;
+    background:var(--ink);color:var(--paper);
+    font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  }
+  .lane-label .add-task{
+    background:transparent;border:1px solid rgba(247,244,238,.4);color:var(--paper);
+    width:22px;height:22px;padding:0;line-height:1;font-size:14px;border-radius:2px;
+  }
+  .lane-label .add-task:hover{background:var(--paper);color:var(--ink)}
+  .task-label{
+    height:var(--row-h);display:flex;flex-direction:column;justify-content:center;padding:0 16px;
+    border-bottom:1px solid var(--line-soft);position:relative;
+  }
+  .task-label .t{font-weight:600;font-size:12.6px;letter-spacing:-.005em;line-height:1.25;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:text;padding-right:76px}
+  .task-label .d{font-family:'Spline Sans Mono',monospace;font-size:10px;color:var(--ink-faint);margin-top:2px;display:flex;gap:8px;align-items:center}
+  .task-label .chip{
+    font-size:9px;letter-spacing:.05em;padding:1px 6px;border-radius:8px;
+    background:var(--paper-deep);color:var(--ink-soft);border:1px solid var(--line);
+  }
+  .task-label input{
+    font-family:'Archivo',sans-serif;font-weight:600;font-size:12.6px;width:100%;
+    border:1px solid var(--accent);background:#fff;padding:2px 6px;border-radius:2px;outline:none;
+  }
+  .row-actions{
+    position:absolute;right:8px;top:50%;transform:translateY(-50%);
+    display:none;gap:3px;
+  }
+  .task-label:hover .row-actions{display:flex}
+  .row-actions button{
+    width:22px;height:22px;padding:0;font-size:12px;line-height:1;
+    border:1px solid var(--line);color:var(--ink-soft);background:var(--card);border-radius:2px;
+  }
+  .row-actions button:hover{border-color:var(--ink);color:var(--ink);background:var(--card)}
+  .row-actions button.del:hover{border-color:var(--accent);color:var(--accent)}
+
+  .chart-scroll{overflow-x:auto;overscroll-behavior-x:contain}
+  .chart{position:relative;width:calc(var(--month-w) * 17)}
+  .axis{
+    height:58px;border-bottom:1px solid var(--line);position:sticky;top:0;display:flex;
+    background:var(--card);z-index:5;
+  }
+  .axis .mth{width:var(--month-w);flex:none;border-left:1px solid var(--line-soft);padding:9px 0 0 9px}
+  .axis .mth:first-child{border-left:none}
+  .axis .mth .mm{font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .axis .mth .yy{font-family:'Spline Sans Mono',monospace;font-size:9.5px;color:var(--ink-faint)}
+  .axis .mth.jan{border-left:2px solid var(--ink)}
+
+  .grid{position:absolute;inset:0;top:58px;pointer-events:none}
+  .grid .v{position:absolute;top:0;bottom:0;width:1px;background:var(--line-soft)}
+  .grid .v.jan{width:2px;background:var(--ink);opacity:.55}
+  .t2zone{
+    position:absolute;top:58px;bottom:0;pointer-events:none;
+    background:repeating-linear-gradient(135deg, transparent, transparent 7px, rgba(138,109,31,.07) 7px, rgba(138,109,31,.07) 14px);
+    border-left:1px dashed rgba(138,109,31,.55);border-right:1px dashed rgba(138,109,31,.55);
+  }
+  .t2zone .zl{
+    position:absolute;top:6px;left:8px;font-family:'Spline Sans Mono',monospace;font-size:9.5px;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--gold);
+  }
+  .today{position:absolute;top:58px;bottom:0;width:2px;background:var(--accent);z-index:4;pointer-events:none}
+  .today .tl{
+    position:absolute;top:-1px;left:5px;background:var(--accent);color:#fff;
+    font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:.08em;
+    padding:2px 6px;border-radius:2px;white-space:nowrap;
+  }
+
+  .lane-band{height:34px;border-bottom:1px solid var(--line-soft);background:rgba(19,32,47,.035)}
+  .row{height:var(--row-h);position:relative;border-bottom:1px solid var(--line-soft)}
+
+  .bar{
+    position:absolute;top:8px;height:30px;border-radius:3px;cursor:grab;
+    display:flex;align-items:center;
+    color:#fff;font-size:11px;font-weight:600;letter-spacing:.01em;
+    user-select:none;touch-action:none;
+    box-shadow:0 1px 2px rgba(19,32,47,.22);
+    transition:box-shadow .15s ease, filter .15s ease;
+  }
+  .bar:hover{filter:brightness(1.07);box-shadow:0 2px 8px rgba(19,32,47,.3)}
+  .bar.dragging{cursor:grabbing;box-shadow:0 4px 14px rgba(19,32,47,.35);z-index:10;filter:brightness(1.05)}
+  .bar .bl{padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;display:flex;align-items:center;gap:6px}
+  .bar .sub-ind{
+    flex:none;display:inline-block;font-size:9px;background:rgba(255,255,255,.28);
+    border-radius:8px;padding:0 6px;line-height:14px;
+  }
+  .bar .h{position:absolute;top:0;bottom:0;width:9px;cursor:ew-resize;opacity:0;transition:opacity .12s ease}
+  .bar .h::after{content:"";position:absolute;top:7px;bottom:7px;width:3px;border-radius:2px;background:rgba(255,255,255,.85)}
+  .bar .h.l{left:0}.bar .h.l::after{left:3px}
+  .bar .h.r{right:0}.bar .h.r::after{right:3px}
+  .bar:hover .h{opacity:1}
+  .bar.locked .h{display:none}
+  .bar.styring{background:var(--pine)}
+  .bar.org{background:var(--gold)}
+  .bar.produkt{background:var(--steel)}
+  .bar.kommers{background:var(--sea)}
+  .bar.sikkerhet{background:var(--accent)}
+  .bar.skytracker{background:#4c5578}
+  .sw.skytracker{background:#4c5578}
+  #syncStBtn{position:relative}
+  #syncStBtn.has-new::after{
+    content:"";position:absolute;top:-4px;right:-4px;width:9px;height:9px;border-radius:50%;
+    background:var(--accent);border:1.5px solid var(--paper);
+  }
+  .bar.t2b{
+    background-image:repeating-linear-gradient(135deg, rgba(255,255,255,0), rgba(255,255,255,0) 6px, rgba(255,255,255,.22) 6px, rgba(255,255,255,.22) 12px);
+    outline:1.5px dashed rgba(255,255,255,.75);outline-offset:-3px;
+  }
+  .bar.milestone{border-radius:15px}
+  .bar.milestone .bl{padding:0 12px}
+
+  /* avhengighetspiler */
+  svg.deps{position:absolute;left:0;top:0;pointer-events:none;z-index:6;overflow:visible}
+  svg.deps path.vis{fill:none;stroke:var(--ink-faint);stroke-width:1.5;marker-end:url(#arrow)}
+  svg.deps path.hit{fill:none;stroke:transparent;stroke-width:11;pointer-events:stroke;cursor:pointer}
+  svg.deps g:hover path.vis{stroke:var(--accent);marker-end:url(#arrowA)}
+
+  /* dato-tooltip under drag */
+  .drag-tip{
+    position:fixed;z-index:100;pointer-events:none;display:none;
+    background:var(--ink);color:var(--paper);
+    font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.03em;
+    padding:6px 10px;border-radius:3px;white-space:nowrap;
+    box-shadow:0 4px 14px rgba(19,32,47,.35);
+  }
+  .drag-tip b{color:#e8a184}
+
+  /* ---------- detaljvisning (zoom) ---------- */
+  .modal-back{
+    display:none;position:fixed;inset:0;z-index:60;background:rgba(19,32,47,.55);
+    align-items:center;justify-content:center;padding:30px;
+  }
+  .modal-back.open{display:flex}
+  .modal{
+    background:var(--paper);border:1px solid var(--ink);border-radius:3px;
+    width:min(1100px,100%);max-height:88vh;display:flex;flex-direction:column;
+    box-shadow:0 24px 60px rgba(19,32,47,.4);
+  }
+  .modal-head{
+    display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+    padding:18px 22px 14px;border-bottom:2px solid var(--ink);
+  }
+  .modal-head h2{font-family:'Fraunces',serif;font-weight:600;font-size:22px;letter-spacing:-.01em}
+  .modal-head .md{font-family:'Spline Sans Mono',monospace;font-size:11.5px;color:var(--accent);margin-top:2px}
+  .modal-head .mh-note{font-size:11.5px;color:var(--ink-soft);max-width:34ch}
+  .modal-body{overflow:auto;padding:0}
+  .mini{display:grid;grid-template-columns:220px 1fr}
+  .mini .mlabels{border-right:2px solid var(--ink)}
+  .mini .mcorner{height:44px;border-bottom:1px solid var(--line);display:flex;align-items:flex-end;
+    padding:0 14px 6px;font-family:'Spline Sans Mono',monospace;font-size:10px;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+  .mini .mtask{height:var(--row-h);display:flex;flex-direction:column;justify-content:center;
+    padding:0 14px;border-bottom:1px solid var(--line-soft);position:relative}
+  .mini .mtask .t{font-weight:600;font-size:12.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:text;padding-right:26px}
+  .mini .mtask .d{font-family:'Spline Sans Mono',monospace;font-size:9.5px;color:var(--ink-faint);margin-top:2px}
+  .mini .mtask input{font-family:'Archivo',sans-serif;font-weight:600;font-size:12.2px;width:100%;
+    border:1px solid var(--accent);background:#fff;padding:2px 6px;border-radius:2px;outline:none}
+  .mini .mtask .mdel{
+    position:absolute;right:6px;top:50%;transform:translateY(-50%);display:none;
+    width:20px;height:20px;padding:0;font-size:11px;line-height:1;border:1px solid var(--line);
+    color:var(--ink-soft);background:var(--card);border-radius:2px;
+  }
+  .mini .mtask:hover .mdel{display:block}
+  .mini .mtask .mdel:hover{border-color:var(--accent);color:var(--accent)}
+  .mini-scroll{overflow-x:auto}
+  .mini-chart{position:relative}
+  .maxis{height:44px;border-bottom:1px solid var(--line);display:flex;background:var(--card)}
+  .maxis .mth{flex:none;border-left:1px solid var(--line-soft);padding:6px 0 0 8px}
+  .maxis .mth .mm{font-family:'Spline Sans Mono',monospace;font-size:10.5px;font-weight:600;text-transform:uppercase}
+  .maxis .mth .yy{font-family:'Spline Sans Mono',monospace;font-size:9px;color:var(--ink-faint)}
+  .mgrid{position:absolute;inset:0;top:44px;pointer-events:none}
+  .mgrid .v{position:absolute;top:0;bottom:0;width:1px;background:var(--line-soft)}
+  .mgrid .v.w{opacity:.55}
+  .mgrid .v.m{background:var(--line);width:1px}
+  .mrow{height:var(--row-h);position:relative;border-bottom:1px solid var(--line-soft)}
+  .modal-foot{
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
+    padding:12px 22px;border-top:1px solid var(--line);flex-wrap:wrap;
+  }
+  .modal-foot .note{font-size:11px;color:var(--ink-faint);font-family:'Spline Sans Mono',monospace}
+
+  footer{
+    margin-top:34px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    font-family:'Spline Sans Mono',monospace;font-size:10.5px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--ink-faint);
+    border-top:1px solid var(--line);padding-top:14px;
+  }
+  footer a{color:var(--ink-soft)}
+
+  @media (max-width:860px){
+    :root{--label-w:190px;--month-w:76px}
+    .wrap{padding:24px 14px 60px}
+    .task-label .t{font-size:11.5px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="meta-row">
+    <span class="brand">SKYTALE <em>×</em> TELENOR</span>
+    <span>Planleggingsverktøy · August 2026</span>
+  </div>
+
+  <div class="titlebar">
+    <div>
+      <h1>Tidslinjen — <span class="accent">planlegging.</span></h1>
+      <p class="hint">
+        Levende planleggingsversjon av Telenor-tidslinjen — dra i linjene, koble avhengigheter,
+        zoom inn i delmål. Trykk <b>Hjelp</b> for en kort forklaring på bruk.
+      </p>
+    </div>
+    <div class="toolbar">
+      <span class="dirty-note" id="dirtyNote"></span>
+      <button id="syncStBtn" title="Hent inn siste synkede SkyTracker-data">Synk SkyTracker</button>
+      <button class="ghost" id="helpBtn">Hjelp</button>
+      <button class="ghost" id="exportBtn">Eksporter</button>
+      <button class="ghost" id="importBtn">Importer</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+      <button id="resetBtn">Nullstill til plan</button>
+    </div>
+  </div>
+
+  <div class="help" id="helpPanel">
+    <h3>Slik bruker du verktøyet</h3>
+    <button class="ghost close-help" id="helpClose" title="Lukk">×</button>
+    <div class="help-grid">
+      <div class="help-card">
+        <div class="hc-head"><span class="ico">↔</span><h4>Flytt og juster</h4></div>
+        <p><b>Dra en linje</b> for å flytte oppgaven i tid. <b>Dra i venstre eller høyre ende</b> for å endre
+        start eller slutt. Alt fester seg til ukesnivå, og datoene vises mens du drar.</p>
+      </div>
+      <div class="help-card">
+        <div class="hc-head"><span class="ico">✎</span><h4>Rediger navn</h4></div>
+        <p><b>Dobbeltklikk</b> på et oppgavenavn eller arbeidsstrømnavn i venstre kolonne for å endre det.
+        <kbd>Enter</kbd> lagrer, <kbd>Esc</kbd> avbryter.</p>
+      </div>
+      <div class="help-card">
+        <div class="hc-head"><span class="ico">＋</span><h4>Legg til og slett rader</h4></div>
+        <p><b>＋</b> i den svarte arbeidsstrøm-linjen legger til en ny rad. Hold musen over et
+        oppgavenavn og bruk <b>×</b> for å slette raden.</p>
+      </div>
+      <div class="help-card">
+        <div class="hc-head"><span class="ico">⇢</span><h4>Avhengigheter</h4></div>
+        <p>Klikk <b>⇢</b> på oppgaven som må bli <b>ferdig først</b>, og deretter på oppgaven som venter på den.
+        Pilen viser koblingen — <b>klikk pilen</b> for å fjerne den. Drar du forgjengeren ut i tid,
+        flyttes de avhengige automatisk med.</p>
+      </div>
+      <div class="help-card">
+        <div class="hc-head"><span class="ico">⌕</span><h4>Zoom inn i delmål</h4></div>
+        <p>Klikk <b>⌕</b> på raden, eller <b>dobbeltklikk selve linjen</b>, for å åpne delmålene med
+        ukesoppløsning. Hovedlinjen spenner alltid fra første til siste delmål — endrer du her,
+        oppdateres hovedbildet.</p>
+      </div>
+      <div class="help-card">
+        <div class="hc-head"><span class="ico">⭳</span><h4>Lagring og deling</h4></div>
+        <p>Endringer lagres automatisk i nettleseren din. <b>Eksporter</b> lager en JSON-fil du kan dele,
+        <b>Importer</b> leser den inn igjen. <b>Nullstill til plan</b> henter tilbake datoene fra V1.7-dokumentet.</p>
+      </div>
+      <div class="help-card">
+        <div class="hc-head"><span class="ico">⟳</span><h4>Synk SkyTracker</h4></div>
+        <p>Trykk <b>Synk SkyTracker</b>: utviklerbanene legges inn som egen arbeidsstrøm (merket <b>ST</b>),
+        med kortene som delmål. Fullførte kort holdes utenfor. Åpner du verktøyet <b>via SkyTracker-adressen</b>
+        hentes siste tavle direkte — du er allerede innlogget. Åpner du HTML-filen <b>lokalt fra disk</b>:
+        dobbeltklikk <b>sync-skytracker.command</b> i mappen først og last siden på nytt (rød prikk = nyere
+        data ligger klar).</p>
+      </div>
+      <div class="help-card">
+        <div class="hc-head"><span class="ico">✳</span><h4>Oppdater med Claude</h4></div>
+        <p>Tidslinjen kan vedlikeholdes sammen med Claude Code på bakgrunn av dokumentasjon:
+        trykk <b>Eksporter</b>, la Claude redigere JSON-filen, og trykk <b>Importer</b>.
+        Arbeidsflyten er lik enten du åpner verktøyet lokalt eller via SkyTracker.
+        <a href="claude-guide.html"><b>Les hvordan →</b></a></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="link-banner" id="linkBanner">
+    <span id="linkText"></span>
+    <button id="linkCancel">Avbryt (Esc)</button>
+  </div>
+
+  <div class="legend">
+    <span><i class="sw styring"></i>Styring</span>
+    <span><i class="sw org"></i>Organisasjon</span>
+    <span><i class="sw produkt"></i>Produkt</span>
+    <span><i class="sw kommers"></i>Kommersielt</span>
+    <span><i class="sw sikkerhet"></i>Sikkerhet</span>
+    <span><i class="sw t2sw"></i>Forutsetter transje 2</span>
+    <span><i class="sw skytracker"></i>SkyTracker (synket)</span>
+    <span><i class="sw depsw"></i>Avhengighet</span>
+  </div>
+
+  <div class="gantt">
+    <div class="labels" id="labels"></div>
+    <div class="chart-scroll" id="chartScroll">
+      <div class="chart" id="chart"></div>
+    </div>
+  </div>
+
+  <footer>
+    <span>Skytale AS · Grunnlag: Oppstart del 2 · Samling 1 · V1.7</span>
+    <span><a href="claude-guide.html">→ Oppdatere tidslinjen med Claude</a></span>
+    <span><a href="index.html">→ Redaksjonell versjon</a></span>
+  </footer>
+</div>
+
+<div class="drag-tip" id="dragTip"></div>
+
+<!-- Lokal modus (fil på disk): last skytracker-data.js skrevet av sync-skytracker.command.
+     Hostet i SkyTracker hentes data i stedet live fra /api/timeline-export ved knappetrykk. -->
+<script>
+if (location.protocol === 'file:') {
+  var __st = document.createElement('script');
+  __st.src = 'skytracker-data.js';
+  __st.onload = function(){ if (window.__stDataLoaded) window.__stDataLoaded(); };
+  document.head.appendChild(__st);
+}
+</script>
+
+<!-- detaljvisning -->
+<div class="modal-back" id="modalBack">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h2 id="modalTitle"></h2>
+        <div class="md" id="modalDates"></div>
+      </div>
+      <div class="mh-note">Endringer her oppdaterer hovedtidslinjen. Hovedlinjen spenner alltid fra første til siste delmål.</div>
+      <button id="modalClose">Lukk</button>
+    </div>
+    <div class="modal-body">
+      <div class="mini">
+        <div class="mlabels" id="mLabels"></div>
+        <div class="mini-scroll">
+          <div class="mini-chart" id="mChart"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="ghost" id="addSubBtn">＋ Nytt delmål</button>
+      <span class="note">Oppløsning: uke · dobbeltklikk navn for å redigere · × sletter delmål</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ================== tidsmodell: enhet = måneder fra 1. aug 2026 ================== */
+  const BASE_Y = 2026, BASE_M = 7;
+  const N_MONTHS = 17;
+  const MONTH_W = cssNum('--month-w');
+  const ROW_H = cssNum('--row-h');
+  const SNAP = 0.25;          // hovedvisning: ~uke
+  const SNAP_D = 0.125;       // detaljvisning: ~halv uke
+  const MIN_DUR = 0.25;
+  const MND = ['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
+  const STORE_V2 = 'skytale-telenor-gantt-v2';
+  const STORE_V1 = 'skytale-telenor-gantt-v1';
+
+  function cssNum(v){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)); }
+  function monthInfo(i){
+    const m = (BASE_M + i) % 12, y = BASE_Y + Math.floor((BASE_M + i)/12);
+    return {m, y};
+  }
+  function unitToDate(u){
+    u = Math.max(0, Math.min(N_MONTHS, u));
+    const i = Math.min(N_MONTHS-1, Math.floor(u));
+    const {m, y} = monthInfo(i);
+    const dim = new Date(y, m+1, 0).getDate();
+    const day = Math.min(dim, 1 + Math.round((u - i) * dim));
+    return new Date(y, m, day);
+  }
+  function fmt(d){ return d.getDate() + '. ' + MND[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); }
+  function rangeText(t){
+    const a = unitToDate(t.start), b = unitToDate(t.end);
+    b.setDate(b.getDate() - 1);
+    return fmt(a) + ' – ' + fmt(b < a ? a : b);
+  }
+  const snapTo = (v, s) => Math.round(v / s) * s;
+  const uid = () => 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  /* ================== plandata (fra V1.7-dokumentet) ==================
+     deps  : id-er som må være ferdige før denne kan starte (finish-to-start)
+     source: reservert for integrasjoner (f.eks. 'skytracker')            */
+  const SEED = {
+    lanes: [
+      {key:'styring',   name:'Styring'},
+      {key:'org',       name:'Organisasjon'},
+      {key:'produkt',   name:'Produkt'},
+      {key:'kommers',   name:'Kommersielt'},
+      {key:'sikkerhet', name:'Sikkerhet'}
+    ],
+    tasks: [
+      {id:'lederprogram', lane:'styring', label:'Lederprogram: fire samlinger',            start:0.25, end:2,    deps:[], subtasks:[]},
+      {id:'trafikklys',   lane:'styring', label:'Trafikklys + tidslinje som forpliktelse', start:0,    end:1.5,  deps:[], subtasks:[]},
+      {id:'estimering',   lane:'styring', label:'Ny estimeringspraksis m/ synlig buffer',  start:0,    end:2,    deps:[], subtasks:[]},
+      {id:'selskapsplan', lane:'styring', label:'Konsolidert selskapsplan (T1/T2-merket)', start:2,    end:3.25, deps:['lederprogram'], subtasks:[]},
+
+      {id:'ai',           lane:'org', label:'AI-integrasjon: augustmilepælen',              start:0,    end:0.5,  milestone:true, deps:[], subtasks:[]},
+      {id:'cfo',          lane:'org', label:'Innleid CFO om bord',                          start:0,    end:1.5,  deps:[], subtasks:[]},
+      {id:'rekruttering', lane:'org', label:'Rekruttering senior .NET/React → medior',      start:0,    end:5,    deps:[], subtasks:[
+        {id:'rk1', label:'Søk og utvelgelse',        start:0,   end:1.5},
+        {id:'rk2', label:'Oppsigelsestid (3 mnd)',   start:1.5, end:4.5},
+        {id:'rk3', label:'Onboarding',               start:4.5, end:5}
+      ]},
+      {id:'innleie',      lane:'org', label:'Innleid kapasitet (vinduet 0–3 mnd)',          start:0.25, end:3.5,  deps:[], subtasks:[]},
+      {id:'redundans',    lane:'org', label:'Backend-redundans lukkes',                     start:0.5,  end:5,    deps:[], subtasks:[]},
+      {id:'orgbygg',      lane:'org', label:'Org-utbygging per kompetanseområde',           start:5,    end:11,   t2:true, deps:['selskapsplan'], subtasks:[]},
+      {id:'vekstorg',     lane:'org', label:'Vekstorganisasjon i drift',                    start:11,   end:17,   t2:true, deps:['orgbygg'], subtasks:[]},
+
+      {id:'react',        lane:'produkt', label:'React-konsolidering: sluttspurt + buffer', start:0,    end:1.5,  deps:[], subtasks:[
+        {id:'rc1', label:'QA-runde',                          start:0,    end:0.75},
+        {id:'rc2', label:'Omarbeiding kryptering',            start:0.25, end:1.25},
+        {id:'rc3', label:'Parvis arbeid på kjernen',          start:0.25, end:1.25},
+        {id:'rc4', label:'Buffer (synlig)',                   start:1.25, end:1.5}
+      ]},
+      {id:'f24api',       lane:'produkt', label:'F-24 API-integrasjonsklient (31. aug)',    start:0,    end:1,   milestone:true, deps:[], subtasks:[]},
+      {id:'f24var',       lane:'produkt', label:'F-24: vår del levert (ut Q3)',             start:1,    end:2,   deps:['f24api'], subtasks:[]},
+      {id:'f24deres',     lane:'produkt', label:'F-24: deres side ferdig (Q4)',             start:2,    end:5,   deps:['f24var'], subtasks:[]},
+      {id:'integrasjoner',lane:'produkt', label:'Integrasjoner: Raven, T-kartor, P360',     start:5,    end:11,  deps:[], subtasks:[]},
+      {id:'retning',      lane:'produkt', label:'Produktretning: API-klient / SDK',         start:11,   end:17,  deps:[], subtasks:[]},
+
+      {id:'t1',           lane:'kommers', label:'Telenor T1 — 10 MNOK',                     start:0,    end:0.5, milestone:true, deps:[], subtasks:[]},
+      {id:'nsr',          lane:'kommers', label:'NSR-utrulling: 380 virksomheter',          start:1,    end:5,   deps:[], subtasks:[
+        {id:'ns1', label:'Utrullingsplan + prognose',   start:1,   end:2},
+        {id:'ns2', label:'Bølge 1: aktivering',         start:2,   end:3.5},
+        {id:'ns3', label:'Bølge 2: aktivering',         start:3.5, end:5}
+      ]},
+      {id:'arr',          lane:'kommers', label:'ARR-mål 4–6 MNOK',                         start:4.5,  end:5,   milestone:true, deps:[], subtasks:[]},
+      {id:'segmenter',    lane:'kommers', label:'Nye segmenter via NSR/Telenor',            start:5,    end:11,  deps:['nsr'], subtasks:[]},
+      {id:'t2',           lane:'kommers', label:'Telenor T2 — opsjonsvindu 30–40 MNOK',     start:6,    end:10,  t2:true, deps:[], subtasks:[]},
+
+      {id:'telefoner',    lane:'sikkerhet', label:'To telefoner i ledelsen (1. sep)',       start:0,    end:1,   deps:[], subtasks:[]},
+      {id:'audit',        lane:'sikkerhet', label:'Ekstern sikkerhetsaudit',                start:1,    end:4,   deps:[], subtasks:[]},
+      {id:'beredskap',    lane:'sikkerhet', label:'Gjennomgangsberedskap: ISO 9001 m.m.',   start:1,    end:5,   deps:[], subtasks:[]},
+      {id:'mdr',          lane:'sikkerhet', label:'MDR / SOAR / responsberedskap',          start:6,    end:11,  t2:true, deps:[], subtasks:[]}
+    ]
+  };
+  const SEED_JSON = JSON.stringify(SEED);
+  const clone = o => JSON.parse(JSON.stringify(o));
+
+  /* ================== state ================== */
+  let state = loadState();
+  let linkSource = null;          // id under kobling
+  let openTaskId = null;          // åpen i detaljvisning
+
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(STORE_V2);
+      if(raw){
+        const s = JSON.parse(raw);
+        if(s && Array.isArray(s.lanes) && Array.isArray(s.tasks)) return normalize(s);
+      }
+      const v1 = localStorage.getItem(STORE_V1);   // migrer gamle dra-endringer
+      if(v1){
+        const saved = JSON.parse(v1), s = clone(SEED);
+        s.tasks.forEach(t => { const m = saved[t.id]; if(m){ t.start = m.start; t.end = m.end; } });
+        localStorage.removeItem(STORE_V1);
+        return normalize(s);
+      }
+    }catch(e){}
+    return clone(SEED);
+  }
+  function normalize(s){
+    s.tasks.forEach(t => {
+      t.deps = Array.isArray(t.deps) ? t.deps : [];
+      t.subtasks = Array.isArray(t.subtasks) ? t.subtasks : [];
+    });
+    const ids = new Set(s.tasks.map(t => t.id));
+    s.tasks.forEach(t => { t.deps = t.deps.filter(d => ids.has(d)); });
+    return s;
+  }
+  function save(){
+    localStorage.setItem(STORE_V2, JSON.stringify(state));
+    document.getElementById('dirtyNote').textContent =
+      JSON.stringify(state) === SEED_JSON ? '' : '● endret fra plan';
+  }
+  const getTask = id => state.tasks.find(t => t.id === id);
+  const hasSubs = t => t.subtasks && t.subtasks.length > 0;
+
+  /* ================== avhengigheter ================== */
+  function dependsOn(aId, bId){       // avhenger a (transitivt) av b?
+    const seen = new Set();
+    const walk = id => {
+      if(id === bId) return true;
+      if(seen.has(id)) return false;
+      seen.add(id);
+      const t = getTask(id);
+      return t ? t.deps.some(walk) : false;
+    };
+    return walk(aId);
+  }
+  function shiftTask(t, d){
+    d = Math.max(d, -t.start);
+    d = Math.min(d, N_MONTHS - t.end);
+    t.start += d; t.end += d;
+    if(hasSubs(t)) t.subtasks.forEach(s => { s.start += d; s.end += d; });
+  }
+  function resolveDeps(){             // dytt avhengige framover (finish-to-start)
+    let guard = 0, changed = true;
+    while(changed && guard++ < 200){
+      changed = false;
+      for(const t of state.tasks){
+        if(!t.deps.length) continue;
+        let req = 0;
+        t.deps.forEach(d => { const p = getTask(d); if(p) req = Math.max(req, p.end); });
+        if(req > t.start + 1e-9){
+          shiftTask(t, req - t.start);
+          changed = true;
+        }
+      }
+    }
+  }
+
+  /* ================== hovedvisning ================== */
+  const labels = document.getElementById('labels');
+  const chart = document.getElementById('chart');
+  const chartScroll = document.getElementById('chartScroll');
+  const tip = document.getElementById('dragTip');
+  let barRefs = {}, labelDateRefs = {}, rowRefs = {}, depSvg = null;
+
+  function render(){
+    const sx = chartScroll.scrollLeft;
+    labels.innerHTML = '';
+    chart.innerHTML = '';
+    barRefs = {}; labelDateRefs = {}; rowRefs = {};
+
+    const corner = document.createElement('div');
+    corner.className = 'corner';
+    corner.textContent = 'Arbeidsstrøm / oppgave';
+    labels.appendChild(corner);
+
+    // akse
+    const axis = document.createElement('div');
+    axis.className = 'axis';
+    for(let i=0;i<N_MONTHS;i++){
+      const {m,y} = monthInfo(i);
+      const el = document.createElement('div');
+      el.className = 'mth' + (m===0 ? ' jan' : '');
+      el.innerHTML = '<div class="mm">'+MND[m]+'</div><div class="yy">'+y+'</div>';
+      axis.appendChild(el);
+    }
+    chart.appendChild(axis);
+
+    // rutenett
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    for(let i=1;i<N_MONTHS;i++){
+      const v = document.createElement('div');
+      v.className = 'v' + (monthInfo(i).m===0 ? ' jan' : '');
+      v.style.left = (i*MONTH_W) + 'px';
+      grid.appendChild(v);
+    }
+    chart.appendChild(grid);
+
+    // T2-sone + i dag
+    const zone = document.createElement('div');
+    zone.className = 't2zone';
+    zone.style.left = (6*MONTH_W)+'px';
+    zone.style.width = (4*MONTH_W)+'px';
+    zone.innerHTML = '<span class="zl">T2-vindu (opsjon)</span>';
+    chart.appendChild(zone);
+
+    const today = document.createElement('div');
+    today.className = 'today';
+    today.style.left = ((9/31)*MONTH_W) + 'px';
+    today.innerHTML = '<span class="tl">I DAG · 10. AUG</span>';
+    chart.appendChild(today);
+
+    // lanes + rader
+    state.lanes.forEach(lane => {
+      const ll = document.createElement('div');
+      ll.className = 'lane-label';
+      const nm = document.createElement('span');
+      nm.textContent = lane.name;
+      nm.title = 'Dobbeltklikk for å endre navn';
+      nm.style.cursor = 'text';
+      nm.addEventListener('dblclick', () => editInline(nm, lane.name, v => { lane.name = v; save(); render(); }));
+      const add = document.createElement('button');
+      add.className = 'add-task';
+      add.textContent = '＋';
+      add.title = 'Legg til oppgave i ' + lane.name;
+      add.addEventListener('click', () => addTask(lane.key));
+      ll.appendChild(nm); ll.appendChild(add);
+      labels.appendChild(ll);
+
+      const lb = document.createElement('div');
+      lb.className = 'lane-band';
+      lb.style.width = (N_MONTHS*MONTH_W)+'px';
+      chart.appendChild(lb);
+
+      state.tasks.filter(t => t.lane === lane.key).forEach(t => {
+        // venstre kolonne
+        const tl = document.createElement('div');
+        tl.className = 'task-label';
+        tl.dataset.id = t.id;
+        const tt = document.createElement('span');
+        tt.className = 't';
+        tt.textContent = t.label;
+        tt.title = t.label + ' (dobbeltklikk for å redigere)';
+        tt.addEventListener('dblclick', () => editInline(tt, t.label, v => { t.label = v; save(); render(); }));
+        const dd = document.createElement('span');
+        dd.className = 'd';
+        tl.appendChild(tt); tl.appendChild(dd);
+
+        const acts = document.createElement('div');
+        acts.className = 'row-actions';
+        acts.innerHTML =
+          '<button class="zoom" title="Zoom inn: delmål">⌕</button>' +
+          '<button class="link" title="Koble avhengighet: velg hvem som avhenger av denne">⇢</button>' +
+          '<button class="del" title="Slett oppgave">×</button>';
+        acts.querySelector('.zoom').addEventListener('click', () => openDetail(t.id));
+        acts.querySelector('.link').addEventListener('click', () => startLink(t.id));
+        acts.querySelector('.del').addEventListener('click', () => removeTask(t.id));
+        tl.appendChild(acts);
+        tl.addEventListener('click', e => { if(linkSource && !e.target.closest('.row-actions')) completeLink(t.id); });
+        labels.appendChild(tl);
+        labelDateRefs[t.id] = dd;
+
+        // rad + bar
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.style.width = (N_MONTHS*MONTH_W)+'px';
+        const bar = document.createElement('div');
+        bar.className = 'bar ' + t.lane + (t.t2 ? ' t2b' : '') + (t.milestone ? ' milestone' : '') + (hasSubs(t) ? ' locked' : '');
+        bar.dataset.id = t.id;
+        bar.innerHTML = '<div class="h l"></div><span class="bl">' + esc(t.label) +
+          (hasSubs(t) ? '<span class="sub-ind">▸ '+t.subtasks.length+'</span>' : '') +
+          '</span><div class="h r"></div>';
+        bar.addEventListener('dblclick', () => openDetail(t.id));
+        row.appendChild(bar);
+        chart.appendChild(row);
+        barRefs[t.id] = bar;
+        rowRefs[t.id] = row;
+      });
+    });
+
+    // SVG for piler (sist = tegnes øverst)
+    depSvg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    depSvg.setAttribute('class','deps');
+    depSvg.innerHTML =
+      '<defs>' +
+      '<marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a95a1"/></marker>' +
+      '<marker id="arrowA" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#c3441c"/></marker>' +
+      '</defs>';
+    chart.appendChild(depSvg);
+
+    positionAll();
+    if(linkSource) markLinkSource();
+    chartScroll.scrollLeft = sx;
+    save();
+  }
+
+  function positionAll(){
+    state.tasks.forEach(position);
+    drawArrows();
+  }
+  function position(t){
+    const bar = barRefs[t.id];
+    if(!bar) return;
+    bar.style.left = (t.start*MONTH_W)+'px';
+    bar.style.width = Math.max(14,(t.end-t.start)*MONTH_W)+'px';
+    const chips = [];
+    if(t.source === 'skytracker') chips.push('<span class="chip">ST</span>');
+    if(hasSubs(t)) chips.push('<span class="chip">'+t.subtasks.length+' delmål</span>');
+    if(t.deps.length) chips.push('<span class="chip">⇠ '+t.deps.length+'</span>');
+    labelDateRefs[t.id].innerHTML = esc(rangeText(t)) + chips.join('');
+    bar.title = t.label + ' · ' + rangeText(t) +
+      (t.t2 ? ' · forutsetter T2' : '') +
+      (hasSubs(t) ? ' · dobbeltklikk for delmål (varighet styres av delmålene)' : '');
+  }
+
+  function drawArrows(){
+    if(!depSvg) return;
+    depSvg.setAttribute('width', chart.scrollWidth);
+    depSvg.setAttribute('height', chart.scrollHeight);
+    [...depSvg.querySelectorAll('g')].forEach(g => g.remove());
+    state.tasks.forEach(b => {
+      b.deps.forEach(aId => {
+        const a = getTask(aId);
+        if(!a || !rowRefs[a.id] || !rowRefs[b.id]) return;
+        const x1 = a.end*MONTH_W, y1 = rowRefs[a.id].offsetTop + ROW_H/2;
+        const x2 = b.start*MONTH_W, y2 = rowRefs[b.id].offsetTop + ROW_H/2;
+        const midX = Math.max(x1 + 12, x2 - 12);
+        const dPath = 'M'+x1+','+y1+' H'+midX+' V'+y2+' H'+(x2-1);
+        const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+        const hit = document.createElementNS('http://www.w3.org/2000/svg','path');
+        hit.setAttribute('class','hit'); hit.setAttribute('d',dPath);
+        const vis = document.createElementNS('http://www.w3.org/2000/svg','path');
+        vis.setAttribute('class','vis'); vis.setAttribute('d',dPath);
+        const title = document.createElementNS('http://www.w3.org/2000/svg','title');
+        title.textContent = a.label + ' → ' + b.label + ' — klikk for å fjerne avhengigheten';
+        g.appendChild(title); g.appendChild(hit); g.appendChild(vis);
+        hit.addEventListener('click', () => {
+          if(confirm('Fjerne avhengigheten «' + a.label + ' → ' + b.label + '»?')){
+            b.deps = b.deps.filter(d => d !== aId);
+            save(); render();
+          }
+        });
+        depSvg.appendChild(g);
+      });
+    });
+  }
+
+  /* ================== inline-redigering ================== */
+  function editInline(el, current, onSave){
+    const input = document.createElement('input');
+    input.value = current;
+    el.replaceWith(input);
+    input.focus(); input.select();
+    let done = false;
+    const finish = ok => {
+      if(done) return; done = true;
+      const v = input.value.trim();
+      if(ok && v && v !== current) onSave(v); else render();
+    };
+    input.addEventListener('keydown', e => {
+      if(e.key === 'Enter') finish(true);
+      if(e.key === 'Escape') finish(false);
+    });
+    input.addEventListener('blur', () => finish(true));
+  }
+
+  /* ================== rader: legg til / fjern ================== */
+  function addTask(laneKey){
+    const start = snapTo(9/31, SNAP);
+    const t = {id:uid(), lane:laneKey, label:'Ny oppgave', start, end:start+1, deps:[], subtasks:[]};
+    // sett inn etter siste oppgave i samme lane (beholder gruppering)
+    let idx = -1;
+    state.tasks.forEach((x,i) => { if(x.lane === laneKey) idx = i; });
+    if(idx === -1) state.tasks.push(t); else state.tasks.splice(idx+1, 0, t);
+    save(); render();
+    const tl = labels.querySelector('.task-label[data-id="'+t.id+'"] .t');
+    if(tl) editInline(tl, t.label, v => { t.label = v; save(); render(); });
+  }
+  function removeTask(id){
+    const t = getTask(id);
+    if(!t) return;
+    if(!confirm('Slette «' + t.label + '»? Avhengigheter til den fjernes også.')) return;
+    state.tasks = state.tasks.filter(x => x.id !== id);
+    state.tasks.forEach(x => { x.deps = x.deps.filter(d => d !== id); });
+    if(linkSource === id) cancelLink();
+    save(); render();
+  }
+
+  /* ================== avhengighet: koble-modus ================== */
+  const linkBanner = document.getElementById('linkBanner');
+  function startLink(id){
+    linkSource = id;
+    document.body.classList.add('linking');
+    document.getElementById('linkText').innerHTML =
+      'Koble avhengighet: klikk oppgaven som skal <b>avhenge av</b> «' + esc(getTask(id).label) + '». Klikk en som alt er koblet for å fjerne.';
+    markLinkSource();
+  }
+  function markLinkSource(){
+    Object.values(barRefs).forEach(b => b.classList.remove('link-source'));
+    if(linkSource && barRefs[linkSource]) barRefs[linkSource].classList.add('link-source');
+  }
+  function completeLink(targetId){
+    const src = linkSource;
+    if(!src || targetId === src){ cancelLink(); return; }
+    const target = getTask(targetId);
+    if(target.deps.includes(src)){
+      target.deps = target.deps.filter(d => d !== src);
+    } else {
+      if(dependsOn(src, targetId)){
+        alert('Kan ikke koble: det ville gitt en sirkulær avhengighet.');
+        cancelLink(); return;
+      }
+      target.deps.push(src);
+      resolveDeps();
+    }
+    cancelLink();
+    save(); render();
+  }
+  function cancelLink(){
+    linkSource = null;
+    document.body.classList.remove('linking');
+    markLinkSource();
+  }
+  document.getElementById('linkCancel').addEventListener('click', cancelLink);
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){
+      if(linkSource) cancelLink();
+      else if(openTaskId) closeDetail();
+    }
+  });
+
+  /* ================== drag (hovedvisning) ================== */
+  let drag = null;
+  chart.addEventListener('pointerdown', e => {
+    const bar = e.target.closest('.bar');
+    if(!bar) return;
+    if(linkSource){ completeLink(bar.dataset.id); e.preventDefault(); return; }
+    const t = getTask(bar.dataset.id);
+    let mode = e.target.classList.contains('h')
+      ? (e.target.classList.contains('l') ? 'l' : 'r')
+      : 'move';
+    if(hasSubs(t)) mode = 'move';   // varighet styres av delmålene
+    drag = {t, bar, mode, x0:e.clientX, start0:t.start, end0:t.end};
+    bar.classList.add('dragging');
+    bar.setPointerCapture(e.pointerId);
+    showTip(e, t);
+    e.preventDefault();
+  });
+  chart.addEventListener('pointermove', e => {
+    if(!drag) return;
+    const du = (e.clientX - drag.x0) / MONTH_W;
+    const t = drag.t;
+    if(drag.mode === 'move'){
+      const dur = drag.end0 - drag.start0;
+      let s = snapTo(drag.start0 + du, SNAP);
+      s = Math.max(0, Math.min(N_MONTHS - dur, s));
+      const d = s - t.start;
+      if(d) shiftTask(t, d);
+    } else if(drag.mode === 'l'){
+      let s = snapTo(drag.start0 + du, SNAP);
+      s = Math.max(0, Math.min(drag.end0 - MIN_DUR, s));
+      t.start = s;
+    } else {
+      let en = snapTo(drag.end0 + du, SNAP);
+      en = Math.min(N_MONTHS, Math.max(drag.start0 + MIN_DUR, en));
+      t.end = en;
+    }
+    resolveDeps();
+    positionAll();
+    showTip(e, t);
+  });
+  function endDrag(){
+    if(!drag) return;
+    drag.bar.classList.remove('dragging');
+    tip.style.display = 'none';
+    drag = null;
+    save();
+  }
+  chart.addEventListener('pointerup', endDrag);
+  chart.addEventListener('pointercancel', endDrag);
+
+  function showTip(e, t){
+    tip.style.display = 'block';
+    tip.innerHTML = '<b>' + esc(t.label) + '</b>&nbsp;&nbsp;' + esc(rangeText(t));
+    tip.style.left = Math.min(window.innerWidth - tip.offsetWidth - 12, e.clientX + 14) + 'px';
+    tip.style.top = (e.clientY - 40) + 'px';
+  }
+
+  /* ================== detaljvisning (zoom) ================== */
+  const modalBack = document.getElementById('modalBack');
+  const mLabels = document.getElementById('mLabels');
+  const mChart = document.getElementById('mChart');
+  let mView = null;   // {r0, r1, DMW}
+  let mBarRefs = {}, mDateRefs = {};
+
+  function openDetail(id){
+    openTaskId = id;
+    const t = getTask(id);
+    if(!hasSubs(t)){
+      // første delmål = hele oppgaven, så det er noe å dele opp
+      t.subtasks.push({id:uid(), label:'Delmål 1', start:t.start, end:t.end});
+      save();
+    }
+    modalBack.classList.add('open');
+    renderDetail();
+  }
+  function closeDetail(){
+    openTaskId = null;
+    modalBack.classList.remove('open');
+    render();   // oppdater delmål-chips og lås
+  }
+  document.getElementById('modalClose').addEventListener('click', closeDetail);
+  modalBack.addEventListener('click', e => { if(e.target === modalBack) closeDetail(); });
+
+  function detailRange(t){
+    const lo = Math.max(0, Math.floor((t.start - 0.25) * 4) / 4);
+    const hi = Math.min(N_MONTHS, Math.ceil((t.end + 0.5) * 4) / 4);
+    const span = Math.max(1, hi - lo);
+    const DMW = Math.max(160, Math.min(340, 820 / span));
+    return {r0:lo, r1:hi, DMW};
+  }
+
+  function renderDetail(){
+    const t = getTask(openTaskId);
+    if(!t){ closeDetail(); return; }
+    mView = detailRange(t);
+    const {r0, r1, DMW} = mView;
+    const W = (r1 - r0) * DMW;
+
+    document.getElementById('modalTitle').textContent = t.label;
+    document.getElementById('modalDates').textContent = rangeText(t);
+
+    mLabels.innerHTML = '';
+    mChart.innerHTML = '';
+    mBarRefs = {}; mDateRefs = {};
+    mChart.style.width = W + 'px';
+
+    const c = document.createElement('div');
+    c.className = 'mcorner';
+    c.textContent = 'Delmål';
+    mLabels.appendChild(c);
+
+    // akse: månedskolonner innen [r0, r1]
+    const axis = document.createElement('div');
+    axis.className = 'maxis';
+    const firstM = Math.floor(r0), lastM = Math.ceil(r1);
+    for(let i = firstM; i < lastM; i++){
+      const {m, y} = monthInfo(i);
+      const el = document.createElement('div');
+      el.className = 'mth';
+      const from = Math.max(i, r0), to = Math.min(i+1, r1);
+      el.style.width = ((to - from) * DMW) + 'px';
+      if(to - from > 0.2) el.innerHTML = '<div class="mm">'+MND[m]+'</div><div class="yy">'+y+'</div>';
+      axis.appendChild(el);
+    }
+    mChart.appendChild(axis);
+
+    // rutenett: uker (0.25) + månedsgrenser
+    const grid = document.createElement('div');
+    grid.className = 'mgrid';
+    for(let u = Math.ceil(r0/0.25)*0.25; u <= r1 + 1e-9; u += 0.25){
+      const v = document.createElement('div');
+      const isMonth = Math.abs(u - Math.round(u)) < 1e-9;
+      v.className = 'v ' + (isMonth ? 'm' : 'w');
+      v.style.left = ((u - r0) * DMW) + 'px';
+      grid.appendChild(v);
+    }
+    mChart.appendChild(grid);
+
+    t.subtasks.forEach(s => {
+      const ml = document.createElement('div');
+      ml.className = 'mtask';
+      const tt = document.createElement('span');
+      tt.className = 't';
+      tt.textContent = s.label;
+      tt.title = s.label + ' (dobbeltklikk for å redigere)';
+      tt.addEventListener('dblclick', () => editInlineDetail(tt, s));
+      const dd = document.createElement('span');
+      dd.className = 'd';
+      const del = document.createElement('button');
+      del.className = 'mdel';
+      del.textContent = '×';
+      del.title = 'Slett delmål';
+      del.addEventListener('click', () => {
+        t.subtasks = t.subtasks.filter(x => x.id !== s.id);
+        afterSubChange(t);
+        renderDetail();
+      });
+      ml.appendChild(tt); ml.appendChild(dd); ml.appendChild(del);
+      mLabels.appendChild(ml);
+      mDateRefs[s.id] = dd;
+
+      const row = document.createElement('div');
+      row.className = 'mrow';
+      row.style.width = W + 'px';
+      const bar = document.createElement('div');
+      bar.className = 'bar ' + t.lane;
+      bar.dataset.sid = s.id;
+      bar.innerHTML = '<div class="h l"></div><span class="bl">' + esc(s.label) + '</span><div class="h r"></div>';
+      row.appendChild(bar);
+      mChart.appendChild(row);
+      mBarRefs[s.id] = bar;
+      positionSub(t, s);
+    });
+  }
+
+  function editInlineDetail(el, s){
+    const t = getTask(openTaskId);
+    const input = document.createElement('input');
+    input.value = s.label;
+    el.replaceWith(input);
+    input.focus(); input.select();
+    let done = false;
+    const finish = ok => {
+      if(done) return; done = true;
+      const v = input.value.trim();
+      if(ok && v) s.label = v;
+      save(); renderDetail();
+    };
+    input.addEventListener('keydown', e => {
+      if(e.key === 'Enter') finish(true);
+      if(e.key === 'Escape') finish(false);
+    });
+    input.addEventListener('blur', () => finish(true));
+  }
+
+  function positionSub(t, s){
+    const bar = mBarRefs[s.id];
+    if(!bar || !mView) return;
+    bar.style.left = ((s.start - mView.r0) * mView.DMW) + 'px';
+    bar.style.width = Math.max(12, (s.end - s.start) * mView.DMW) + 'px';
+    mDateRefs[s.id].textContent = rangeText(s);
+    bar.title = s.label + ' · ' + rangeText(s);
+  }
+
+  function afterSubChange(t){
+    if(hasSubs(t)){
+      t.start = Math.min(...t.subtasks.map(s => s.start));
+      t.end = Math.max(...t.subtasks.map(s => s.end));
+    }
+    resolveDeps();          // kan skyve avhengige — og t selv via sine deps
+    positionAll();          // hovedvisningen bak modalen oppdateres live
+    document.getElementById('modalDates').textContent = rangeText(t);
+    save();
+  }
+
+  document.getElementById('addSubBtn').addEventListener('click', () => {
+    const t = getTask(openTaskId);
+    if(!t) return;
+    const last = t.subtasks[t.subtasks.length - 1];
+    const start = last ? last.end : t.start;
+    t.subtasks.push({id:uid(), label:'Nytt delmål', start, end:Math.min(N_MONTHS, start + 0.5)});
+    afterSubChange(t);
+    renderDetail();
+  });
+
+  // drag i detaljvisningen
+  let mDrag = null;
+  mChart.addEventListener('pointerdown', e => {
+    const bar = e.target.closest('.bar');
+    if(!bar) return;
+    const t = getTask(openTaskId);
+    const s = t.subtasks.find(x => x.id === bar.dataset.sid);
+    const mode = e.target.classList.contains('h')
+      ? (e.target.classList.contains('l') ? 'l' : 'r')
+      : 'move';
+    mDrag = {t, s, bar, mode, x0:e.clientX, start0:s.start, end0:s.end};
+    bar.classList.add('dragging');
+    bar.setPointerCapture(e.pointerId);
+    showTip(e, s);
+    e.preventDefault();
+  });
+  mChart.addEventListener('pointermove', e => {
+    if(!mDrag) return;
+    const du = (e.clientX - mDrag.x0) / mView.DMW;
+    const s = mDrag.s;
+    if(mDrag.mode === 'move'){
+      const dur = mDrag.end0 - mDrag.start0;
+      let st = snapTo(mDrag.start0 + du, SNAP_D);
+      st = Math.max(0, Math.min(N_MONTHS - dur, st));
+      s.start = st; s.end = st + dur;
+    } else if(mDrag.mode === 'l'){
+      let st = snapTo(mDrag.start0 + du, SNAP_D);
+      st = Math.max(0, Math.min(mDrag.end0 - SNAP_D, st));
+      s.start = st;
+    } else {
+      let en = snapTo(mDrag.end0 + du, SNAP_D);
+      en = Math.min(N_MONTHS, Math.max(mDrag.start0 + SNAP_D, en));
+      s.end = en;
+    }
+    positionSub(mDrag.t, s);
+    afterSubChange(mDrag.t);
+    showTip(e, s);
+  });
+  function endMDrag(){
+    if(!mDrag) return;
+    mDrag.bar.classList.remove('dragging');
+    tip.style.display = 'none';
+    const t = mDrag.t;
+    mDrag = null;
+    save();
+    // hvis deps skjøv hele oppgaven, kan delmålene ha flyttet seg — tegn på nytt
+    renderDetail();
+  }
+  mChart.addEventListener('pointerup', endMDrag);
+  mChart.addEventListener('pointercancel', endMDrag);
+
+  /* ================== SkyTracker-synk ================== */
+  const syncBtn = document.getElementById('syncStBtn');
+  const HOSTED = location.protocol !== 'file:';   // åpnet via SkyTracker → hent live
+  async function applySkytracker(){
+    if(HOSTED){
+      syncBtn.disabled = true;
+      try{
+        const r = await fetch('api/timeline-export', {cache:'no-store'});
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        window.SKYTRACKER_DATA = await r.json();
+      }catch(err){
+        alert('Klarte ikke å hente fra SkyTracker (' + err.message + ').\n' +
+              'Sjekk at du fortsatt er innlogget, og prøv igjen.');
+        syncBtn.disabled = false;
+        return;
+      }
+      syncBtn.disabled = false;
+    }
+    const d = window.SKYTRACKER_DATA;
+    if(!d || !Array.isArray(d.tasks)){
+      alert('Fant ingen skytracker-data.js ved siden av denne filen.\n\n' +
+            'Hent siste data først: dobbeltklikk «sync-skytracker.command» i samme mappe\n' +
+            '(eller kjør: cd ~/Skytale/SkyTracker && npx tsx scripts/export-timeline.ts),\n' +
+            'og last siden på nytt.');
+      return;
+    }
+    if(!state.lanes.some(l => l.key === d.lane.key)) state.lanes.push(clone(d.lane));
+    state.tasks = state.tasks.filter(t => t.source !== 'skytracker');
+    d.tasks.forEach(t => state.tasks.push(clone(t)));
+    state.skytrackerSyncedAt = d.syncedAt;
+    normalize(state);
+    resolveDeps();
+    save(); render();
+    updateSyncBtn();
+  }
+  function updateSyncBtn(){
+    const d = window.SKYTRACKER_DATA;
+    const cur = state.skytrackerSyncedAt;
+    let label = 'Synk SkyTracker';
+    if(cur){
+      const dt = new Date(cur);
+      label += ' · ' + dt.toLocaleDateString('nb-NO', {day:'numeric', month:'short'}) +
+               ' ' + dt.toLocaleTimeString('nb-NO', {hour:'2-digit', minute:'2-digit'});
+    }
+    syncBtn.textContent = label;
+    // rød prikk = nyere data ligger klar enn det som er tatt inn
+    syncBtn.classList.toggle('has-new', !!(d && d.syncedAt && d.syncedAt !== cur));
+    syncBtn.title = d
+      ? 'Hent inn SkyTracker-tavlen «' + (d.boardName || '') + '» (eksportert ' + new Date(d.syncedAt).toLocaleString('nb-NO') + ')'
+      : 'Kjør sync-skytracker.command først for å hente siste data';
+  }
+  syncBtn.addEventListener('click', applySkytracker);
+  updateSyncBtn();
+  window.__stDataLoaded = updateSyncBtn;   // kalles når lokal skytracker-data.js er lastet
+
+  // Hostet i SkyTracker: guiden serveres på /timeline/guide, den lokale
+  // redaksjonelle filen finnes ikke — juster lenkene deretter.
+  if(HOSTED){
+    document.querySelectorAll('a[href="claude-guide.html"]').forEach(a => { a.href = 'timeline/guide'; });
+    document.querySelectorAll('a[href="index.html"]').forEach(a => {
+      const holder = a.closest('span') || a;
+      holder.style.display = 'none';
+    });
+  }
+
+  /* ================== hjelpepanel ================== */
+  const HELP_SEEN = 'skytale-telenor-gantt-help-seen';
+  const helpPanel = document.getElementById('helpPanel');
+  document.getElementById('helpBtn').addEventListener('click', () => {
+    helpPanel.classList.toggle('open');
+    localStorage.setItem(HELP_SEEN, '1');
+  });
+  document.getElementById('helpClose').addEventListener('click', () => {
+    helpPanel.classList.remove('open');
+    localStorage.setItem(HELP_SEEN, '1');
+  });
+  if(!localStorage.getItem(HELP_SEEN)) helpPanel.classList.add('open');
+
+  /* ================== verktøylinje ================== */
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    if(!confirm('Nullstille alt til plandatoene fra dokumentet? Egne rader, delmål og avhengigheter fjernes.')) return;
+    state = clone(SEED);
+    localStorage.removeItem(STORE_V2);
+    cancelLink();
+    render();
+    updateSyncBtn();
+  });
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'skytale-telenor-plan.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  document.getElementById('importBtn').addEventListener('click', () => {
+    document.getElementById('importFile').click();
+  });
+  document.getElementById('importFile').addEventListener('change', e => {
+    const f = e.target.files[0];
+    if(!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try{
+        const s = JSON.parse(r.result);
+        if(!s || !Array.isArray(s.lanes) || !Array.isArray(s.tasks)) throw new Error('feil format');
+        state = normalize(s);
+        resolveDeps();
+        save(); render();
+        updateSyncBtn();
+      }catch(err){
+        alert('Kunne ikke lese filen: ' + err.message);
+      }
+      e.target.value = '';
+    };
+    r.readAsText(f);
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
