@@ -20,6 +20,12 @@ export default async function Home() {
             {role === "reader" && (
               <span className="text-amber-500 dark:text-amber-400 font-medium">Read-only</span>
             )}
+            <a
+              href="/timeline"
+              className="text-xs font-medium rounded px-2 py-1 border border-slate-200 dark:border-ocean-4 text-slate-500 dark:text-skyblue-2 hover:text-ocean-1 dark:hover:text-skyblue-1 transition"
+            >
+              Tidslinje
+            </a>
             <DepsToggleButton />
             <SignOutButton />
           </div>
