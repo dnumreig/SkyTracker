@@ -150,9 +150,18 @@
   }
   .lane-label .add-task:hover{background:var(--paper);color:var(--ink)}
   .task-label{
-    height:var(--row-h);display:flex;flex-direction:column;justify-content:center;padding:0 16px;
+    height:var(--row-h);display:flex;flex-direction:column;justify-content:center;padding:0 16px 0 30px;
     border-bottom:1px solid var(--line-soft);position:relative;
   }
+  .tl-dot{
+    position:absolute;left:9px;top:50%;transform:translateY(-50%);
+    width:13px;height:13px;border-radius:50%;cursor:pointer;flex:none;
+    border:1.5px solid rgba(19,32,47,.25);transition:transform .12s ease;
+  }
+  .tl-dot:hover{transform:translateY(-50%) scale(1.25)}
+  .tl-dot.gronn{background:#2e7d43}
+  .tl-dot.gul{background:#d9a416}
+  .tl-dot.rod{background:var(--accent)}
   .task-label .t{font-weight:600;font-size:12.6px;letter-spacing:-.005em;line-height:1.25;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:text;padding-right:76px}
   .task-label .d{font-family:'Spline Sans Mono',monospace;font-size:10px;color:var(--ink-faint);margin-top:2px;display:flex;gap:8px;align-items:center}
@@ -249,6 +258,35 @@
   }
   .bar.milestone{border-radius:15px}
   .bar.milestone .bl{padding:0 12px}
+  /* trafikklys-belysning av linjene */
+  .bar.st-gul{outline:3px solid #d9a416;outline-offset:2px}
+  .bar.st-rod{outline:3px solid var(--accent);outline-offset:2px;animation:tl-pulse 1.8s ease-in-out infinite}
+  @keyframes tl-pulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(195,68,28,.38)}
+    50%{box-shadow:0 0 0 8px rgba(195,68,28,0)}
+  }
+  .tl-summary{
+    font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--ink-soft);
+    display:inline-flex;gap:12px;align-items:center;
+  }
+  .tl-summary i{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px}
+  /* årsaksmeny (fast liste fra føring 1.5) */
+  .cause-menu{
+    position:fixed;z-index:120;display:none;min-width:250px;
+    background:var(--card);border:1px solid var(--ink);border-radius:3px;
+    box-shadow:0 10px 30px rgba(19,32,47,.3);padding:6px 0;
+  }
+  .cause-menu .cm-head{
+    font-family:'Spline Sans Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink-faint);padding:6px 14px 6px;
+  }
+  .cause-menu button{
+    display:block;width:100%;text-align:left;border:none;background:none;
+    font-family:'Archivo',sans-serif;font-size:13px;text-transform:none;letter-spacing:0;
+    padding:7px 14px;cursor:pointer;color:var(--ink);
+  }
+  .cause-menu button:hover{background:var(--paper-deep);color:var(--ink)}
+  .cause-menu button.none{color:var(--ink-faint);font-style:italic}
 
   /* avhengighetspiler */
   svg.deps{position:absolute;left:0;top:0;pointer-events:none;z-index:6;overflow:visible}
@@ -408,6 +446,14 @@
         data ligger klar).</p>
       </div>
       <div class="help-card">
+        <div class="hc-head"><span class="ico">●</span><h4>Trafikklys</h4></div>
+        <p>Klikk <b>prikken foran oppgavenavnet</b> for å sette status etter trafikklysprotokollen:
+        <b>grønn</b> = som avtalt, <b>gul</b> = utfordringer (avdelingen eier løsningen),
+        <b>rød</b> = krever beslutning. Ved gul/rød velger du årsak fra den faste listen —
+        det er kategoriene som summeres over kvartaler. Gule og røde linjer lyses opp i diagrammet,
+        og tellingen vises øverst. Status overlever SkyTracker-resynk.</p>
+      </div>
+      <div class="help-card">
         <div class="hc-head"><span class="ico">✳</span><h4>Oppdater med Claude</h4></div>
         <p>Tidslinjen kan vedlikeholdes sammen med Claude Code på bakgrunn av dokumentasjon:
         trykk <b>Eksporter</b>, la Claude redigere JSON-filen, og trykk <b>Importer</b>.
@@ -431,6 +477,7 @@
     <span><i class="sw t2sw"></i>Forutsetter transje 2</span>
     <span><i class="sw skytracker"></i>SkyTracker (synket)</span>
     <span><i class="sw depsw"></i>Avhengighet</span>
+    <span class="tl-summary" id="tlSummary" title="Trafikklys: klikk prikken foran et oppgavenavn for å endre status"></span>
   </div>
 
   <div class="gantt">
@@ -449,6 +496,7 @@
 </div>
 
 <div class="drag-tip" id="dragTip"></div>
+<div class="cause-menu" id="causeMenu"></div>
 
 <!-- Lokal modus (fil på disk): last skytracker-data.js skrevet av sync-skytracker.command.
      Hostet i SkyTracker hentes data i stedet live fra /api/timeline-export ved knappetrykk. -->
@@ -606,12 +654,13 @@ if (location.protocol === 'file:') {
         return normalize(s);
       }
     }catch(e){}
-    return clone(SEED);
+    return normalize(clone(SEED));
   }
   function normalize(s){
     s.tasks.forEach(t => {
       t.deps = Array.isArray(t.deps) ? t.deps : [];
       t.subtasks = Array.isArray(t.subtasks) ? t.subtasks : [];
+      if(!['gronn','gul','rod'].includes(t.status)) t.status = 'gronn';
     });
     const ids = new Set(s.tasks.map(t => t.id));
     s.tasks.forEach(t => { t.deps = t.deps.filter(d => ids.has(d)); });
@@ -624,6 +673,58 @@ if (location.protocol === 'file:') {
   }
   const getTask = id => state.tasks.find(t => t.id === id);
   const hasSubs = t => t.subtasks && t.subtasks.length > 0;
+
+  /* ================== trafikklys (føring 1.2 + årsaksliste 1.5) ================== */
+  const STATUS_LABEL = { gronn:'GRØNN — som avtalt', gul:'GUL — utfordringer, avdelingen eier løsningen', rod:'RØD — krever beslutning' };
+  const CAUSES = [
+    'Undervurdert kompleksitet',
+    'Avhengighet til andre',
+    'Fravær eller kapasitetstap',
+    'Omfang lagt til underveis',
+    'Ekstern blokkering',
+    'Omarbeid som følge av kvalitet'
+  ];
+  const causeMenu = document.getElementById('causeMenu');
+  function cycleStatus(t, e){
+    const next = { gronn:'gul', gul:'rod', rod:'gronn' }[t.status] || 'gul';
+    t.status = next;
+    t.statusAt = new Date().toISOString();
+    if(next === 'gronn'){
+      delete t.statusCause;
+      save(); render();
+    } else {
+      openCauseMenu(t, e.clientX, e.clientY);
+    }
+  }
+  function openCauseMenu(t, x, y){
+    causeMenu.innerHTML = '<div class="cm-head">' + (t.status === 'gul' ? 'GUL' : 'RØD') +
+      ' — årsak (fast liste, føring 1.5)</div>' +
+      CAUSES.map((c,i) => '<button data-i="'+i+'">'+c+'</button>').join('') +
+      '<button class="none" data-i="-1">Uten årsak foreløpig</button>';
+    causeMenu.style.display = 'block';
+    causeMenu.style.left = Math.min(window.innerWidth - causeMenu.offsetWidth - 10, x + 6) + 'px';
+    causeMenu.style.top = Math.min(window.innerHeight - causeMenu.offsetHeight - 10, y + 6) + 'px';
+    causeMenu.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      const i = parseInt(b.dataset.i, 10);
+      if(i >= 0) t.statusCause = CAUSES[i]; else delete t.statusCause;
+      closeCauseMenu();
+      save(); render();
+    }));
+  }
+  function closeCauseMenu(){ causeMenu.style.display = 'none'; causeMenu.innerHTML = ''; }
+  document.addEventListener('pointerdown', e => {
+    if(causeMenu.style.display === 'block' && !e.target.closest('.cause-menu')){
+      closeCauseMenu(); save(); render();   // status står, uten årsak
+    }
+  });
+  function updateTlSummary(){
+    const n = { gronn:0, gul:0, rod:0 };
+    state.tasks.forEach(t => n[t.status] !== undefined && n[t.status]++);
+    document.getElementById('tlSummary').innerHTML =
+      '<span><i style="background:#2e7d43"></i>' + n.gronn + '</span>' +
+      '<span><i style="background:#d9a416"></i>' + n.gul + '</span>' +
+      '<span><i style="background:#c3441c"></i>' + n.rod + '</span>';
+  }
 
   /* ================== avhengigheter ================== */
   function dependsOn(aId, bId){       // avhenger a (transitivt) av b?
@@ -741,6 +842,12 @@ if (location.protocol === 'file:') {
         const tl = document.createElement('div');
         tl.className = 'task-label';
         tl.dataset.id = t.id;
+        const dot = document.createElement('span');
+        dot.className = 'tl-dot ' + t.status;
+        dot.title = 'Trafikklys: ' + STATUS_LABEL[t.status] +
+          (t.statusCause ? ' · ' + t.statusCause : '') + ' — klikk for å endre';
+        dot.addEventListener('click', e => { e.stopPropagation(); cycleStatus(t, e); });
+        tl.appendChild(dot);
         const tt = document.createElement('span');
         tt.className = 't';
         tt.textContent = t.label;
@@ -769,7 +876,8 @@ if (location.protocol === 'file:') {
         row.className = 'row';
         row.style.width = (N_MONTHS*MONTH_W)+'px';
         const bar = document.createElement('div');
-        bar.className = 'bar ' + t.lane + (t.t2 ? ' t2b' : '') + (t.milestone ? ' milestone' : '') + (hasSubs(t) ? ' locked' : '');
+        bar.className = 'bar ' + t.lane + (t.t2 ? ' t2b' : '') + (t.milestone ? ' milestone' : '') + (hasSubs(t) ? ' locked' : '') +
+          (t.status !== 'gronn' ? ' st-' + t.status : '');
         bar.dataset.id = t.id;
         bar.innerHTML = '<div class="h l"></div><span class="bl">' + esc(t.label) +
           (hasSubs(t) ? '<span class="sub-ind">▸ '+t.subtasks.length+'</span>' : '') +
@@ -793,6 +901,7 @@ if (location.protocol === 'file:') {
     chart.appendChild(depSvg);
 
     positionAll();
+    updateTlSummary();
     if(linkSource) markLinkSource();
     chartScroll.scrollLeft = sx;
     save();
@@ -811,8 +920,13 @@ if (location.protocol === 'file:') {
     if(t.source === 'skytracker') chips.push('<span class="chip">ST</span>');
     if(hasSubs(t)) chips.push('<span class="chip">'+t.subtasks.length+' delmål</span>');
     if(t.deps.length) chips.push('<span class="chip">⇠ '+t.deps.length+'</span>');
+    if(t.status !== 'gronn' && t.statusCause) chips.push('<span class="chip">'+esc(t.statusCause)+'</span>');
     labelDateRefs[t.id].innerHTML = esc(rangeText(t)) + chips.join('');
     bar.title = t.label + ' · ' + rangeText(t) +
+      (t.status !== 'gronn' ? ' · ' + STATUS_LABEL[t.status] +
+        (t.statusCause ? ' (' + t.statusCause + ')' : '') +
+        (t.statusAt ? ' — meldt ' + new Date(t.statusAt).toLocaleDateString('nb-NO', {day:'numeric', month:'short'}) : '')
+        : '') +
       (t.t2 ? ' · forutsetter T2' : '') +
       (hasSubs(t) ? ' · dobbeltklikk for delmål (varighet styres av delmålene)' : '');
   }
@@ -1236,8 +1350,17 @@ if (location.protocol === 'file:') {
       return;
     }
     if(!state.lanes.some(l => l.key === d.lane.key)) state.lanes.push(clone(d.lane));
+    // trafikklys-status er et planleggingslag — bevar den over resynk
+    const oldStatus = {};
+    state.tasks.filter(t => t.source === 'skytracker').forEach(t => {
+      oldStatus[t.id] = { status:t.status, statusCause:t.statusCause, statusAt:t.statusAt };
+    });
     state.tasks = state.tasks.filter(t => t.source !== 'skytracker');
-    d.tasks.forEach(t => state.tasks.push(clone(t)));
+    d.tasks.forEach(t => {
+      const nt = clone(t);
+      Object.assign(nt, oldStatus[nt.id] || {});
+      state.tasks.push(nt);
+    });
     state.skytrackerSyncedAt = d.syncedAt;
     normalize(state);
     resolveDeps();
@@ -1324,7 +1447,7 @@ if (location.protocol === 'file:') {
   /* ================== verktøylinje ================== */
   document.getElementById('resetBtn').addEventListener('click', () => {
     if(!confirm('Nullstille alt til plandatoene fra dokumentet? Egne rader, delmål og avhengigheter fjernes.')) return;
-    state = clone(SEED);
+    state = normalize(clone(SEED));
     localStorage.removeItem(STORE_V2);
     cancelLink();
     render();
