@@ -122,7 +122,17 @@
     border:1px solid var(--line);background:var(--card);
     display:grid;grid-template-columns:var(--label-w) 1fr;
     box-shadow:0 1px 0 rgba(19,32,47,.04);
+    position:relative;
   }
+  .col-resizer{
+    position:absolute;top:0;bottom:0;left:calc(var(--label-w) - 4px);width:9px;
+    cursor:col-resize;z-index:20;touch-action:none;
+  }
+  .col-resizer::after{
+    content:"";position:absolute;left:3px;top:0;bottom:0;width:3px;
+    background:transparent;transition:background .15s ease;
+  }
+  .col-resizer:hover::after,.col-resizer.active::after{background:var(--accent)}
   .labels{border-right:2px solid var(--ink)}
   .labels .corner{
     height:58px;border-bottom:1px solid var(--line);display:flex;align-items:flex-end;
@@ -359,7 +369,8 @@
       <div class="help-card">
         <div class="hc-head"><span class="ico">↔</span><h4>Flytt og juster</h4></div>
         <p><b>Dra en linje</b> for å flytte oppgaven i tid. <b>Dra i venstre eller høyre ende</b> for å endre
-        start eller slutt. Alt fester seg til ukesnivå, og datoene vises mens du drar.</p>
+        start eller slutt. Alt fester seg til ukesnivå, og datoene vises mens du drar.
+        Skillelinjen mellom navnekolonnen og diagrammet kan også dras for å justere kolonnebredden.</p>
       </div>
       <div class="help-card">
         <div class="hc-head"><span class="ico">✎</span><h4>Rediger navn</h4></div>
@@ -427,6 +438,7 @@
     <div class="chart-scroll" id="chartScroll">
       <div class="chart" id="chart"></div>
     </div>
+    <div class="col-resizer" id="colResizer" title="Dra for å justere kolonnebredden · dobbeltklikk for standard"></div>
   </div>
 
   <footer>
@@ -1261,6 +1273,40 @@ if (location.protocol === 'file:') {
       holder.style.display = 'none';
     });
   }
+
+  /* ================== kolonnebredde (Arbeidsstrøm/oppgave) ================== */
+  const LABELW_KEY = 'skytale-telenor-gantt-labelw';
+  const LABELW_DEFAULT = cssNum('--label-w');
+  const colResizer = document.getElementById('colResizer');
+  const currentLabelW = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--label-w'));
+  const setLabelW = w => document.documentElement.style.setProperty('--label-w', w + 'px');
+  {
+    const saved = parseInt(localStorage.getItem(LABELW_KEY), 10);
+    if(saved >= 160 && saved <= 600) setLabelW(saved);
+  }
+  let colDrag = null;
+  colResizer.addEventListener('pointerdown', e => {
+    colDrag = { x0: e.clientX, w0: currentLabelW() };
+    colResizer.classList.add('active');
+    colResizer.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  colResizer.addEventListener('pointermove', e => {
+    if(!colDrag) return;
+    setLabelW(Math.max(160, Math.min(600, colDrag.w0 + e.clientX - colDrag.x0)));
+  });
+  function endColDrag(){
+    if(!colDrag) return;
+    colDrag = null;
+    colResizer.classList.remove('active');
+    localStorage.setItem(LABELW_KEY, String(Math.round(currentLabelW())));
+  }
+  colResizer.addEventListener('pointerup', endColDrag);
+  colResizer.addEventListener('pointercancel', endColDrag);
+  colResizer.addEventListener('dblclick', () => {
+    setLabelW(LABELW_DEFAULT);
+    localStorage.removeItem(LABELW_KEY);
+  });
 
   /* ================== hjelpepanel ================== */
   const HELP_SEEN = 'skytale-telenor-gantt-help-seen';
