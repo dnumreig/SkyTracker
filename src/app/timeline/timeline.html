@@ -169,6 +169,10 @@
     font-size:9px;letter-spacing:.05em;padding:1px 6px;border-radius:8px;
     background:var(--paper-deep);color:var(--ink-soft);border:1px solid var(--line);
   }
+  .task-label .chip.who{
+    background:var(--ink);color:var(--paper);border-color:var(--ink);
+    font-family:'Spline Sans Mono',monospace;font-weight:600;cursor:default;
+  }
   .task-label input{
     font-family:'Archivo',sans-serif;font-weight:600;font-size:12.6px;width:100%;
     border:1px solid var(--accent);background:#fff;padding:2px 6px;border-radius:2px;outline:none;
@@ -438,9 +442,10 @@
         Samtidige endringer <b>flettes felt for felt</b> — hver egenskap (tid, navn, status, avhengigheter,
         delmål) har eget versjonsnummer, så to personer kolliderer bare hvis de endrer nøyaktig samme felt
         på samme oppgave samtidig (da vinner siste lagring det ene feltet, resten beholdes).
-        Lesetilgang uten writer-rolle gir lokale endringer som ikke deles. Åpnet <b>lokalt fra fil</b> lagres
-        alt kun i din nettleser. <b>Eksporter/Importer</b> JSON virker i begge moduser.
-        <b>Nullstill til plan</b> henter V1.7-datoene — i delt modus gjelder det alle.</p>
+        Initial-merket bak datoene viser <b>hvem som endret linjen sist</b> (hold musen over for navn og
+        tidspunkt). Lesetilgang uten writer-rolle gir lokale endringer som ikke deles. Åpnet
+        <b>lokalt fra fil</b> lagres alt kun i din nettleser. <b>Eksporter/Importer</b> JSON virker i
+        begge moduser. <b>Nullstill til plan</b> henter V1.7-datoene — i delt modus gjelder det alle.</p>
       </div>
       <div class="help-card">
         <div class="hc-head"><span class="ico">⟳</span><h4>Synk SkyTracker</h4></div>
@@ -689,8 +694,14 @@ if (location.protocol === 'file:') {
     pendingTouch.forEach((fields, t) => {
       t.fv = t.fv || {};
       fields.forEach(f => { t.fv[f] = (t.fv[f] || 0) + 1; });
+      if(myName){ t.editedBy = myName; t.editedAt = new Date().toISOString(); }
     });
     pendingTouch.clear();
+  }
+  function initials(name){
+    const parts = String(name).trim().split(/[\s.@]+/).filter(Boolean);
+    if(parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return String(name).slice(0, 2).toUpperCase();
   }
   const maxFvOf = t => Math.max(0, ...FV_FIELDS.map(f => (t.fv && t.fv[f]) || 0));
   function save(){
@@ -961,6 +972,10 @@ if (location.protocol === 'file:') {
     if(hasSubs(t)) chips.push('<span class="chip">'+t.subtasks.length+' delmål</span>');
     if(t.deps.length) chips.push('<span class="chip">⇠ '+t.deps.length+'</span>');
     if(t.status !== 'gronn' && t.statusCause) chips.push('<span class="chip">'+esc(t.statusCause)+'</span>');
+    if(t.editedBy){
+      const when = t.editedAt ? new Date(t.editedAt).toLocaleString('nb-NO', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
+      chips.push('<span class="chip who" title="Sist endret av '+esc(t.editedBy)+(when ? ' · '+esc(when) : '')+'">'+esc(initials(t.editedBy))+'</span>');
+    }
     labelDateRefs[t.id].innerHTML = esc(rangeText(t)) + chips.join('');
     bar.title = t.label + ' · ' + rangeText(t) +
       (t.status !== 'gronn' ? ' · ' + STATUS_LABEL[t.status] +
@@ -1027,6 +1042,7 @@ if (location.protocol === 'file:') {
   function addTask(laneKey){
     const start = snapTo(9/31, SNAP);
     const t = {id:uid(), lane:laneKey, label:'Ny oppgave', start, end:start+1, deps:[], subtasks:[], fv:{}, status:'gronn'};
+    if(myName){ t.editedBy = myName; t.editedAt = new Date().toISOString(); }
     // sett inn etter siste oppgave i samme lane (beholder gruppering)
     let idx = -1;
     state.tasks.forEach((x,i) => { if(x.lane === laneKey) idx = i; });
@@ -1411,6 +1427,7 @@ if (location.protocol === 'file:') {
       // synkede data skal vinne over eldre kopier hos andre: bump datafeltene
       nt.fv = Object.assign({}, (prev && prev.fv) || {});
       ['tid','label','subtasks','meta'].forEach(f => { nt.fv[f] = (nt.fv[f] || 0) + 1; });
+      if(myName){ nt.editedBy = myName; nt.editedAt = new Date().toISOString(); }
       state.tasks.push(nt);
     });
     state.skytrackerSyncedAt = d.syncedAt;
@@ -1485,6 +1502,7 @@ if (location.protocol === 'file:') {
 
   /* ================== delt lagring (hostet: autosave for alle) ================== */
   let serverVersion = null, canWrite = false, serverReady = false, saveTimer = null, applyingRemote = false;
+  let myName = null;   // fra GET /api/timeline-plan — brukes til «sist endret av»-stempling
   function setSaveNote(msg){
     if(HOSTED) document.getElementById('dirtyNote').textContent = msg ? '☁ ' + msg : '';
   }
@@ -1505,6 +1523,7 @@ if (location.protocol === 'file:') {
       if(!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
       canWrite = j.role === 'writer';
+      myName = j.user || null;
       serverReady = true;
       if(j.plan){
         applyRemote(j.plan.data, j.plan.version);
