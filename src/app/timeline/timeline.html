@@ -434,8 +434,11 @@
       </div>
       <div class="help-card">
         <div class="hc-head"><span class="ico">⭳</span><h4>Lagring og deling</h4></div>
-        <p>Endringer lagres automatisk i nettleseren din. <b>Eksporter</b> lager en JSON-fil du kan dele,
-        <b>Importer</b> leser den inn igjen. <b>Nullstill til plan</b> henter tilbake datoene fra V1.7-dokumentet.</p>
+        <p>Åpnet <b>via SkyTracker</b> er planen felles: endringer autolagres for alle (☁-status øverst viser
+        når), og siste lagring vinner — lagrer noen andre samtidig, får du beskjed og siste versjon hentes.
+        Lesetilgang uten writer-rolle gir lokale endringer som ikke deles. Åpnet <b>lokalt fra fil</b> lagres
+        alt kun i din nettleser. <b>Eksporter/Importer</b> JSON virker i begge moduser.
+        <b>Nullstill til plan</b> henter V1.7-datoene — i delt modus gjelder det alle.</p>
       </div>
       <div class="help-card">
         <div class="hc-head"><span class="ico">⟳</span><h4>Synk SkyTracker</h4></div>
@@ -550,6 +553,7 @@ if (location.protocol === 'file:') {
   const MND = ['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
   const STORE_V2 = 'skytale-telenor-gantt-v2';
   const STORE_V1 = 'skytale-telenor-gantt-v1';
+  const HOSTED = location.protocol !== 'file:';   // åpnet via SkyTracker → delt lagring + live synk
 
   function cssNum(v){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)); }
   function monthInfo(i){
@@ -668,8 +672,12 @@ if (location.protocol === 'file:') {
   }
   function save(){
     localStorage.setItem(STORE_V2, JSON.stringify(state));
-    document.getElementById('dirtyNote').textContent =
-      JSON.stringify(state) === SEED_JSON ? '' : '● endret fra plan';
+    if(HOSTED){
+      scheduleServerSave();
+    } else {
+      document.getElementById('dirtyNote').textContent =
+        JSON.stringify(state) === SEED_JSON ? '' : '● endret fra plan';
+    }
   }
   const getTask = id => state.tasks.find(t => t.id === id);
   const hasSubs = t => t.subtasks && t.subtasks.length > 0;
@@ -1325,7 +1333,6 @@ if (location.protocol === 'file:') {
 
   /* ================== SkyTracker-synk ================== */
   const syncBtn = document.getElementById('syncStBtn');
-  const HOSTED = location.protocol !== 'file:';   // åpnet via SkyTracker → hent live
   async function applySkytracker(){
     if(HOSTED){
       syncBtn.disabled = true;
@@ -1431,6 +1438,73 @@ if (location.protocol === 'file:') {
     localStorage.removeItem(LABELW_KEY);
   });
 
+  /* ================== delt lagring (hostet: autosave for alle) ================== */
+  let serverVersion = null, canWrite = false, serverReady = false, saveTimer = null, applyingRemote = false;
+  function setSaveNote(msg){
+    if(HOSTED) document.getElementById('dirtyNote').textContent = msg ? '☁ ' + msg : '';
+  }
+  function applyRemote(data, version){
+    applyingRemote = true;
+    serverVersion = version;
+    state = normalize(data);
+    resolveDeps();
+    render();
+    updateSyncBtn();
+    applyingRemote = false;
+  }
+  async function initServerPlan(){
+    if(!HOSTED) return;
+    setSaveNote('henter delt plan…');
+    try{
+      const r = await fetch('api/timeline-plan', {cache:'no-store'});
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      canWrite = j.role === 'writer';
+      serverReady = true;
+      if(j.plan){
+        applyRemote(j.plan.data, j.plan.version);
+        setSaveNote('delt plan lastet' + (canWrite ? '' : ' — kun lesetilgang, endringer forblir lokale'));
+      } else if(canWrite){
+        await pushPlan();   // aller første lagring: planen du ser blir den delte
+      } else {
+        setSaveNote('ingen delt plan enda — kun lesetilgang');
+      }
+    }catch(err){
+      setSaveNote('frakoblet — lagrer kun lokalt');
+    }
+  }
+  async function pushPlan(){
+    try{
+      const r = await fetch('api/timeline-plan', {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ version: serverVersion, data: state })
+      });
+      if(r.status === 409){
+        const j = await r.json();
+        applyRemote(j.data, j.version);
+        setSaveNote('oppdatert av ' + (j.updatedBy || 'noen andre') + ' i mellomtiden — hentet siste versjon');
+        return;
+      }
+      if(r.status === 403){
+        canWrite = false;
+        setSaveNote('kun lesetilgang — endringer forblir lokale');
+        return;
+      }
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      serverVersion = j.version;
+      setSaveNote('lagret for alle ' + new Date().toLocaleTimeString('nb-NO', {hour:'2-digit', minute:'2-digit'}));
+    }catch(err){
+      setSaveNote('lagring feilet — prøver igjen ved neste endring');
+    }
+  }
+  function scheduleServerSave(){
+    if(!serverReady || !canWrite || applyingRemote) return;
+    setSaveNote('lagrer…');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(pushPlan, 900);
+  }
+
   /* ================== hjelpepanel ================== */
   const HELP_SEEN = 'skytale-telenor-gantt-help-seen';
   const helpPanel = document.getElementById('helpPanel');
@@ -1446,7 +1520,10 @@ if (location.protocol === 'file:') {
 
   /* ================== verktøylinje ================== */
   document.getElementById('resetBtn').addEventListener('click', () => {
-    if(!confirm('Nullstille alt til plandatoene fra dokumentet? Egne rader, delmål og avhengigheter fjernes.')) return;
+    const resetMsg = HOSTED
+      ? 'Nullstille den DELTE planen til plandatoene fra dokumentet? Dette gjelder ALLE som bruker verktøyet — egne rader, delmål, trafikklys og avhengigheter fjernes.'
+      : 'Nullstille alt til plandatoene fra dokumentet? Egne rader, delmål og avhengigheter fjernes.';
+    if(!confirm(resetMsg)) return;
     state = normalize(clone(SEED));
     localStorage.removeItem(STORE_V2);
     cancelLink();
@@ -1485,6 +1562,7 @@ if (location.protocol === 'file:') {
   });
 
   render();
+  initServerPlan();
 })();
 </script>
 </body>
