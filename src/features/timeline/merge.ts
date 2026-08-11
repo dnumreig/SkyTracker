@@ -18,7 +18,7 @@ const GROUP_PROPS: Record<TaskFieldGroup, string[]> = {
   status: ["status", "statusCause", "statusAt"],
   deps: ["deps"],
   subtasks: ["subtasks"],
-  meta: ["lane", "t2", "milestone", "source"],
+  meta: ["lane", "t2", "milestone", "source", "ext"],
 };
 
 export type PlanTask = {
