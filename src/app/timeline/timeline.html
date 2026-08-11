@@ -173,6 +173,38 @@
     background:var(--ink);color:var(--paper);border-color:var(--ink);
     font-family:'Spline Sans Mono',monospace;font-weight:600;cursor:default;
   }
+  .task-label .chip.ext{
+    background:transparent;border:1px solid var(--gold);color:var(--gold);font-weight:700;
+  }
+  .row-actions button.vis.on{border-color:var(--gold);color:var(--gold)}
+  .lane-label .lane-vis{
+    background:transparent;border:1px solid rgba(247,244,238,.4);color:var(--paper);
+    width:22px;height:22px;padding:0;line-height:1;font-size:11px;border-radius:2px;margin-right:4px;
+  }
+  .lane-label .lane-vis:hover{background:var(--paper);color:var(--ink)}
+
+  /* ---------- presentasjonsmodus (investorvisning) ---------- */
+  #presentExit{
+    display:none;position:fixed;top:14px;right:16px;z-index:80;
+    background:var(--card);border:1px solid var(--line);color:var(--ink-faint);
+  }
+  #presentExit:hover{border-color:var(--ink);color:var(--ink);background:var(--card)}
+  body.presenting #presentExit{display:block}
+  body.presenting .toolbar, body.presenting .legend, body.presenting .hint,
+  body.presenting .link-banner, body.presenting .help, body.presenting .col-resizer,
+  body.presenting .row-actions, body.presenting .tl-dot, body.presenting .task-label .chip,
+  body.presenting .sub-ind, body.presenting .lane-label .add-task,
+  body.presenting .lane-label .lane-vis, body.presenting footer{display:none !important}
+  body.presenting .task-label{padding-left:16px}
+  body.presenting .bar, body.presenting .bar:hover{cursor:default;filter:none;box-shadow:0 1px 2px rgba(19,32,47,.22)}
+  body.presenting .bar .h{display:none}
+  body.presenting .bar.st-gul, body.presenting .bar.st-rod{outline:none;animation:none}
+  body.presenting .titlebar{margin:34px 0 26px}
+  body.presenting h1{font-size:clamp(34px,4.5vw,52px)}
+  body.presenting .gantt{box-shadow:0 2px 24px rgba(19,32,47,.08)}
+  .present-empty{
+    padding:60px 40px;text-align:center;font-family:'Fraunces',serif;font-size:19px;color:var(--ink-soft);
+  }
   .task-label input{
     font-family:'Archivo',sans-serif;font-weight:600;font-size:12.6px;width:100%;
     border:1px solid var(--accent);background:#fff;padding:2px 6px;border-radius:2px;outline:none;
@@ -262,7 +294,7 @@
   }
   .bar.milestone{border-radius:15px}
   .bar.milestone .bl{padding:0 12px}
-  /* trafikklys-belysning av linjene */
+  /* statussignal-belysning av linjene */
   .bar.st-gul{outline:3px solid #d9a416;outline-offset:2px}
   .bar.st-rod{outline:3px solid var(--accent);outline-offset:2px;animation:tl-pulse 1.8s ease-in-out infinite}
   @keyframes tl-pulse{
@@ -382,12 +414,12 @@
 
   <div class="meta-row">
     <span class="brand">SKYTALE <em>×</em> TELENOR</span>
-    <span>Planleggingsverktøy · August 2026</span>
+    <span id="metaRight">Planleggingsverktøy · August 2026</span>
   </div>
 
   <div class="titlebar">
     <div>
-      <h1>Tidslinjen — <span class="accent">planlegging.</span></h1>
+      <h1 id="mainTitle">Tidslinjen — <span class="accent">planlegging.</span></h1>
       <p class="hint">
         Levende planleggingsversjon av Telenor-tidslinjen — dra i linjene, koble avhengigheter,
         zoom inn i delmål. Trykk <b>Hjelp</b> for en kort forklaring på bruk.
@@ -395,6 +427,7 @@
     </div>
     <div class="toolbar">
       <span class="dirty-note" id="dirtyNote"></span>
+      <button id="presentBtn" title="Investorvisning: viser kun spor og oppgaver merket eksternt">Presentasjon</button>
       <button id="syncStBtn" title="Hent inn siste synkede SkyTracker-data">Synk SkyTracker</button>
       <button class="ghost" id="helpBtn">Hjelp</button>
       <button class="ghost" id="exportBtn">Eksporter</button>
@@ -456,12 +489,20 @@
         data ligger klar).</p>
       </div>
       <div class="help-card">
-        <div class="hc-head"><span class="ico">●</span><h4>Trafikklys</h4></div>
-        <p>Klikk <b>prikken foran oppgavenavnet</b> for å sette status etter trafikklysprotokollen:
+        <div class="hc-head"><span class="ico">●</span><h4>Statussignal</h4></div>
+        <p>Klikk <b>prikken foran oppgavenavnet</b> for å sette statussignal:
         <b>grønn</b> = som avtalt, <b>gul</b> = utfordringer (avdelingen eier løsningen),
         <b>rød</b> = krever beslutning. Ved gul/rød velger du årsak fra den faste listen —
         det er kategoriene som summeres over kvartaler. Gule og røde linjer lyses opp i diagrammet,
-        og tellingen vises øverst. Status overlever SkyTracker-resynk.</p>
+        og tellingen vises øverst. Signalet overlever SkyTracker-resynk.
+        (Samme fargelogikk som trafikklysmodellen i ukesrapporteringen, men eget navn — dette er per oppgave.)</p>
+      </div>
+      <div class="help-card">
+        <div class="hc-head"><span class="ico">◉</span><h4>Presentasjon for investormøter</h4></div>
+        <p>Alt er <b>internt</b> som standard. Merk oppgaver eksterne med <b>○-knappen</b> på raden
+        (blir ◉), eller hele strømmer med ○ i den svarte strømlinjen. <b>Presentasjon</b>-knappen åpner
+        investorvisningen: kun eksternt merkede spor, uten statussignaler, redigeringsknapper og interne
+        merker. Avslutt med Esc. Direktelenke: legg <b>?present=1</b> på adressen.</p>
       </div>
       <div class="help-card">
         <div class="hc-head"><span class="ico">✳</span><h4>Oppdater med Claude</h4></div>
@@ -487,7 +528,7 @@
     <span><i class="sw t2sw"></i>Forutsetter transje 2</span>
     <span><i class="sw skytracker"></i>SkyTracker (synket)</span>
     <span><i class="sw depsw"></i>Avhengighet</span>
-    <span class="tl-summary" id="tlSummary" title="Trafikklys: klikk prikken foran et oppgavenavn for å endre status"></span>
+    <span class="tl-summary" id="tlSummary" title="Statussignaler: klikk prikken foran et oppgavenavn for å endre"></span>
   </div>
 
   <div class="gantt">
@@ -507,6 +548,7 @@
 
 <div class="drag-tip" id="dragTip"></div>
 <div class="cause-menu" id="causeMenu"></div>
+<button class="ghost" id="presentExit">Avslutt presentasjon (Esc)</button>
 
 <!-- Lokal modus (fil på disk): last skytracker-data.js skrevet av sync-skytracker.command.
      Hostet i SkyTracker hentes data i stedet live fra /api/timeline-export ved knappetrykk. -->
@@ -649,6 +691,7 @@ if (location.protocol === 'file:') {
   let state = loadState();
   let linkSource = null;          // id under kobling
   let openTaskId = null;          // åpen i detaljvisning
+  let presenting = false;         // investorvisning: kun eksternt merkede spor
 
   function loadState(){
     try{
@@ -717,7 +760,7 @@ if (location.protocol === 'file:') {
   const getTask = id => state.tasks.find(t => t.id === id);
   const hasSubs = t => t.subtasks && t.subtasks.length > 0;
 
-  /* ================== trafikklys (føring 1.2 + årsaksliste 1.5) ================== */
+  /* ================== statussignal (fargelogikk fra føring 1.2 + årsaksliste 1.5) ================== */
   const STATUS_LABEL = { gronn:'GRØNN — som avtalt', gul:'GUL — utfordringer, avdelingen eier løsningen', rod:'RØD — krever beslutning' };
   const CAUSES = [
     'Undervurdert kompleksitet',
@@ -868,6 +911,8 @@ if (location.protocol === 'file:') {
 
     // lanes + rader
     state.lanes.forEach(lane => {
+      const laneTasks = state.tasks.filter(t => t.lane === lane.key && (!presenting || t.ext));
+      if(presenting && !laneTasks.length) return;   // skjul interne spor i presentasjon
       const ll = document.createElement('div');
       ll.className = 'lane-label';
       const nm = document.createElement('span');
@@ -875,12 +920,28 @@ if (location.protocol === 'file:') {
       nm.title = 'Dobbeltklikk for å endre navn';
       nm.style.cursor = 'text';
       nm.addEventListener('dblclick', () => editInline(nm, lane.name, v => { lane.name = v; lane.v = (lane.v || 0) + 1; save(); render(); }));
+      const ctr = document.createElement('span');
+      const laneAllExt = laneTasks.length > 0 && laneTasks.every(t => t.ext);
+      const vis = document.createElement('button');
+      vis.className = 'lane-vis';
+      vis.textContent = laneAllExt ? '◉' : '○';
+      vis.title = laneAllExt
+        ? 'Hele strømmen er merket EKSTERN — klikk for å gjøre alt internt'
+        : 'Merk hele strømmen EKSTERN (vises i presentasjon)';
+      vis.addEventListener('click', () => {
+        const makeExt = !laneAllExt;
+        state.tasks.filter(t => t.lane === lane.key).forEach(t => {
+          if(!!t.ext !== makeExt){ t.ext = makeExt; touch(t, 'meta'); }
+        });
+        save(); render();
+      });
       const add = document.createElement('button');
       add.className = 'add-task';
       add.textContent = '＋';
       add.title = 'Legg til oppgave i ' + lane.name;
       add.addEventListener('click', () => addTask(lane.key));
-      ll.appendChild(nm); ll.appendChild(add);
+      ctr.appendChild(vis); ctr.appendChild(add);
+      ll.appendChild(nm); ll.appendChild(ctr);
       labels.appendChild(ll);
 
       const lb = document.createElement('div');
@@ -888,14 +949,14 @@ if (location.protocol === 'file:') {
       lb.style.width = (N_MONTHS*MONTH_W)+'px';
       chart.appendChild(lb);
 
-      state.tasks.filter(t => t.lane === lane.key).forEach(t => {
+      laneTasks.forEach(t => {
         // venstre kolonne
         const tl = document.createElement('div');
         tl.className = 'task-label';
         tl.dataset.id = t.id;
         const dot = document.createElement('span');
         dot.className = 'tl-dot ' + t.status;
-        dot.title = 'Trafikklys: ' + STATUS_LABEL[t.status] +
+        dot.title = 'Statussignal: ' + STATUS_LABEL[t.status] +
           (t.statusCause ? ' · ' + t.statusCause : '') + ' — klikk for å endre';
         dot.addEventListener('click', e => { e.stopPropagation(); cycleStatus(t, e); });
         tl.appendChild(dot);
@@ -913,9 +974,17 @@ if (location.protocol === 'file:') {
         acts.innerHTML =
           '<button class="zoom" title="Zoom inn: delmål">⌕</button>' +
           '<button class="link" title="Koble avhengighet: velg hvem som avhenger av denne">⇢</button>' +
+          '<button class="vis' + (t.ext ? ' on' : '') + '" title="' +
+            (t.ext ? 'EKSTERN — vises i presentasjon. Klikk for å gjøre intern' : 'Intern — skjules i presentasjon. Klikk for å merke ekstern') +
+          '">' + (t.ext ? '◉' : '○') + '</button>' +
           '<button class="del" title="Slett oppgave">×</button>';
         acts.querySelector('.zoom').addEventListener('click', () => openDetail(t.id));
         acts.querySelector('.link').addEventListener('click', () => startLink(t.id));
+        acts.querySelector('.vis').addEventListener('click', () => {
+          t.ext = !t.ext;
+          touch(t, 'meta');
+          save(); render();
+        });
         acts.querySelector('.del').addEventListener('click', () => removeTask(t.id));
         tl.appendChild(acts);
         tl.addEventListener('click', e => { if(linkSource && !e.target.closest('.row-actions')) completeLink(t.id); });
@@ -940,6 +1009,14 @@ if (location.protocol === 'file:') {
         rowRefs[t.id] = row;
       });
     });
+
+    if(presenting && !state.tasks.some(t => t.ext)){
+      const em = document.createElement('div');
+      em.className = 'present-empty';
+      em.style.width = (N_MONTHS*MONTH_W) + 'px';
+      em.textContent = 'Ingen spor er merket eksternt enda. Avslutt presentasjonen (Esc) og merk oppgaver eller hele strømmer med ○-knappen.';
+      chart.appendChild(em);
+    }
 
     // SVG for piler (sist = tegnes øverst)
     depSvg = document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -968,6 +1045,7 @@ if (location.protocol === 'file:') {
     bar.style.left = (t.start*MONTH_W)+'px';
     bar.style.width = Math.max(14,(t.end-t.start)*MONTH_W)+'px';
     const chips = [];
+    if(t.ext) chips.push('<span class="chip ext">EKSTERN</span>');
     if(t.source === 'skytracker') chips.push('<span class="chip">ST</span>');
     if(hasSubs(t)) chips.push('<span class="chip">'+t.subtasks.length+' delmål</span>');
     if(t.deps.length) chips.push('<span class="chip">⇠ '+t.deps.length+'</span>');
@@ -1106,12 +1184,14 @@ if (location.protocol === 'file:') {
     if(e.key === 'Escape'){
       if(linkSource) cancelLink();
       else if(openTaskId) closeDetail();
+      else if(presenting) exitPresent();
     }
   });
 
   /* ================== drag (hovedvisning) ================== */
   let drag = null;
   chart.addEventListener('pointerdown', e => {
+    if(presenting) return;
     const bar = e.target.closest('.bar');
     if(!bar) return;
     if(linkSource){ completeLink(bar.dataset.id); e.preventDefault(); return; }
@@ -1174,6 +1254,7 @@ if (location.protocol === 'file:') {
   let mBarRefs = {}, mDateRefs = {};
 
   function openDetail(id){
+    if(presenting) return;
     openTaskId = id;
     const t = getTask(id);
     if(!hasSubs(t)){
@@ -1412,7 +1493,7 @@ if (location.protocol === 'file:') {
       return;
     }
     if(!state.lanes.some(l => l.key === d.lane.key)) state.lanes.push(clone(d.lane));
-    // trafikklys-status er et planleggingslag — bevar den over resynk
+    // statussignaler er et planleggingslag — bevar dem over resynk
     const oldStatus = {};
     state.tasks.filter(t => t.source === 'skytracker').forEach(t => {
       oldStatus[t.id] = { status:t.status, statusCause:t.statusCause, statusAt:t.statusAt, fv:t.fv };
@@ -1579,6 +1660,34 @@ if (location.protocol === 'file:') {
     saveTimer = setTimeout(pushPlan, 900);
   }
 
+  /* ================== presentasjonsmodus (investorvisning) ================== */
+  const mainTitle = document.getElementById('mainTitle');
+  const metaRight = document.getElementById('metaRight');
+  const NORMAL_TITLE = mainTitle.innerHTML;
+  const NORMAL_META = metaRight.textContent;
+  function enterPresent(){
+    if(presenting) return;
+    presenting = true;
+    cancelLink();
+    closeCauseMenu();
+    if(openTaskId) closeDetail();
+    document.body.classList.add('presenting');
+    mainTitle.innerHTML = 'Veikart — <span class="accent">Skytale.</span>';
+    metaRight.textContent = 'Veikart og milepæler · ' +
+      new Date().toLocaleDateString('nb-NO', {day:'numeric', month:'long', year:'numeric'});
+    render();
+  }
+  function exitPresent(){
+    if(!presenting) return;
+    presenting = false;
+    document.body.classList.remove('presenting');
+    mainTitle.innerHTML = NORMAL_TITLE;
+    metaRight.textContent = NORMAL_META;
+    render();
+  }
+  document.getElementById('presentBtn').addEventListener('click', enterPresent);
+  document.getElementById('presentExit').addEventListener('click', exitPresent);
+
   /* ================== hjelpepanel ================== */
   const HELP_SEEN = 'skytale-telenor-gantt-help-seen';
   const helpPanel = document.getElementById('helpPanel');
@@ -1595,7 +1704,7 @@ if (location.protocol === 'file:') {
   /* ================== verktøylinje ================== */
   document.getElementById('resetBtn').addEventListener('click', () => {
     const resetMsg = HOSTED
-      ? 'Nullstille den DELTE planen til plandatoene fra dokumentet? Dette gjelder ALLE som bruker verktøyet — egne rader, delmål, trafikklys og avhengigheter fjernes.'
+      ? 'Nullstille den DELTE planen til plandatoene fra dokumentet? Dette gjelder ALLE som bruker verktøyet — egne rader, delmål, statussignaler og avhengigheter fjernes.'
       : 'Nullstille alt til plandatoene fra dokumentet? Egne rader, delmål og avhengigheter fjernes.';
     if(!confirm(resetMsg)) return;
     // finn høyeste feltversjon i dagens plan, så nullstillingen vinner flettingen
@@ -1643,6 +1752,7 @@ if (location.protocol === 'file:') {
 
   render();
   initServerPlan();
+  if(new URLSearchParams(location.search).get('present') === '1') enterPresent();
 })();
 </script>
 </body>

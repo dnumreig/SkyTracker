@@ -91,6 +91,12 @@ describe("mergePlans — field-level versioning", () => {
     expect(ni.end).toBe(5);
   });
 
+  it("ext (internt/eksternt-merking) merges via the meta group", () => {
+    const stored = plan([task({ id: "a", ext: true, fv: { meta: 2 } })]);
+    const incoming = plan([task({ id: "a", fv: { meta: 1 } })]);
+    expect(mergePlans(stored, incoming).tasks[0].ext).toBe(true);
+  });
+
   it("editedBy/editedAt follow the newest edit stamp", () => {
     const stored = plan([task({ id: "a", editedBy: "Kristoffer", editedAt: "2026-08-11T10:00:00Z", start: 9, end: 10, fv: { tid: 5 } })]);
     const incoming = plan([task({ id: "a", editedBy: "Gjermund", editedAt: "2026-08-11T11:00:00Z", fv: { status: 1 }, status: "gul" })]);
