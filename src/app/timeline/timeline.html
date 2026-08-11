@@ -294,7 +294,7 @@
   }
   .bar.milestone{border-radius:15px}
   .bar.milestone .bl{padding:0 12px}
-  /* trafikklys-belysning av linjene */
+  /* statussignal-belysning av linjene */
   .bar.st-gul{outline:3px solid #d9a416;outline-offset:2px}
   .bar.st-rod{outline:3px solid var(--accent);outline-offset:2px;animation:tl-pulse 1.8s ease-in-out infinite}
   @keyframes tl-pulse{
@@ -489,18 +489,19 @@
         data ligger klar).</p>
       </div>
       <div class="help-card">
-        <div class="hc-head"><span class="ico">●</span><h4>Trafikklys</h4></div>
-        <p>Klikk <b>prikken foran oppgavenavnet</b> for å sette status etter trafikklysprotokollen:
+        <div class="hc-head"><span class="ico">●</span><h4>Statussignal</h4></div>
+        <p>Klikk <b>prikken foran oppgavenavnet</b> for å sette statussignal:
         <b>grønn</b> = som avtalt, <b>gul</b> = utfordringer (avdelingen eier løsningen),
         <b>rød</b> = krever beslutning. Ved gul/rød velger du årsak fra den faste listen —
         det er kategoriene som summeres over kvartaler. Gule og røde linjer lyses opp i diagrammet,
-        og tellingen vises øverst. Status overlever SkyTracker-resynk.</p>
+        og tellingen vises øverst. Signalet overlever SkyTracker-resynk.
+        (Samme fargelogikk som trafikklysmodellen i ukesrapporteringen, men eget navn — dette er per oppgave.)</p>
       </div>
       <div class="help-card">
         <div class="hc-head"><span class="ico">◉</span><h4>Presentasjon for investormøter</h4></div>
         <p>Alt er <b>internt</b> som standard. Merk oppgaver eksterne med <b>○-knappen</b> på raden
         (blir ◉), eller hele strømmer med ○ i den svarte strømlinjen. <b>Presentasjon</b>-knappen åpner
-        investorvisningen: kun eksternt merkede spor, uten trafikklys, redigeringsknapper og interne
+        investorvisningen: kun eksternt merkede spor, uten statussignaler, redigeringsknapper og interne
         merker. Avslutt med Esc. Direktelenke: legg <b>?present=1</b> på adressen.</p>
       </div>
       <div class="help-card">
@@ -527,7 +528,7 @@
     <span><i class="sw t2sw"></i>Forutsetter transje 2</span>
     <span><i class="sw skytracker"></i>SkyTracker (synket)</span>
     <span><i class="sw depsw"></i>Avhengighet</span>
-    <span class="tl-summary" id="tlSummary" title="Trafikklys: klikk prikken foran et oppgavenavn for å endre status"></span>
+    <span class="tl-summary" id="tlSummary" title="Statussignaler: klikk prikken foran et oppgavenavn for å endre"></span>
   </div>
 
   <div class="gantt">
@@ -759,7 +760,7 @@ if (location.protocol === 'file:') {
   const getTask = id => state.tasks.find(t => t.id === id);
   const hasSubs = t => t.subtasks && t.subtasks.length > 0;
 
-  /* ================== trafikklys (føring 1.2 + årsaksliste 1.5) ================== */
+  /* ================== statussignal (fargelogikk fra føring 1.2 + årsaksliste 1.5) ================== */
   const STATUS_LABEL = { gronn:'GRØNN — som avtalt', gul:'GUL — utfordringer, avdelingen eier løsningen', rod:'RØD — krever beslutning' };
   const CAUSES = [
     'Undervurdert kompleksitet',
@@ -955,7 +956,7 @@ if (location.protocol === 'file:') {
         tl.dataset.id = t.id;
         const dot = document.createElement('span');
         dot.className = 'tl-dot ' + t.status;
-        dot.title = 'Trafikklys: ' + STATUS_LABEL[t.status] +
+        dot.title = 'Statussignal: ' + STATUS_LABEL[t.status] +
           (t.statusCause ? ' · ' + t.statusCause : '') + ' — klikk for å endre';
         dot.addEventListener('click', e => { e.stopPropagation(); cycleStatus(t, e); });
         tl.appendChild(dot);
@@ -1492,7 +1493,7 @@ if (location.protocol === 'file:') {
       return;
     }
     if(!state.lanes.some(l => l.key === d.lane.key)) state.lanes.push(clone(d.lane));
-    // trafikklys-status er et planleggingslag — bevar den over resynk
+    // statussignaler er et planleggingslag — bevar dem over resynk
     const oldStatus = {};
     state.tasks.filter(t => t.source === 'skytracker').forEach(t => {
       oldStatus[t.id] = { status:t.status, statusCause:t.statusCause, statusAt:t.statusAt, fv:t.fv };
@@ -1703,7 +1704,7 @@ if (location.protocol === 'file:') {
   /* ================== verktøylinje ================== */
   document.getElementById('resetBtn').addEventListener('click', () => {
     const resetMsg = HOSTED
-      ? 'Nullstille den DELTE planen til plandatoene fra dokumentet? Dette gjelder ALLE som bruker verktøyet — egne rader, delmål, trafikklys og avhengigheter fjernes.'
+      ? 'Nullstille den DELTE planen til plandatoene fra dokumentet? Dette gjelder ALLE som bruker verktøyet — egne rader, delmål, statussignaler og avhengigheter fjernes.'
       : 'Nullstille alt til plandatoene fra dokumentet? Egne rader, delmål og avhengigheter fjernes.';
     if(!confirm(resetMsg)) return;
     // finn høyeste feltversjon i dagens plan, så nullstillingen vinner flettingen
