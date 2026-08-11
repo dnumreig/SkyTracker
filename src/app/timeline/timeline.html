@@ -434,8 +434,10 @@
       </div>
       <div class="help-card">
         <div class="hc-head"><span class="ico">⭳</span><h4>Lagring og deling</h4></div>
-        <p>Åpnet <b>via SkyTracker</b> er planen felles: endringer autolagres for alle (☁-status øverst viser
-        når), og siste lagring vinner — lagrer noen andre samtidig, får du beskjed og siste versjon hentes.
+        <p>Åpnet <b>via SkyTracker</b> er planen felles: endringer autolagres for alle (☁-status øverst).
+        Samtidige endringer <b>flettes felt for felt</b> — hver egenskap (tid, navn, status, avhengigheter,
+        delmål) har eget versjonsnummer, så to personer kolliderer bare hvis de endrer nøyaktig samme felt
+        på samme oppgave samtidig (da vinner siste lagring det ene feltet, resten beholdes).
         Lesetilgang uten writer-rolle gir lokale endringer som ikke deles. Åpnet <b>lokalt fra fil</b> lagres
         alt kun i din nettleser. <b>Eksporter/Importer</b> JSON virker i begge moduser.
         <b>Nullstill til plan</b> henter V1.7-datoene — i delt modus gjelder det alle.</p>
@@ -635,8 +637,8 @@ if (location.protocol === 'file:') {
       {id:'mdr',          lane:'sikkerhet', label:'MDR / SOAR / responsberedskap',          start:6,    end:11,  t2:true, deps:[], subtasks:[]}
     ]
   };
-  const SEED_JSON = JSON.stringify(SEED);
   const clone = o => JSON.parse(JSON.stringify(o));
+  const SEED_JSON = JSON.stringify(normalize(clone(SEED)));   // normalize hoistes
 
   /* ================== state ================== */
   let state = loadState();
@@ -661,16 +663,38 @@ if (location.protocol === 'file:') {
     return normalize(clone(SEED));
   }
   function normalize(s){
+    s.deleted = (s.deleted && typeof s.deleted === 'object') ? s.deleted : {};
     s.tasks.forEach(t => {
       t.deps = Array.isArray(t.deps) ? t.deps : [];
       t.subtasks = Array.isArray(t.subtasks) ? t.subtasks : [];
+      t.fv = (t.fv && typeof t.fv === 'object') ? t.fv : {};
       if(!['gronn','gul','rod'].includes(t.status)) t.status = 'gronn';
     });
     const ids = new Set(s.tasks.map(t => t.id));
     s.tasks.forEach(t => { t.deps = t.deps.filter(d => ids.has(d)); });
     return s;
   }
+
+  /* Feltversjoner: hver oppgave har fv = {tid, label, status, deps, subtasks, meta}.
+     Klienten bumper feltet den endrer; serveren fletter per felt (høyest vinner).
+     Endringer markeres her og flushes én gang per save(). */
+  const FV_FIELDS = ['tid','label','status','deps','subtasks','meta'];
+  const pendingTouch = new Map();   // task → Set(felt)
+  function touch(t, field){
+    let set = pendingTouch.get(t);
+    if(!set){ set = new Set(); pendingTouch.set(t, set); }
+    set.add(field);
+  }
+  function flushTouches(){
+    pendingTouch.forEach((fields, t) => {
+      t.fv = t.fv || {};
+      fields.forEach(f => { t.fv[f] = (t.fv[f] || 0) + 1; });
+    });
+    pendingTouch.clear();
+  }
+  const maxFvOf = t => Math.max(0, ...FV_FIELDS.map(f => (t.fv && t.fv[f]) || 0));
   function save(){
+    flushTouches();
     localStorage.setItem(STORE_V2, JSON.stringify(state));
     if(HOSTED){
       scheduleServerSave();
@@ -697,6 +721,7 @@ if (location.protocol === 'file:') {
     const next = { gronn:'gul', gul:'rod', rod:'gronn' }[t.status] || 'gul';
     t.status = next;
     t.statusAt = new Date().toISOString();
+    touch(t, 'status');
     if(next === 'gronn'){
       delete t.statusCause;
       save(); render();
@@ -715,6 +740,7 @@ if (location.protocol === 'file:') {
     causeMenu.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
       const i = parseInt(b.dataset.i, 10);
       if(i >= 0) t.statusCause = CAUSES[i]; else delete t.statusCause;
+      touch(t, 'status');
       closeCauseMenu();
       save(); render();
     }));
@@ -749,8 +775,14 @@ if (location.protocol === 'file:') {
   function shiftTask(t, d){
     d = Math.max(d, -t.start);
     d = Math.min(d, N_MONTHS - t.end);
+    if(!d) return;
     t.start += d; t.end += d;
-    if(hasSubs(t)) t.subtasks.forEach(s => { s.start += d; s.end += d; });
+    if(hasSubs(t)){
+      t.subtasks.forEach(s => { s.start += d; s.end += d; });
+      touch(t, 'subtasks');
+    } else {
+      touch(t, 'tid');
+    }
   }
   function resolveDeps(){             // dytt avhengige framover (finish-to-start)
     let guard = 0, changed = true;
@@ -831,7 +863,7 @@ if (location.protocol === 'file:') {
       nm.textContent = lane.name;
       nm.title = 'Dobbeltklikk for å endre navn';
       nm.style.cursor = 'text';
-      nm.addEventListener('dblclick', () => editInline(nm, lane.name, v => { lane.name = v; save(); render(); }));
+      nm.addEventListener('dblclick', () => editInline(nm, lane.name, v => { lane.name = v; lane.v = (lane.v || 0) + 1; save(); render(); }));
       const add = document.createElement('button');
       add.className = 'add-task';
       add.textContent = '＋';
@@ -860,7 +892,7 @@ if (location.protocol === 'file:') {
         tt.className = 't';
         tt.textContent = t.label;
         tt.title = t.label + ' (dobbeltklikk for å redigere)';
-        tt.addEventListener('dblclick', () => editInline(tt, t.label, v => { t.label = v; save(); render(); }));
+        tt.addEventListener('dblclick', () => editInline(tt, t.label, v => { t.label = v; touch(t, 'label'); save(); render(); }));
         const dd = document.createElement('span');
         dd.className = 'd';
         tl.appendChild(tt); tl.appendChild(dd);
@@ -963,6 +995,7 @@ if (location.protocol === 'file:') {
         hit.addEventListener('click', () => {
           if(confirm('Fjerne avhengigheten «' + a.label + ' → ' + b.label + '»?')){
             b.deps = b.deps.filter(d => d !== aId);
+            touch(b, 'deps');
             save(); render();
           }
         });
@@ -993,7 +1026,7 @@ if (location.protocol === 'file:') {
   /* ================== rader: legg til / fjern ================== */
   function addTask(laneKey){
     const start = snapTo(9/31, SNAP);
-    const t = {id:uid(), lane:laneKey, label:'Ny oppgave', start, end:start+1, deps:[], subtasks:[]};
+    const t = {id:uid(), lane:laneKey, label:'Ny oppgave', start, end:start+1, deps:[], subtasks:[], fv:{}, status:'gronn'};
     // sett inn etter siste oppgave i samme lane (beholder gruppering)
     let idx = -1;
     state.tasks.forEach((x,i) => { if(x.lane === laneKey) idx = i; });
@@ -1006,8 +1039,11 @@ if (location.protocol === 'file:') {
     const t = getTask(id);
     if(!t) return;
     if(!confirm('Slette «' + t.label + '»? Avhengigheter til den fjernes også.')) return;
+    state.deleted[id] = maxFvOf(t) + 1;   // tombstone: vinner over usett kopi hos andre
     state.tasks = state.tasks.filter(x => x.id !== id);
-    state.tasks.forEach(x => { x.deps = x.deps.filter(d => d !== id); });
+    state.tasks.forEach(x => {
+      if(x.deps.includes(id)){ x.deps = x.deps.filter(d => d !== id); touch(x, 'deps'); }
+    });
     if(linkSource === id) cancelLink();
     save(); render();
   }
@@ -1031,12 +1067,14 @@ if (location.protocol === 'file:') {
     const target = getTask(targetId);
     if(target.deps.includes(src)){
       target.deps = target.deps.filter(d => d !== src);
+      touch(target, 'deps');
     } else {
       if(dependsOn(src, targetId)){
         alert('Kan ikke koble: det ville gitt en sirkulær avhengighet.');
         cancelLink(); return;
       }
       target.deps.push(src);
+      touch(target, 'deps');
       resolveDeps();
     }
     cancelLink();
@@ -1085,11 +1123,11 @@ if (location.protocol === 'file:') {
     } else if(drag.mode === 'l'){
       let s = snapTo(drag.start0 + du, SNAP);
       s = Math.max(0, Math.min(drag.end0 - MIN_DUR, s));
-      t.start = s;
+      if(s !== t.start){ t.start = s; touch(t, 'tid'); }
     } else {
       let en = snapTo(drag.end0 + du, SNAP);
       en = Math.min(N_MONTHS, Math.max(drag.start0 + MIN_DUR, en));
-      t.end = en;
+      if(en !== t.end){ t.end = en; touch(t, 'tid'); }
     }
     resolveDeps();
     positionAll();
@@ -1240,7 +1278,7 @@ if (location.protocol === 'file:') {
     const finish = ok => {
       if(done) return; done = true;
       const v = input.value.trim();
-      if(ok && v) s.label = v;
+      if(ok && v){ s.label = v; touch(t, 'subtasks'); }
       save(); renderDetail();
     };
     input.addEventListener('keydown', e => {
@@ -1260,6 +1298,7 @@ if (location.protocol === 'file:') {
   }
 
   function afterSubChange(t){
+    touch(t, 'subtasks');
     if(hasSubs(t)){
       t.start = Math.min(...t.subtasks.map(s => s.start));
       t.end = Math.max(...t.subtasks.map(s => s.end));
@@ -1360,12 +1399,18 @@ if (location.protocol === 'file:') {
     // trafikklys-status er et planleggingslag — bevar den over resynk
     const oldStatus = {};
     state.tasks.filter(t => t.source === 'skytracker').forEach(t => {
-      oldStatus[t.id] = { status:t.status, statusCause:t.statusCause, statusAt:t.statusAt };
+      oldStatus[t.id] = { status:t.status, statusCause:t.statusCause, statusAt:t.statusAt, fv:t.fv };
     });
     state.tasks = state.tasks.filter(t => t.source !== 'skytracker');
     d.tasks.forEach(t => {
       const nt = clone(t);
-      Object.assign(nt, oldStatus[nt.id] || {});
+      const prev = oldStatus[nt.id];
+      if(prev){
+        nt.status = prev.status; nt.statusCause = prev.statusCause; nt.statusAt = prev.statusAt;
+      }
+      // synkede data skal vinne over eldre kopier hos andre: bump datafeltene
+      nt.fv = Object.assign({}, (prev && prev.fv) || {});
+      ['tid','label','subtasks','meta'].forEach(f => { nt.fv[f] = (nt.fv[f] || 0) + 1; });
       state.tasks.push(nt);
     });
     state.skytrackerSyncedAt = d.syncedAt;
@@ -1473,33 +1518,43 @@ if (location.protocol === 'file:') {
       setSaveNote('frakoblet — lagrer kun lokalt');
     }
   }
+  let pendingSave = false;   // endret etter at en push startet?
   async function pushPlan(){
+    pendingSave = false;
     try{
       const r = await fetch('api/timeline-plan', {
         method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ version: serverVersion, data: state })
+        body: JSON.stringify({ data: state })
       });
-      if(r.status === 409){
-        const j = await r.json();
-        applyRemote(j.data, j.version);
-        setSaveNote('oppdatert av ' + (j.updatedBy || 'noen andre') + ' i mellomtiden — hentet siste versjon');
-        return;
-      }
       if(r.status === 403){
         canWrite = false;
         setSaveNote('kun lesetilgang — endringer forblir lokale');
         return;
       }
+      if(r.status === 409){   // ren skrivekø-kollisjon — prøv igjen straks
+        setSaveNote('travelt — prøver igjen');
+        scheduleServerSave();
+        return;
+      }
       if(!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
       serverVersion = j.version;
-      setSaveNote('lagret for alle ' + new Date().toLocaleTimeString('nb-NO', {hour:'2-digit', minute:'2-digit'}));
+      const tid = new Date().toLocaleTimeString('nb-NO', {hour:'2-digit', minute:'2-digit'});
+      // serveren fletter felt-for-felt og returnerer resultatet; ta det inn
+      // med mindre brukeren alt har rukket å endre mer (neste push rydder da opp)
+      if(!pendingSave && JSON.stringify(j.data) !== JSON.stringify(state)){
+        applyRemote(j.data, j.version);
+        setSaveNote('lagret ' + tid + ' — flettet med endringer fra andre');
+      } else {
+        setSaveNote('lagret for alle ' + tid);
+      }
     }catch(err){
       setSaveNote('lagring feilet — prøver igjen ved neste endring');
     }
   }
   function scheduleServerSave(){
     if(!serverReady || !canWrite || applyingRemote) return;
+    pendingSave = true;
     setSaveNote('lagrer…');
     clearTimeout(saveTimer);
     saveTimer = setTimeout(pushPlan, 900);
@@ -1524,7 +1579,13 @@ if (location.protocol === 'file:') {
       ? 'Nullstille den DELTE planen til plandatoene fra dokumentet? Dette gjelder ALLE som bruker verktøyet — egne rader, delmål, trafikklys og avhengigheter fjernes.'
       : 'Nullstille alt til plandatoene fra dokumentet? Egne rader, delmål og avhengigheter fjernes.';
     if(!confirm(resetMsg)) return;
+    // finn høyeste feltversjon i dagens plan, så nullstillingen vinner flettingen
+    const M = Math.max(0, ...state.tasks.map(maxFvOf)) + 1;
+    const oldIds = state.tasks.map(t => t.id);
     state = normalize(clone(SEED));
+    state.tasks.forEach(t => { FV_FIELDS.forEach(f => { t.fv[f] = M; }); });
+    const seedIds = new Set(state.tasks.map(t => t.id));
+    oldIds.filter(id => !seedIds.has(id)).forEach(id => { state.deleted[id] = M; });
     localStorage.removeItem(STORE_V2);
     cancelLink();
     render();
