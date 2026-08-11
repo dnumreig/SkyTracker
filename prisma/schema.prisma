@@ -159,6 +159,22 @@ model Dependency {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Timeline plan — shared state for the /timeline tool.
+// One row (id "default"); `data` is the tool's plan JSON
+// (lanes/tasks). `version` gives optimistic concurrency:
+// PUT must echo the version it loaded, else 409.
+// ─────────────────────────────────────────────────────────────
+
+model TimelinePlan {
+  id        String   @id @default("default")
+  data      Json
+  version   Int      @default(1)
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
 // Audit log — records every mutation for accountability
 // ─────────────────────────────────────────────────────────────
 
