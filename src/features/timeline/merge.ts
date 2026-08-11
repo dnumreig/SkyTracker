@@ -57,6 +57,15 @@ function mergeTask(stored: PlanTask, incoming: PlanTask): PlanTask {
     }
     out.fv![f] = Math.max(sv, iv);
   }
+  // "sist endret av"-stempelet følger den nyeste redigeringen (ISO-strenger
+  // sammenlignes leksikografisk = kronologisk)
+  const sAt = typeof stored.editedAt === "string" ? stored.editedAt : "";
+  const iAt = typeof incoming.editedAt === "string" ? incoming.editedAt : "";
+  const newer = iAt >= sAt ? incoming : stored;
+  if (newer.editedAt !== undefined) {
+    out.editedAt = newer.editedAt;
+    out.editedBy = newer.editedBy;
+  }
   return withDerivedBounds(out);
 }
 

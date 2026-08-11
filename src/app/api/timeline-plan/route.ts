@@ -20,6 +20,7 @@ export async function GET() {
   return Response.json(
     {
       role: session.role ?? "reader",
+      user: session.user?.name ?? session.user?.email ?? null,
       plan: plan
         ? { data: plan.data, version: plan.version, updatedAt: plan.updatedAt, updatedBy: plan.updatedBy }
         : null,

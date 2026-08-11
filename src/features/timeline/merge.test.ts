@@ -91,6 +91,14 @@ describe("mergePlans — field-level versioning", () => {
     expect(ni.end).toBe(5);
   });
 
+  it("editedBy/editedAt follow the newest edit stamp", () => {
+    const stored = plan([task({ id: "a", editedBy: "Kristoffer", editedAt: "2026-08-11T10:00:00Z", start: 9, end: 10, fv: { tid: 5 } })]);
+    const incoming = plan([task({ id: "a", editedBy: "Gjermund", editedAt: "2026-08-11T11:00:00Z", fv: { status: 1 }, status: "gul" })]);
+    const m = mergePlans(stored, incoming);
+    expect(m.tasks[0].editedBy).toBe("Gjermund");
+    expect(m.tasks[0].start).toBe(9); // eldre tid-felt beholdes likevel
+  });
+
   it("lane rename with higher version wins; unknown lanes are unioned", () => {
     const stored = plan([], { lanes: [{ key: "produkt", name: "Produkt", v: 2 }] });
     const incoming = plan([], { lanes: [{ key: "produkt", name: "Gammelt navn", v: 1 }, { key: "ny", name: "Ny strøm" }] });
