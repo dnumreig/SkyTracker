@@ -14,6 +14,7 @@ const IMPORT_GROUP_PROPS = {
   deps: ["deps"],
   subtasks: ["subtasks"],
   meta: ["lane", "t2", "milestone", "source", "ext", "dod", "links"],
+  buffer: ["buffer"],
 };
 const IMPORT_FIELD_GROUPS = Object.keys(IMPORT_GROUP_PROPS);
 
@@ -176,6 +177,35 @@ function depClosure(plan, id) {
   return out;
 }
 
+/**
+ * Bufferstatus per milepæl (føring 1.5). Enheter: tid er måneder,
+ * 1 uke = 0.25 enheter (verktøyets snappe-konvensjon). `buffer` på en
+ * milepæl er antall UKER reservert før måldatoen (= milepælens start).
+ * Forbruk = hvor langt avhengighetskjedens slutt har spist inn i reserven.
+ */
+const WEEK_UNITS = 0.25;
+function bufferStatuses(plan) {
+  return (plan.tasks || [])
+    .filter((t) => t.milestone && typeof t.buffer === "number" && t.buffer > 0)
+    .map((m) => {
+      const chain = depClosure(plan, m.id).filter((t) => !t.milestone);
+      const chainEnd = chain.length ? Math.max(...chain.map((t) => t.end)) : -Infinity;
+      const target = m.start;
+      const safeEnd = target - m.buffer * WEEK_UNITS;
+      const usedWeeks = Math.min(m.buffer, Math.max(0, (chainEnd - safeEnd) / WEEK_UNITS));
+      const overrunWeeks = Math.max(0, (chainEnd - target) / WEEK_UNITS);
+      const round = (v) => Math.round(v * 100) / 100;
+      return {
+        taskId: m.id,
+        label: m.label,
+        target,
+        bufferWeeks: m.buffer,
+        usedWeeks: round(usedWeeks),
+        overrunWeeks: round(overrunWeeks),
+      };
+    });
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { computeImportDiff, IMPORT_GROUP_PROPS, depClosure };
+  module.exports = { computeImportDiff, IMPORT_GROUP_PROPS, depClosure, bufferStatuses };
 }

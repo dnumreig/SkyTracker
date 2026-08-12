@@ -8,8 +8,8 @@
 // tombstones (`deleted[taskId] = version`): a tombstone wins over a task
 // whose fields haven't been bumped past it.
 
-export type TaskFieldGroup = "tid" | "label" | "status" | "deps" | "subtasks" | "meta";
-export const TASK_FIELD_GROUPS: TaskFieldGroup[] = ["tid", "label", "status", "deps", "subtasks", "meta"];
+export type TaskFieldGroup = "tid" | "label" | "status" | "deps" | "subtasks" | "meta" | "buffer";
+export const TASK_FIELD_GROUPS: TaskFieldGroup[] = ["tid", "label", "status", "deps", "subtasks", "meta", "buffer"];
 
 // Which task properties belong to which field group.
 export const GROUP_PROPS: Record<TaskFieldGroup, string[]> = {
@@ -19,6 +19,7 @@ export const GROUP_PROPS: Record<TaskFieldGroup, string[]> = {
   deps: ["deps"],
   subtasks: ["subtasks"],
   meta: ["lane", "t2", "milestone", "source", "ext", "dod", "links"],
+  buffer: ["buffer"],
 };
 
 export type PlanTask = {

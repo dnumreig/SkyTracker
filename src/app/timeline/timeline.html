@@ -532,6 +532,21 @@
   .linkrow .l-url{flex:1}
   .linkrow button{width:28px;padding:0}
   #edAddLink{margin-top:2px}
+  .ed-field input[type=number]{
+    width:120px;font-family:'Archivo',sans-serif;font-size:14px;padding:8px 10px;
+    border:1px solid var(--line);border-radius:2px;background:#fff;color:var(--ink);
+  }
+  .ed-field input[type=number]:focus{outline:none;border-color:var(--ink)}
+
+  /* buffersegment før milepæl (føring 1.5) */
+  .buffer-seg{
+    position:absolute;top:13px;height:20px;border-radius:2px;
+    background:repeating-linear-gradient(135deg, rgba(138,109,31,.13), rgba(138,109,31,.13) 5px, transparent 5px, transparent 10px);
+    border:1px dashed var(--gold);overflow:hidden;
+  }
+  .buffer-seg i{position:absolute;left:0;top:0;bottom:0;background:rgba(217,164,22,.5)}
+  .buffer-seg.overrun{border-color:var(--accent)}
+  .buffer-seg.overrun i{background:rgba(195,68,28,.5)}
   button.danger-ghost{border-color:var(--line);color:var(--accent)}
   button.danger-ghost:hover{background:var(--accent);border-color:var(--accent);color:#fff}
   .ed-note{font-size:12px;color:var(--ink-soft);border-left:3px solid var(--gold);padding:6px 12px;background:var(--paper)}
@@ -870,6 +885,10 @@ if (location.protocol === 'file:') {
           <span>Definisjon av ferdig</span>
           <textarea id="edDod" rows="2" placeholder="Hva må være sant for at milepælen er nådd?"></textarea>
         </div>
+        <div class="ed-field" id="edBufferField" hidden>
+          <span>Buffer før måldato (uker — føring 1.5)</span>
+          <input id="edBuffer" type="number" min="0" step="1" placeholder="f.eks. 4">
+        </div>
         <div class="ed-field">
           <span>Dokumentlenker (beslutninger, referater, spesifikasjoner)</span>
           <div id="edLinks"></div>
@@ -1077,7 +1096,7 @@ if (location.protocol === 'file:') {
   /* Feltversjoner: hver oppgave har fv = {tid, label, status, deps, subtasks, meta}.
      Klienten bumper feltet den endrer; serveren fletter per felt (høyest vinner).
      Endringer markeres her og flushes én gang per save(). */
-  const FV_FIELDS = ['tid','label','status','deps','subtasks','meta'];
+  const FV_FIELDS = ['tid','label','status','deps','subtasks','meta','buffer','okonomi'];
   const pendingTouch = new Map();   // task → Set(felt)
   function touch(t, field){
     let set = pendingTouch.get(t);
@@ -1351,6 +1370,21 @@ if (location.protocol === 'file:') {
         const row = document.createElement('div');
         row.className = 'row';
         row.style.width = (N_MONTHS*MONTH_W)+'px';
+        // buffersegment før milepæl (føring 1.5)
+        if(t.milestone && typeof t.buffer === 'number' && t.buffer > 0 && typeof bufferStatuses === 'function'){
+          const bs = bufferStatuses(state).find(x => x.taskId === t.id);
+          if(bs){
+            const seg = document.createElement('div');
+            seg.className = 'buffer-seg' + (bs.overrunWeeks > 0 ? ' overrun' : '');
+            const w = t.buffer * 0.25 * MONTH_W;
+            seg.style.left = ((t.start - t.buffer * 0.25) * MONTH_W) + 'px';
+            seg.style.width = w + 'px';
+            seg.title = 'Buffer: ' + Math.round(bs.usedWeeks * 10) / 10 + ' av ' + bs.bufferWeeks + ' uker brukt' +
+              (bs.overrunWeeks > 0 ? ' · OVERSKREDET med ' + Math.round(bs.overrunWeeks * 10) / 10 + ' uker' : '');
+            seg.innerHTML = '<i style="width:' + Math.round(100 * Math.min(1, bs.usedWeeks / bs.bufferWeeks)) + '%"></i>';
+            row.appendChild(seg);
+          }
+        }
         const bar = document.createElement('div');
         bar.className = 'bar ' + t.lane + (t.t2 ? ' t2b' : '') + (t.milestone ? ' milestone' : '') + (hasSubs(t) ? ' locked' : '') +
           (t.status !== 'gronn' ? ' st-' + t.status : '');
@@ -2184,6 +2218,12 @@ if (location.protocol === 'file:') {
         (m.dod ? '<div class="ms-dod"><b>Ferdig betyr:</b> ' + esc(m.dod) + '</div>' : '') +
         ((m.links || []).length ? '<div class="ms-links">' + m.links.map(l =>
           '<a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.label || l.url) + ' ↗</a>').join('') + '</div>' : '') +
+        (typeof m.buffer === 'number' && m.buffer > 0 && typeof bufferStatuses === 'function'
+          ? (() => {
+              const bs = bufferStatuses(state).find(x => x.taskId === m.id);
+              return bs ? '<div class="ms-meta">Buffer: ' + Math.round(bs.usedWeeks * 10) / 10 + ' av ' + bs.bufferWeeks + ' uker brukt' +
+                (bs.overrunWeeks > 0 ? ' · <span style="color:var(--accent)">overskredet med ' + Math.round(bs.overrunWeeks * 10) / 10 + ' uker</span>' : '') + '</div>' : '';
+            })() : '') +
         (pct !== null
           ? '<div class="ms-progress"><i style="width:' + pct + '%"></i></div>' +
             '<div class="ms-meta">' + done.length + ' av ' + chain.length + ' koblede oppgaver planlagt ferdige (' + pct + ' %)</div>' +
@@ -2317,7 +2357,9 @@ if (location.protocol === 'file:') {
     document.getElementById('edExt').checked = !!t.ext;
     document.getElementById('edMilestone').checked = !!t.milestone;
     document.getElementById('edDodField').hidden = !t.milestone;
+    document.getElementById('edBufferField').hidden = !t.milestone;
     document.getElementById('edDod').value = t.dod || '';
+    document.getElementById('edBuffer').value = typeof t.buffer === 'number' ? t.buffer : '';
     document.getElementById('edLinks').innerHTML = (t.links || []).map(l =>
       '<div class="linkrow"><input class="l-label" placeholder="Navn" value="' + esc(l.label || '') + '">' +
       '<input class="l-url" placeholder="https://…" value="' + esc(l.url || '') + '">' +
@@ -2341,6 +2383,7 @@ if (location.protocol === 'file:') {
   document.getElementById('edCause').addEventListener('change', e => { edSel.cause = e.target.value; });
   document.getElementById('edMilestone').addEventListener('change', e => {
     document.getElementById('edDodField').hidden = !e.target.checked;
+    document.getElementById('edBufferField').hidden = !e.target.checked;
   });
   document.getElementById('edAddLink').addEventListener('click', () => {
     const row = document.createElement('div');
@@ -2382,6 +2425,12 @@ if (location.protocol === 'file:') {
     if((t.dod || '') !== dod){
       if(dod) t.dod = dod; else delete t.dod;
       touch(t, 'meta');
+    }
+    const buf = parseFloat(document.getElementById('edBuffer').value);
+    const newBuf = isFinite(buf) && buf > 0 ? buf : undefined;
+    if(t.buffer !== newBuf){
+      if(newBuf !== undefined) t.buffer = newBuf; else delete t.buffer;
+      touch(t, 'buffer');
     }
     const links = [...document.querySelectorAll('#edLinks .linkrow')].map(row => ({
       label: row.querySelector('.l-label').value.trim(),

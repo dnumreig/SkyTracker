@@ -18,3 +18,14 @@ export declare function computeImportDiff(
 export declare const IMPORT_GROUP_PROPS: Record<TaskFieldGroup, string[]>;
 
 export declare function depClosure(plan: Plan, id: string): PlanTask[];
+
+export type BufferStatus = {
+  taskId: string;
+  label: string;
+  target: number;
+  bufferWeeks: number;
+  usedWeeks: number;
+  overrunWeeks: number;
+};
+
+export declare function bufferStatuses(plan: Plan): BufferStatus[];

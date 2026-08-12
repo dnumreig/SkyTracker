@@ -188,6 +188,20 @@ model TimelineChange {
   @@index([at])
 }
 
+model BufferSnapshot {
+  id          String   @id @default(cuid())
+  week        String   // ISO-uke, f.eks. "2026-W33"
+  milestoneId String
+  label       String
+  bufferWeeks Float
+  usedWeeks   Float
+  overrunWeeks Float   @default(0)
+  at          DateTime @default(now())
+
+  @@unique([week, milestoneId])
+  @@index([milestoneId, week])
+}
+
 // ─────────────────────────────────────────────────────────────
 // Audit log — records every mutation for accountability
 // ─────────────────────────────────────────────────────────────
