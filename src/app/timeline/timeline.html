@@ -65,6 +65,49 @@
   button.ghost:hover{border-color:var(--ink);background:var(--card);color:var(--ink)}
   .dirty-note{font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--gold);min-width:120px;text-align:right}
 
+  /* ---------- seksjonsnavigasjon ---------- */
+  .tabs{display:flex;gap:2px;margin:20px 0 0;border-bottom:2px solid var(--ink);flex-wrap:wrap;align-items:flex-end}
+  .tabs button{
+    border:1px solid transparent;border-bottom:none;background:transparent;color:var(--ink-soft);
+    padding:9px 18px;border-radius:2px 2px 0 0;font-size:11.5px;
+  }
+  .tabs button:hover{background:var(--paper-deep);color:var(--ink)}
+  .tabs button.active{background:var(--ink);color:var(--paper)}
+  .tabs a{
+    margin-left:auto;align-self:center;font-family:'Spline Sans Mono',monospace;font-size:11px;
+    letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);text-decoration:none;padding:8px 6px;
+  }
+  .tabs a:hover{color:var(--ink)}
+  section.view{margin-top:22px}
+  section.view[hidden]{display:none}
+  .view-empty{
+    border:1px dashed var(--line);background:var(--card);padding:46px 30px;text-align:center;
+    font-family:'Fraunces',serif;font-size:17px;color:var(--ink-soft);
+  }
+
+  /* ---------- Data-meny ---------- */
+  .menu-wrap{position:relative;display:inline-block}
+  .menu{
+    display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:70;min-width:250px;
+    background:var(--card);border:1px solid var(--ink);border-radius:3px;
+    box-shadow:0 10px 30px rgba(19,32,47,.25);padding:6px 0;text-align:left;
+  }
+  .menu.open{display:block}
+  .menu button{
+    display:block;width:100%;text-align:left;border:none;background:none;border-radius:0;
+    font-family:'Archivo',sans-serif;font-size:13px;text-transform:none;letter-spacing:0;
+    padding:9px 16px;color:var(--ink);position:relative;
+  }
+  .menu button:hover{background:var(--paper-deep);color:var(--ink)}
+  .menu hr{border:none;border-top:1px solid var(--line);margin:6px 0}
+  .menu button.danger{color:var(--accent)}
+  .menu button.danger:hover{background:var(--accent);color:#fff}
+  #dataBtn{position:relative}
+  #dataBtn.has-new::after{
+    content:"";position:absolute;top:-4px;right:-4px;width:9px;height:9px;border-radius:50%;
+    background:var(--accent);border:1.5px solid var(--paper);
+  }
+
   .legend{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0 24px;font-size:12px;color:var(--ink-soft);align-items:center}
   .legend span{display:inline-flex;align-items:center;gap:7px}
   .sw{width:22px;height:11px;border-radius:2px;flex:none}
@@ -104,6 +147,8 @@
     border:1px solid var(--line);border-radius:3px;padding:0 5px;color:var(--ink);
   }
   @media (max-width:900px){.help-grid{grid-template-columns:1fr}}
+  .help:not(.expanded) .help-card.adv{display:none}
+  #helpMore{margin-top:14px}
 
   /* ---------- link-modus banner ---------- */
   .link-banner{
@@ -201,6 +246,9 @@
   body.presenting .bar .h{display:none}
   body.presenting .bar.st-gul, body.presenting .bar.st-rod{outline:none;animation:none}
   body.presenting .titlebar{margin:34px 0 26px}
+  body.presenting .tabs button[data-view="whatnow"],
+  body.presenting .tabs button[data-view="log"],
+  body.presenting .tabs a{display:none}
   body.presenting h1{font-size:clamp(34px,4.5vw,52px)}
   body.presenting .gantt{box-shadow:0 2px 24px rgba(19,32,47,.08)}
   .present-empty{
@@ -463,16 +511,32 @@
     </div>
     <div class="toolbar">
       <span class="dirty-note" id="dirtyNote"></span>
+      <div class="menu-wrap">
+        <button class="ghost" id="dataBtn">Data ▾</button>
+        <div class="menu" id="dataMenu">
+          <button id="syncStBtn" title="Hent inn siste synkede SkyTracker-data">Synk SkyTracker</button>
+          <button id="exportBtn">Eksporter (JSON)</button>
+          <button id="importBtn">Importer …</button>
+          <button id="claudeBtn" title="Last ned plan + instruksjoner og oppdater planen i en lokal Claude-økt">Oppdater med Claude …</button>
+          <hr>
+          <button id="resetBtn" class="danger">Nullstill til plan …</button>
+        </div>
+      </div>
       <button id="presentBtn" title="Investorvisning: viser kun spor og oppgaver merket eksternt">Presentasjon</button>
-      <button id="syncStBtn" title="Hent inn siste synkede SkyTracker-data">Synk SkyTracker</button>
       <button class="ghost" id="helpBtn">Hjelp</button>
-      <button class="ghost" id="exportBtn">Eksporter</button>
-      <button class="ghost" id="importBtn">Importer</button>
-      <button class="ghost" id="claudeBtn" title="Last ned plan + instruksjoner og oppdater planen i en lokal Claude-økt">Oppdater med Claude</button>
       <input type="file" id="importFile" accept="application/json" style="display:none">
-      <button id="resetBtn">Nullstill til plan</button>
     </div>
   </div>
+
+  <nav class="tabs" id="tabs">
+    <button data-view="plan" class="active">Plan</button>
+    <button data-view="whatnow">Hva nå</button>
+    <button data-view="dash">Dashboard</button>
+    <button data-view="log">Logg</button>
+    <a href="claude-guide.html">Guide →</a>
+  </nav>
+
+  <section class="view" id="view-plan">
 
   <div class="help" id="helpPanel">
     <h3>Slik bruker du verktøyet</h3>
@@ -489,18 +553,18 @@
         <p><b>Dobbeltklikk</b> på et oppgavenavn eller arbeidsstrømnavn i venstre kolonne for å endre det.
         <kbd>Enter</kbd> lagrer, <kbd>Esc</kbd> avbryter.</p>
       </div>
-      <div class="help-card">
+      <div class="help-card adv">
         <div class="hc-head"><span class="ico">＋</span><h4>Legg til og slett rader</h4></div>
         <p><b>＋</b> i den svarte arbeidsstrøm-linjen legger til en ny rad. Hold musen over et
         oppgavenavn og bruk <b>×</b> for å slette raden.</p>
       </div>
-      <div class="help-card">
+      <div class="help-card adv">
         <div class="hc-head"><span class="ico">⇢</span><h4>Avhengigheter</h4></div>
         <p>Klikk <b>⇢</b> på oppgaven som må bli <b>ferdig først</b>, og deretter på oppgaven som venter på den.
         Pilen viser koblingen — <b>klikk pilen</b> for å fjerne den. Drar du forgjengeren ut i tid,
         flyttes de avhengige automatisk med.</p>
       </div>
-      <div class="help-card">
+      <div class="help-card adv">
         <div class="hc-head"><span class="ico">⌕</span><h4>Zoom inn i delmål</h4></div>
         <p>Klikk <b>⌕</b> på raden, eller <b>dobbeltklikk selve linjen</b>, for å åpne delmålene med
         ukesoppløsning. Hovedlinjen spenner alltid fra første til siste delmål — endrer du her,
@@ -508,17 +572,13 @@
       </div>
       <div class="help-card">
         <div class="hc-head"><span class="ico">⭳</span><h4>Lagring og deling</h4></div>
-        <p>Åpnet <b>via SkyTracker</b> er planen felles: endringer autolagres for alle (☁-status øverst),
-        og <b>andres lagringer dukker opp av seg selv</b> innen ~10 sekunder — uten omlasting.
-        Samtidige endringer <b>flettes felt for felt</b> — hver egenskap (tid, navn, status, avhengigheter,
-        delmål) har eget versjonsnummer, så to personer kolliderer bare hvis de endrer nøyaktig samme felt
-        på samme oppgave samtidig (da vinner siste lagring det ene feltet, resten beholdes).
-        Initial-merket bak datoene viser <b>hvem som endret linjen sist</b> (hold musen over for navn og
-        tidspunkt). Lesetilgang uten writer-rolle gir lokale endringer som ikke deles. Åpnet
-        <b>lokalt fra fil</b> lagres alt kun i din nettleser. <b>Eksporter/Importer</b> JSON virker i
-        begge moduser. <b>Nullstill til plan</b> henter V1.7-datoene — i delt modus gjelder det alle.</p>
+        <p>Åpnet <b>via SkyTracker</b> er planen felles: alt du gjør <b>autolagres for alle</b>
+        (☁-status øverst), og andres endringer dukker opp av seg selv innen ~10 sekunder. Dere kan
+        trygt jobbe samtidig — endringer flettes egenskap for egenskap, og initial-merket bak datoene
+        viser hvem som endret raden sist. Åpnet <b>lokalt fra fil</b> lagres alt kun i din nettleser.
+        Detaljene om flettingen står i guiden.</p>
       </div>
-      <div class="help-card">
+      <div class="help-card adv">
         <div class="hc-head"><span class="ico">⟳</span><h4>Synk SkyTracker</h4></div>
         <p>Trykk <b>Synk SkyTracker</b>: utviklerbanene legges inn som egen arbeidsstrøm (merket <b>ST</b>),
         med kortene som delmål. Fullførte kort holdes utenfor. Åpner du verktøyet <b>via SkyTracker-adressen</b>
@@ -535,14 +595,14 @@
         og tellingen vises øverst. Signalet overlever SkyTracker-resynk.
         (Samme fargelogikk som trafikklysmodellen i ukesrapporteringen, men eget navn — dette er per oppgave.)</p>
       </div>
-      <div class="help-card">
+      <div class="help-card adv">
         <div class="hc-head"><span class="ico">◉</span><h4>Presentasjon for investormøter</h4></div>
         <p>Alt er <b>internt</b> som standard. Merk oppgaver eksterne med <b>○-knappen</b> på raden
         (blir ◉), eller hele strømmer med ○ i den svarte strømlinjen. <b>Presentasjon</b>-knappen åpner
         investorvisningen: kun eksternt merkede spor, uten statussignaler, redigeringsknapper og interne
         merker. Avslutt med Esc. Direktelenke: legg <b>?present=1</b> på adressen.</p>
       </div>
-      <div class="help-card">
+      <div class="help-card adv">
         <div class="hc-head"><span class="ico">✳</span><h4>Oppdater med Claude</h4></div>
         <p>Tidslinjen kan vedlikeholdes sammen med Claude Code på bakgrunn av dokumentasjon:
         trykk <b>Oppdater med Claude</b> for å laste ned planen + instruksjonene og få oppskriften.
@@ -550,6 +610,7 @@
         aldri lese JSON selv. <a href="claude-guide.html"><b>Les hvordan →</b></a></p>
       </div>
     </div>
+    <button class="ghost" id="helpMore">Vis alle emner</button>
   </div>
 
   <div class="link-banner" id="linkBanner">
@@ -576,6 +637,11 @@
     </div>
     <div class="col-resizer" id="colResizer" title="Dra for å justere kolonnebredden · dobbeltklikk for standard"></div>
   </div>
+  </section>
+
+  <section class="view" id="view-whatnow" hidden></section>
+  <section class="view" id="view-dash" hidden></section>
+  <section class="view" id="view-log" hidden></section>
 
   <footer>
     <span>Skytale AS · Grunnlag: Oppstart del 2 · Samling 1 · V1.7</span>
@@ -1281,7 +1347,8 @@ if (location.protocol === 'file:') {
   document.getElementById('linkCancel').addEventListener('click', cancelLink);
   document.addEventListener('keydown', e => {
     if(e.key === 'Escape'){
-      if(importBack.classList.contains('open')) closeImportPreview();
+      if(dataMenu.classList.contains('open')) dataMenu.classList.remove('open');
+      else if(importBack.classList.contains('open')) closeImportPreview();
       else if(claudeBack.classList.contains('open')) claudeBack.classList.remove('open');
       else if(linkSource) cancelLink();
       else if(openTaskId) closeDetail();
@@ -1630,6 +1697,8 @@ if (location.protocol === 'file:') {
     syncBtn.textContent = label;
     // rød prikk = nyere data ligger klar enn det som er tatt inn
     syncBtn.classList.toggle('has-new', !!(d && d.syncedAt && d.syncedAt !== cur));
+    const dataBtnEl = document.getElementById('dataBtn');
+    if(dataBtnEl) dataBtnEl.classList.toggle('has-new', !!(d && d.syncedAt && d.syncedAt !== cur));
     syncBtn.title = d
       ? 'Hent inn SkyTracker-tavlen «' + (d.boardName || '') + '» (eksportert ' + new Date(d.syncedAt).toLocaleString('nb-NO') + ')'
       : 'Kjør sync-skytracker.command først for å hente siste data';
@@ -1801,6 +1870,8 @@ if (location.protocol === 'file:') {
     closeCauseMenu();
     closeImportPreview();
     claudeBack.classList.remove('open');
+    dataMenu.classList.remove('open');
+    if(currentView === 'whatnow' || currentView === 'log') switchView('plan');
     if(openTaskId) closeDetail();
     document.body.classList.add('presenting');
     mainTitle.innerHTML = 'Veikart — <span class="accent">Skytale.</span>';
@@ -1831,13 +1902,55 @@ if (location.protocol === 'file:') {
     localStorage.setItem(HELP_SEEN, '1');
   });
   if(!localStorage.getItem(HELP_SEEN)) helpPanel.classList.add('open');
+  document.getElementById('helpMore').addEventListener('click', () => {
+    helpPanel.classList.toggle('expanded');
+    document.getElementById('helpMore').textContent =
+      helpPanel.classList.contains('expanded') ? 'Vis færre emner' : 'Vis alle emner';
+  });
+
+  /* ================== seksjonsnavigasjon ================== */
+  const VIEWS = ['plan', 'whatnow', 'dash', 'log'];
+  let currentView = 'plan';
+  function switchView(name){
+    currentView = name;
+    VIEWS.forEach(v => {
+      document.getElementById('view-' + v).hidden = v !== name;
+      const b = document.querySelector('.tabs button[data-view="' + v + '"]');
+      if(b) b.classList.toggle('active', v === name);
+    });
+    if(name === 'whatnow') renderWhatNow();
+    if(name === 'dash') renderDash();
+    if(name === 'log') renderLog();
+  }
+  document.getElementById('tabs').addEventListener('click', e => {
+    const b = e.target.closest('button[data-view]');
+    if(b) switchView(b.dataset.view);
+  });
+  // plassholdere — fylles av senere steg
+  function renderWhatNow(){ document.getElementById('view-whatnow').innerHTML = '<div class="view-empty">«Hva nå»-visningen kommer i et senere steg.</div>'; }
+  function renderDash(){ document.getElementById('view-dash').innerHTML = '<div class="view-empty">Dashboardet kommer i et senere steg.</div>'; }
+  function renderLog(){ document.getElementById('view-log').innerHTML = '<div class="view-empty">Endringsloggen kommer i et senere steg.</div>'; }
+
+  /* ================== Data-meny ================== */
+  const dataMenu = document.getElementById('dataMenu');
+  const dataBtn = document.getElementById('dataBtn');
+  dataBtn.addEventListener('click', e => { e.stopPropagation(); dataMenu.classList.toggle('open'); });
+  dataMenu.addEventListener('click', () => dataMenu.classList.remove('open'));
+  document.addEventListener('pointerdown', e => {
+    if(dataMenu.classList.contains('open') && !e.target.closest('.menu-wrap')) dataMenu.classList.remove('open');
+  });
 
   /* ================== verktøylinje ================== */
   document.getElementById('resetBtn').addEventListener('click', () => {
-    const resetMsg = HOSTED
-      ? 'Nullstille den DELTE planen til plandatoene fra dokumentet? Dette gjelder ALLE som bruker verktøyet — egne rader, delmål, statussignaler og avhengigheter fjernes.'
-      : 'Nullstille alt til plandatoene fra dokumentet? Egne rader, delmål og avhengigheter fjernes.';
-    if(!confirm(resetMsg)) return;
+    if(HOSTED){
+      const svar = prompt(
+        'Dette nullstiller den DELTE planen til plandatoene fra dokumentet — for ALLE.\n' +
+        'Egne rader, delmål, statussignaler og avhengigheter fjernes.\n\n' +
+        'Skriv NULLSTILL for å bekrefte:');
+      if(svar !== 'NULLSTILL') return;
+    } else {
+      if(!confirm('Nullstille alt til plandatoene fra dokumentet? Egne rader, delmål og avhengigheter fjernes.')) return;
+    }
     // finn høyeste feltversjon i dagens plan, så nullstillingen vinner flettingen
     const M = Math.max(0, ...state.tasks.map(maxFvOf)) + 1;
     const oldIds = state.tasks.map(t => t.id);
