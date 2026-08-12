@@ -21,6 +21,7 @@
     --pine:#2e5d3f;
     --gold:#8a6d1f;
     --steel:#31586b;
+    --plomme:#6b3151;   /* Sikkerhet-banen — aksentrøden er reservert status/fare/i-dag */
     --card:#fffdf9;
     --month-w:96px;
     --row-h:46px;
@@ -115,7 +116,7 @@
   .sw.org{background:var(--gold)}
   .sw.produkt{background:var(--steel)}
   .sw.kommers{background:var(--sea)}
-  .sw.sikkerhet{background:var(--accent)}
+  .sw.sikkerhet{background:var(--plomme)}
   .sw.t2sw{background:repeating-linear-gradient(135deg,#fff, #fff 3px, #d8c98f 3px, #d8c98f 6px);border:1px dashed var(--gold)}
   .sw.depsw{width:26px;height:0;border-top:1.5px solid var(--ink-faint);position:relative}
   .sw.depsw::after{content:"";position:absolute;right:-1px;top:-4px;border:4px solid transparent;border-left-color:var(--ink-faint)}
@@ -196,12 +197,12 @@
   }
   .lane-label .add-task:hover{background:var(--paper);color:var(--ink)}
   .task-label{
-    height:var(--row-h);display:flex;flex-direction:column;justify-content:center;padding:0 16px 0 30px;
+    height:var(--row-h);display:flex;flex-direction:column;justify-content:center;padding:0 16px 0 34px;
     border-bottom:1px solid var(--line-soft);position:relative;
   }
   .tl-dot{
     position:absolute;left:9px;top:50%;transform:translateY(-50%);
-    width:13px;height:13px;border-radius:50%;cursor:pointer;flex:none;
+    width:17px;height:17px;border-radius:50%;cursor:pointer;flex:none;
     border:1.5px solid rgba(19,32,47,.25);transition:transform .12s ease;
   }
   .tl-dot:hover{transform:translateY(-50%) scale(1.25)}
@@ -210,9 +211,9 @@
   .tl-dot.rod{background:var(--accent)}
   .task-label .t{font-weight:600;font-size:12.6px;letter-spacing:-.005em;line-height:1.25;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:text;padding-right:76px}
-  .task-label .d{font-family:'Spline Sans Mono',monospace;font-size:10px;color:var(--ink-faint);margin-top:2px;display:flex;gap:8px;align-items:center}
+  .task-label .d{font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:var(--ink-soft);margin-top:2px;display:flex;gap:8px;align-items:center}
   .task-label .chip{
-    font-size:9px;letter-spacing:.05em;padding:1px 6px;border-radius:8px;
+    font-size:10.5px;letter-spacing:.05em;padding:1px 7px;border-radius:8px;
     background:var(--paper-deep);color:var(--ink-soft);border:1px solid var(--line);
   }
   .task-label .chip.who{
@@ -329,7 +330,7 @@
   .bar.org{background:var(--gold)}
   .bar.produkt{background:var(--steel)}
   .bar.kommers{background:var(--sea)}
-  .bar.sikkerhet{background:var(--accent)}
+  .bar.sikkerhet{background:var(--plomme)}
   .bar.skytracker{background:#4c5578}
   .sw.skytracker{background:#4c5578}
   #syncStBtn{position:relative}
@@ -346,6 +347,13 @@
   /* statussignal-belysning av linjene */
   .bar.st-gul{outline:3px solid #d9a416;outline-offset:2px}
   .bar.st-rod{outline:3px solid var(--accent);outline-offset:2px;animation:tl-pulse 1.8s ease-in-out infinite}
+  .bar .st-dot{
+    position:absolute;right:5px;top:50%;transform:translateY(-50%);
+    width:9px;height:9px;border-radius:50%;border:1.5px solid rgba(255,255,255,.85);pointer-events:none;
+  }
+  .bar .st-dot.gul{background:#d9a416}
+  .bar .st-dot.rod{background:#ffd9cb}
+  body.presenting .bar .st-dot{display:none}
   @keyframes tl-pulse{
     0%,100%{box-shadow:0 0 0 0 rgba(195,68,28,.38)}
     50%{box-shadow:0 0 0 8px rgba(195,68,28,0)}
@@ -478,6 +486,59 @@
   }
   .modal-foot a.btnlike:hover{border-color:var(--ink);color:var(--ink)}
 
+  /* ---------- oppgave-editor ---------- */
+  .ed-body{padding:18px 22px;display:grid;gap:16px}
+  .ed-field > span{
+    display:block;font-family:'Spline Sans Mono',monospace;font-size:10px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;
+  }
+  .ed-field input[type=text]{
+    width:100%;font-family:'Archivo',sans-serif;font-size:14px;padding:8px 10px;
+    border:1px solid var(--line);border-radius:2px;background:#fff;color:var(--ink);
+  }
+  .ed-field input[type=text]:focus{outline:none;border-color:var(--ink)}
+  .ed-field input[type=text]:disabled{background:var(--paper-deep);color:var(--ink-soft)}
+  .ed-status{display:flex;gap:6px;flex-wrap:wrap}
+  .ed-status button{padding:7px 12px}
+  .ed-status button.on[data-s=gronn]{background:#2e7d43;border-color:#2e7d43;color:#fff}
+  .ed-status button.on[data-s=gul]{background:#d9a416;border-color:#d9a416;color:#fff}
+  .ed-status button.on[data-s=rod]{background:var(--accent);border-color:var(--accent);color:#fff}
+  #edCause{
+    margin-top:8px;width:100%;font-family:'Archivo',sans-serif;font-size:13px;padding:7px 8px;
+    border:1px solid var(--line);border-radius:2px;background:#fff;color:var(--ink);
+  }
+  .ed-check{display:flex;gap:9px;align-items:center;font-size:13.5px;cursor:pointer}
+  .ed-deps{display:flex;gap:6px;flex-wrap:wrap}
+  .ed-deps .depchip{
+    display:inline-flex;gap:7px;align-items:center;font-size:12px;border:1px solid var(--line);
+    background:var(--paper-deep);padding:3px 9px;border-radius:9px;
+  }
+  .ed-deps .depchip button{border:none;background:none;padding:0;font-size:13px;color:var(--ink-soft);line-height:1}
+  .ed-deps .depchip button:hover{color:var(--accent)}
+  .ed-deps .none{font-size:12px;color:var(--ink-faint)}
+  .ed-row{display:flex;gap:8px;flex-wrap:wrap}
+  button.danger-ghost{border-color:var(--line);color:var(--accent)}
+  button.danger-ghost:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+  .ed-note{font-size:12px;color:var(--ink-soft);border-left:3px solid var(--gold);padding:6px 12px;background:var(--paper)}
+
+  /* ---------- dialog (erstatter confirm/alert) ---------- */
+  #dlgBack{z-index:80}
+  .dlg-body{padding:16px 22px 18px;font-size:14px;color:var(--ink-soft);max-width:60ch;white-space:pre-line}
+  .dlg-body input{
+    margin-top:12px;width:100%;font-family:'Spline Sans Mono',monospace;font-size:13px;padding:8px 10px;
+    border:1px solid var(--line);border-radius:2px;background:#fff;color:var(--ink);
+  }
+  .dlg-body input:focus{outline:none;border-color:var(--ink)}
+  #dlgYes.danger{border-color:var(--accent);color:var(--accent)}
+  #dlgYes.danger:hover{background:var(--accent);color:#fff}
+
+  /* ---------- lesemodus ---------- */
+  .ro-banner{
+    margin:14px 0 0;border:1px solid var(--gold);background:var(--card);color:var(--ink-soft);
+    padding:9px 14px;font-family:'Spline Sans Mono',monospace;font-size:11.5px;letter-spacing:.04em;
+  }
+  .ro-banner b{color:var(--gold)}
+
   footer{
     margin-top:34px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
     font-family:'Spline Sans Mono',monospace;font-size:10.5px;letter-spacing:.06em;
@@ -528,6 +589,8 @@
     </div>
   </div>
 
+  <div class="ro-banner" id="roBanner" hidden><b>👁 Lesetilgang</b> — endringene dine lagres kun i din nettleser og deles ikke med andre.</div>
+
   <nav class="tabs" id="tabs">
     <button data-view="plan" class="active">Plan</button>
     <button data-view="whatnow">Hva nå</button>
@@ -549,9 +612,10 @@
         Skillelinjen mellom navnekolonnen og diagrammet kan også dras for å justere kolonnebredden.</p>
       </div>
       <div class="help-card">
-        <div class="hc-head"><span class="ico">✎</span><h4>Rediger navn</h4></div>
-        <p><b>Dobbeltklikk</b> på et oppgavenavn eller arbeidsstrømnavn i venstre kolonne for å endre det.
-        <kbd>Enter</kbd> lagrer, <kbd>Esc</kbd> avbryter.</p>
+        <div class="hc-head"><span class="ico">✎</span><h4>Rediger</h4></div>
+        <p><b>Klikk på et oppgavenavn</b> for å åpne redigeringspanelet: navn, statussignal,
+        ekstern-merking, avhengigheter, delmål og sletting — alt på ett sted.
+        Arbeidsstrømnavn endres med <b>dobbeltklikk</b>.</p>
       </div>
       <div class="help-card adv">
         <div class="hc-head"><span class="ico">＋</span><h4>Legg til og slett rader</h4></div>
@@ -718,6 +782,66 @@ if (location.protocol === 'file:') {
       <span class="btns">
         <button class="ghost" id="impCancel">Avbryt</button>
         <button id="impApply">Bruk endringene</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- oppgave-editor -->
+<div class="modal-back" id="editorBack">
+  <div class="modal" style="width:min(580px,100%)">
+    <div class="modal-head">
+      <div>
+        <h2 id="edTitle">Rediger oppgave</h2>
+        <div class="md" id="edDates"></div>
+      </div>
+      <button id="edClose">Lukk</button>
+    </div>
+    <div class="modal-body">
+      <div class="ed-body">
+        <div class="ed-note" id="edStNote" hidden>Denne raden speiler SkyTracker-tavlen — navn og datoer
+        endres der og overskrives ved neste synk. Statussignal og ekstern-merking kan settes her.</div>
+        <label class="ed-field"><span>Navn</span><input id="edName" type="text"></label>
+        <div class="ed-field">
+          <span>Statussignal</span>
+          <div class="ed-status" id="edStatus">
+            <button type="button" data-s="gronn">● Grønn — som avtalt</button>
+            <button type="button" data-s="gul">● Gul</button>
+            <button type="button" data-s="rod">● Rød</button>
+          </div>
+          <select id="edCause" hidden></select>
+        </div>
+        <label class="ed-check"><input type="checkbox" id="edExt"> Ekstern — vises i investorpresentasjonen</label>
+        <div class="ed-field">
+          <span>Venter på (avhengigheter)</span>
+          <div class="ed-deps" id="edDeps"></div>
+        </div>
+        <div class="ed-row">
+          <button class="ghost" type="button" id="edSubs">Delmål …</button>
+          <button class="ghost" type="button" id="edLink">Koble avhengighet …</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="danger-ghost" id="edDelete">Slett oppgave …</button>
+      <span class="btns">
+        <button class="ghost" id="edCancel">Avbryt</button>
+        <button id="edSave">Lagre</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- generell bekreftelses-/inndata-dialog -->
+<div class="modal-back" id="dlgBack">
+  <div class="modal" style="width:min(480px,100%)">
+    <div class="modal-head"><div><h2 id="dlgTitle"></h2></div></div>
+    <div class="modal-body"><div class="dlg-body"><span id="dlgMsg"></span><input id="dlgInput" type="text" hidden></div></div>
+    <div class="modal-foot">
+      <span></span>
+      <span class="btns">
+        <button class="ghost" id="dlgNo">Avbryt</button>
+        <button id="dlgYes"></button>
       </span>
     </div>
   </div>
@@ -1128,8 +1252,8 @@ if (location.protocol === 'file:') {
         const tt = document.createElement('span');
         tt.className = 't';
         tt.textContent = t.label;
-        tt.title = t.label + ' (dobbeltklikk for å redigere)';
-        tt.addEventListener('dblclick', () => editInline(tt, t.label, v => { t.label = v; touch(t, 'label'); save(); render(); }));
+        tt.title = t.label + ' (klikk for å redigere)';
+        tt.style.cursor = 'pointer';
         const dd = document.createElement('span');
         dd.className = 'd';
         tl.appendChild(tt); tl.appendChild(dd);
@@ -1152,7 +1276,11 @@ if (location.protocol === 'file:') {
         });
         acts.querySelector('.del').addEventListener('click', () => removeTask(t.id));
         tl.appendChild(acts);
-        tl.addEventListener('click', e => { if(linkSource && !e.target.closest('.row-actions')) completeLink(t.id); });
+        tl.addEventListener('click', e => {
+          if(e.target.closest('.row-actions') || e.target.closest('.tl-dot') || e.target.tagName === 'INPUT') return;
+          if(linkSource){ completeLink(t.id); return; }
+          openEditor(t.id);
+        });
         labels.appendChild(tl);
         labelDateRefs[t.id] = dd;
 
@@ -1166,7 +1294,9 @@ if (location.protocol === 'file:') {
         bar.dataset.id = t.id;
         bar.innerHTML = '<div class="h l"></div><span class="bl">' + esc(t.label) +
           (hasSubs(t) ? '<span class="sub-ind">▸ '+t.subtasks.length+'</span>' : '') +
-          '</span><div class="h r"></div>';
+          '</span>' +
+          (t.status !== 'gronn' ? '<span class="st-dot ' + t.status + '"></span>' : '') +
+          '<div class="h r"></div>';
         bar.addEventListener('dblclick', () => openDetail(t.id));
         row.appendChild(bar);
         chart.appendChild(row);
@@ -1250,8 +1380,8 @@ if (location.protocol === 'file:') {
         const title = document.createElementNS('http://www.w3.org/2000/svg','title');
         title.textContent = a.label + ' → ' + b.label + ' — klikk for å fjerne avhengigheten';
         g.appendChild(title); g.appendChild(hit); g.appendChild(vis);
-        hit.addEventListener('click', () => {
-          if(confirm('Fjerne avhengigheten «' + a.label + ' → ' + b.label + '»?')){
+        hit.addEventListener('click', async () => {
+          if(await confirmDialog('Fjerne avhengighet', '«' + a.label + ' → ' + b.label + '» fjernes.', {danger:true, confirmText:'Fjern'})){
             b.deps = b.deps.filter(d => d !== aId);
             touch(b, 'deps');
             save(); render();
@@ -1294,10 +1424,15 @@ if (location.protocol === 'file:') {
     const tl = labels.querySelector('.task-label[data-id="'+t.id+'"] .t');
     if(tl) editInline(tl, t.label, v => { t.label = v; save(); render(); });
   }
-  function removeTask(id){
+  async function removeTask(id){
     const t = getTask(id);
     if(!t) return;
-    if(!confirm('Slette «' + t.label + '»? Avhengigheter til den fjernes også.')) return;
+    if(!(await confirmDialog('Slette oppgave', 'Slette «' + t.label + '»? Avhengigheter til den fjernes også.', {danger:true, confirmText:'Slett'}))) return;
+    doRemoveTask(id);
+  }
+  function doRemoveTask(id){
+    const t = getTask(id);
+    if(!t) return;
     state.deleted[id] = maxFvOf(t) + 1;   // tombstone: vinner over usett kopi hos andre
     state.tasks = state.tasks.filter(x => x.id !== id);
     state.tasks.forEach(x => {
@@ -1347,7 +1482,9 @@ if (location.protocol === 'file:') {
   document.getElementById('linkCancel').addEventListener('click', cancelLink);
   document.addEventListener('keydown', e => {
     if(e.key === 'Escape'){
-      if(dataMenu.classList.contains('open')) dataMenu.classList.remove('open');
+      if(dlgBack.classList.contains('open')) dlgClose(false);
+      else if(editorBack.classList.contains('open')) closeEditor();
+      else if(dataMenu.classList.contains('open')) dataMenu.classList.remove('open');
       else if(importBack.classList.contains('open')) closeImportPreview();
       else if(claudeBack.classList.contains('open')) claudeBack.classList.remove('open');
       else if(linkSource) cancelLink();
@@ -1776,6 +1913,7 @@ if (location.protocol === 'file:') {
       canWrite = j.role === 'writer';
       myName = j.user || null;
       serverReady = true;
+      document.getElementById('roBanner').hidden = canWrite;
       if(j.plan){
         applyRemote(j.plan.data, j.plan.version);
         setSaveNote('delt plan lastet' + (canWrite ? '' : ' — kun lesetilgang, endringer forblir lokale'));
@@ -1800,6 +1938,7 @@ if (location.protocol === 'file:') {
       });
       if(r.status === 403){
         canWrite = false;
+        document.getElementById('roBanner').hidden = false;
         setSaveNote('kun lesetilgang — endringer forblir lokale');
         return;
       }
@@ -1869,6 +2008,8 @@ if (location.protocol === 'file:') {
     cancelLink();
     closeCauseMenu();
     closeImportPreview();
+    closeEditor();
+    dlgClose(false);
     claudeBack.classList.remove('open');
     dataMenu.classList.remove('open');
     if(currentView === 'whatnow' || currentView === 'log') switchView('plan');
@@ -1940,16 +2081,143 @@ if (location.protocol === 'file:') {
     if(dataMenu.classList.contains('open') && !e.target.closest('.menu-wrap')) dataMenu.classList.remove('open');
   });
 
+  /* ================== dialoger (erstatter confirm/prompt) ================== */
+  const dlgBack = document.getElementById('dlgBack');
+  let dlgResolve = null;
+  function dlgClose(v){
+    if(!dlgResolve) return;
+    dlgBack.classList.remove('open');
+    const r = dlgResolve; dlgResolve = null; r(v);
+  }
+  function askDialog(title, msg, opts){
+    opts = opts || {};
+    return new Promise(res => {
+      dlgResolve = res;
+      document.getElementById('dlgTitle').textContent = title;
+      document.getElementById('dlgMsg').textContent = msg;
+      const inp = document.getElementById('dlgInput');
+      inp.hidden = !opts.input;
+      inp.value = '';
+      inp.placeholder = opts.placeholder || '';
+      const yes = document.getElementById('dlgYes');
+      yes.textContent = opts.confirmText || 'OK';
+      yes.classList.toggle('danger', !!opts.danger);
+      dlgBack.classList.add('open');
+      if(opts.input) setTimeout(() => inp.focus(), 0);
+    });
+  }
+  const confirmDialog = (title, msg, opts) => askDialog(title, msg, opts).then(v => v === true);
+  document.getElementById('dlgYes').addEventListener('click', () => {
+    const inp = document.getElementById('dlgInput');
+    dlgClose(inp.hidden ? true : inp.value);
+  });
+  document.getElementById('dlgNo').addEventListener('click', () => dlgClose(false));
+  dlgBack.addEventListener('click', e => { if(e.target === dlgBack) dlgClose(false); });
+  document.getElementById('dlgInput').addEventListener('keydown', e => {
+    if(e.key === 'Enter') dlgClose(e.target.value);
+  });
+
+  /* ================== oppgave-editor ================== */
+  const editorBack = document.getElementById('editorBack');
+  let editorTaskId = null;
+  let edSel = {status:'gronn', cause:''};
+  const ED_DEPS_NONE = '<span class="none">Ingen — denne kan starte når som helst.</span>';
+  function paintEdStatus(){
+    document.querySelectorAll('#edStatus button').forEach(b =>
+      b.classList.toggle('on', b.dataset.s === edSel.status));
+    const cause = document.getElementById('edCause');
+    cause.hidden = edSel.status === 'gronn';
+    if(!cause.hidden){
+      cause.innerHTML = '<option value="">Uten årsak foreløpig</option>' +
+        CAUSES.map(c => '<option' + (edSel.cause === c ? ' selected' : '') + '>' + c + '</option>').join('');
+    }
+  }
+  function openEditor(id){
+    const t = getTask(id);
+    if(!t || presenting) return;
+    editorTaskId = id;
+    document.getElementById('edTitle').textContent = t.milestone ? 'Rediger milepæl' : 'Rediger oppgave';
+    document.getElementById('edDates').textContent = rangeText(t);
+    const st = t.source === 'skytracker';
+    document.getElementById('edStNote').hidden = !st;
+    const name = document.getElementById('edName');
+    name.value = t.label;
+    name.disabled = st;
+    edSel = {status: t.status || 'gronn', cause: t.statusCause || ''};
+    paintEdStatus();
+    document.getElementById('edExt').checked = !!t.ext;
+    document.getElementById('edDeps').innerHTML = t.deps.length ? t.deps.map(d => {
+      const p = getTask(d);
+      return '<span class="depchip" data-id="' + esc(d) + '">⇠ ' + esc(p ? p.label : d) +
+        ' <button title="Fjern avhengigheten">×</button></span>';
+    }).join('') : ED_DEPS_NONE;
+    document.getElementById('edSubs').textContent = hasSubs(t) ? 'Delmål (' + t.subtasks.length + ') …' : 'Del opp i delmål …';
+    editorBack.classList.add('open');
+  }
+  function closeEditor(){ editorTaskId = null; editorBack.classList.remove('open'); }
+  document.getElementById('edStatus').addEventListener('click', e => {
+    const b = e.target.closest('button[data-s]');
+    if(!b) return;
+    edSel.status = b.dataset.s;
+    if(edSel.status === 'gronn') edSel.cause = '';
+    paintEdStatus();
+  });
+  document.getElementById('edCause').addEventListener('change', e => { edSel.cause = e.target.value; });
+  document.getElementById('edDeps').addEventListener('click', e => {
+    if(e.target.tagName !== 'BUTTON') return;
+    e.target.closest('.depchip').remove();
+    if(!document.querySelector('#edDeps .depchip'))
+      document.getElementById('edDeps').innerHTML = ED_DEPS_NONE;
+  });
+  document.getElementById('edSave').addEventListener('click', () => {
+    const t = getTask(editorTaskId);
+    if(!t){ closeEditor(); return; }
+    const name = document.getElementById('edName').value.trim();
+    if(name && name !== t.label && t.source !== 'skytracker'){ t.label = name; touch(t, 'label'); }
+    if(edSel.status !== (t.status || 'gronn') || (edSel.cause || undefined) !== t.statusCause){
+      t.status = edSel.status;
+      if(edSel.status !== 'gronn' && edSel.cause) t.statusCause = edSel.cause; else delete t.statusCause;
+      t.statusAt = new Date().toISOString();
+      touch(t, 'status');
+    }
+    const ext = document.getElementById('edExt').checked;
+    if(!!t.ext !== ext){ t.ext = ext; touch(t, 'meta'); }
+    const keep = [...document.querySelectorAll('#edDeps .depchip')].map(el => el.dataset.id);
+    if(keep.length !== t.deps.length){ t.deps = t.deps.filter(d => keep.includes(d)); touch(t, 'deps'); }
+    resolveDeps();
+    save(); render();
+    closeEditor();
+  });
+  document.getElementById('edCancel').addEventListener('click', closeEditor);
+  document.getElementById('edClose').addEventListener('click', closeEditor);
+  editorBack.addEventListener('click', e => { if(e.target === editorBack) closeEditor(); });
+  document.getElementById('edSubs').addEventListener('click', () => {
+    const id = editorTaskId; closeEditor(); openDetail(id);
+  });
+  document.getElementById('edLink').addEventListener('click', () => {
+    const id = editorTaskId; closeEditor(); startLink(id);
+  });
+  document.getElementById('edDelete').addEventListener('click', async () => {
+    const t = getTask(editorTaskId);
+    if(!t) return;
+    if(!(await confirmDialog('Slette oppgave', 'Slette «' + t.label + '»? Avhengigheter til den fjernes også.', {danger:true, confirmText:'Slett'}))) return;
+    const id = editorTaskId;
+    closeEditor();
+    doRemoveTask(id);
+  });
+
   /* ================== verktøylinje ================== */
-  document.getElementById('resetBtn').addEventListener('click', () => {
+  document.getElementById('resetBtn').addEventListener('click', async () => {
     if(HOSTED){
-      const svar = prompt(
-        'Dette nullstiller den DELTE planen til plandatoene fra dokumentet — for ALLE.\n' +
-        'Egne rader, delmål, statussignaler og avhengigheter fjernes.\n\n' +
-        'Skriv NULLSTILL for å bekrefte:');
+      const svar = await askDialog('Nullstill den delte planen',
+        'Dette setter planen tilbake til plandatoene fra dokumentet — for ALLE som bruker verktøyet. ' +
+        'Egne rader, delmål, statussignaler og avhengigheter fjernes.\n\nSkriv NULLSTILL for å bekrefte:',
+        {input:true, danger:true, confirmText:'Nullstill', placeholder:'NULLSTILL'});
       if(svar !== 'NULLSTILL') return;
     } else {
-      if(!confirm('Nullstille alt til plandatoene fra dokumentet? Egne rader, delmål og avhengigheter fjernes.')) return;
+      if(!(await confirmDialog('Nullstill til plan',
+        'Alt settes tilbake til plandatoene fra dokumentet. Egne rader, delmål og avhengigheter fjernes.',
+        {danger:true, confirmText:'Nullstill'}))) return;
     }
     // finn høyeste feltversjon i dagens plan, så nullstillingen vinner flettingen
     const M = Math.max(0, ...state.tasks.map(maxFvOf)) + 1;
