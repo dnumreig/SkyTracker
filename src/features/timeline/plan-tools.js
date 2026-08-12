@@ -13,7 +13,7 @@ const IMPORT_GROUP_PROPS = {
   status: ["status", "statusCause", "statusAt"],
   deps: ["deps"],
   subtasks: ["subtasks"],
-  meta: ["lane", "t2", "milestone", "source", "ext"],
+  meta: ["lane", "t2", "milestone", "source", "ext", "dod", "links"],
 };
 const IMPORT_FIELD_GROUPS = Object.keys(IMPORT_GROUP_PROPS);
 
@@ -153,6 +153,29 @@ function computeImportDiff(current, incoming, opts) {
   return { plan, changes };
 }
 
+/**
+ * Transitiv avhengighets-closure for en oppgave: alle oppgaver som (direkte
+ * eller indirekte) må bli ferdige før `id`. Brukes av «Hva nå», buffer- og
+ * kostnadsberegningene — samme kode i nettleser, server og tester.
+ */
+function depClosure(plan, id) {
+  const byId = new Map((plan.tasks || []).map((t) => [t.id, t]));
+  const seen = new Set();
+  const out = [];
+  const walk = (tid) => {
+    const t = byId.get(tid);
+    if (!t) return;
+    (t.deps || []).forEach((d) => {
+      if (seen.has(d)) return;
+      seen.add(d);
+      const p = byId.get(d);
+      if (p) { out.push(p); walk(d); }
+    });
+  };
+  walk(id);
+  return out;
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { computeImportDiff, IMPORT_GROUP_PROPS };
+  module.exports = { computeImportDiff, IMPORT_GROUP_PROPS, depClosure };
 }

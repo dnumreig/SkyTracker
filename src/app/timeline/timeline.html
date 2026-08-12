@@ -517,6 +517,21 @@
   .ed-deps .depchip button:hover{color:var(--accent)}
   .ed-deps .none{font-size:12px;color:var(--ink-faint)}
   .ed-row{display:flex;gap:8px;flex-wrap:wrap}
+  .ed-field textarea{
+    width:100%;font-family:'Archivo',sans-serif;font-size:13.5px;padding:8px 10px;resize:vertical;
+    border:1px solid var(--line);border-radius:2px;background:#fff;color:var(--ink);
+  }
+  .ed-field textarea:focus{outline:none;border-color:var(--ink)}
+  .linkrow{display:flex;gap:6px;margin-bottom:6px}
+  .linkrow input{
+    font-family:'Archivo',sans-serif;font-size:12.5px;padding:6px 8px;
+    border:1px solid var(--line);border-radius:2px;background:#fff;color:var(--ink);
+  }
+  .linkrow input:focus{outline:none;border-color:var(--ink)}
+  .linkrow .l-label{width:34%}
+  .linkrow .l-url{flex:1}
+  .linkrow button{width:28px;padding:0}
+  #edAddLink{margin-top:2px}
   button.danger-ghost{border-color:var(--line);color:var(--accent)}
   button.danger-ghost:hover{background:var(--accent);border-color:var(--accent);color:#fff}
   .ed-note{font-size:12px;color:var(--ink-soft);border-left:3px solid var(--gold);padding:6px 12px;background:var(--paper)}
@@ -538,6 +553,35 @@
     padding:9px 14px;font-family:'Spline Sans Mono',monospace;font-size:11.5px;letter-spacing:.04em;
   }
   .ro-banner b{color:var(--gold)}
+
+  /* ---------- hva nå ---------- */
+  .wn-h{font-family:'Fraunces',serif;font-weight:600;font-size:22px;letter-spacing:-.01em;margin:26px 0 12px}
+  .wn-h:first-child{margin-top:0}
+  .wn-card{border:1px solid var(--line);background:var(--card)}
+  .wn-row{display:flex;gap:10px;align-items:center;padding:9px 20px;border-top:1px solid var(--line-soft);font-size:13px;flex-wrap:wrap}
+  .wn-row:first-child{border-top:none}
+  .wn-dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .wn-name{font-weight:600}
+  .wn-lane{font-family:'Spline Sans Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);flex:none}
+  .wn-when{font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--ink-soft);margin-left:auto;flex:none}
+  .wn-wait{flex-basis:100%;padding-left:20px;font-size:11.5px;color:var(--gold)}
+  .ms-card{border:1px solid var(--line);background:var(--card);margin-bottom:16px}
+  .ms-head{display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:16px 20px 6px;flex-wrap:wrap}
+  .ms-head h3{font-family:'Fraunces',serif;font-size:19px;font-weight:600;letter-spacing:-.01em}
+  .ms-when{font-family:'Spline Sans Mono',monospace;font-size:11.5px;color:var(--accent)}
+  .ms-dod{padding:0 20px 10px;font-size:13.5px;color:var(--ink-soft);max-width:75ch}
+  .ms-dod b{color:var(--ink)}
+  .ms-links{padding:0 20px 12px;display:flex;gap:8px;flex-wrap:wrap}
+  .ms-links a{
+    font-size:12px;border:1px solid var(--line);border-radius:9px;padding:2px 10px;
+    color:var(--sea);text-decoration:none;background:var(--paper);
+  }
+  .ms-links a:hover{border-color:var(--sea)}
+  .ms-progress{height:6px;background:var(--paper-deep);margin:0 20px 8px;border-radius:3px;overflow:hidden}
+  .ms-progress i{display:block;height:100%;background:var(--pine)}
+  .ms-meta{padding:0 20px 8px;font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:var(--ink-soft)}
+  .ms-rest{padding:0 20px 16px;font-size:12.5px;color:var(--ink-soft);max-width:90ch}
+  .ms-rest b{color:var(--ink)}
 
   /* ---------- endringslogg ---------- */
   .log-list{border:1px solid var(--line);background:var(--card);padding:6px 0 14px}
@@ -734,7 +778,7 @@
 <script>
 (function(){
   var __id = document.createElement('script');
-  __id.src = location.protocol === 'file:' ? 'import-diff.js' : 'timeline/import-diff.js';
+  __id.src = location.protocol === 'file:' ? 'plan-tools.js' : 'timeline/plan-tools.js';
   document.head.appendChild(__id);
 })();
 if (location.protocol === 'file:') {
@@ -821,6 +865,16 @@ if (location.protocol === 'file:') {
           <select id="edCause" hidden></select>
         </div>
         <label class="ed-check"><input type="checkbox" id="edExt"> Ekstern — vises i investorpresentasjonen</label>
+        <label class="ed-check"><input type="checkbox" id="edMilestone"> Milepæl — pilleform, kan få definisjon av ferdig</label>
+        <div class="ed-field" id="edDodField" hidden>
+          <span>Definisjon av ferdig</span>
+          <textarea id="edDod" rows="2" placeholder="Hva må være sant for at milepælen er nådd?"></textarea>
+        </div>
+        <div class="ed-field">
+          <span>Dokumentlenker (beslutninger, referater, spesifikasjoner)</span>
+          <div id="edLinks"></div>
+          <button class="ghost" type="button" id="edAddLink">＋ Lenke</button>
+        </div>
         <div class="ed-field">
           <span>Venter på (avhengigheter)</span>
           <div class="ed-deps" id="edDeps"></div>
@@ -1337,6 +1391,8 @@ if (location.protocol === 'file:') {
     if(linkSource) markLinkSource();
     chartScroll.scrollLeft = sx;
     save();
+    if(typeof currentView !== 'undefined' && currentView === 'whatnow') renderWhatNow();
+    if(typeof currentView !== 'undefined' && currentView === 'dash') renderDash();
   }
 
   function positionAll(){
@@ -2076,8 +2132,69 @@ if (location.protocol === 'file:') {
     const b = e.target.closest('button[data-view]');
     if(b) switchView(b.dataset.view);
   });
-  // plassholdere — fylles av senere steg
-  function renderWhatNow(){ document.getElementById('view-whatnow').innerHTML = '<div class="view-empty">«Hva nå»-visningen kommer i et senere steg.</div>'; }
+  const STATUS_COL = {gronn:'#2e7d43', gul:'#d9a416', rod:'#c3441c'};
+  const laneName = key => { const l = state.lanes.find(x => x.key === key); return l ? l.name : key; };
+  function renderWhatNow(){
+    const el = document.getElementById('view-whatnow');
+    const now = todayUnit();
+    const horizon = now + 0.5;   // 14 dager ≈ 0.5 måned-enheter
+    const eps = 1e-9;
+    const closure = typeof depClosure === 'function' ? depClosure : () => [];
+
+    // pågående og kommende oppgaver de neste to ukene, i startrekkefølge
+    const soon = state.tasks
+      .filter(t => !t.milestone && t.start < horizon && t.end > now + eps)
+      .sort((a,b) => a.start - b.start || a.end - b.end);
+    const waitTxt = t => {
+      const blockers = t.deps.map(getTask).filter(p => p && p.end > now + eps && p.end >= t.start - eps);
+      return blockers.length ? 'venter på: ' + blockers.map(p => p.label).join(' · ') : '';
+    };
+    let html = '<h2 class="wn-h">Neste 14 dager</h2>';
+    html += soon.length
+      ? '<div class="wn-card">' + soon.map(t => {
+          const started = t.start <= now;
+          const w = waitTxt(t);
+          return '<div class="wn-row">' +
+            '<span class="wn-dot" style="background:' + (STATUS_COL[t.status] || STATUS_COL.gronn) + '"></span>' +
+            '<span class="wn-name">' + esc(t.label) + '</span>' +
+            '<span class="wn-lane">' + esc(laneName(t.lane)) + '</span>' +
+            '<span class="wn-when">' + (started ? 'pågår · ferdig ' + esc(fmt(unitToDate(t.end))) : 'starter ' + esc(fmt(unitToDate(t.start)))) + '</span>' +
+            (w ? '<span class="wn-wait">⇠ ' + esc(w) + '</span>' : '') +
+            '</div>';
+        }).join('') + '</div>'
+      : '<div class="view-empty">Ingen oppgaver pågår eller starter de neste to ukene.</div>';
+
+    // milepæler i datorekkefølge med fremdrift fra avhengighetskjeden
+    const milestones = state.tasks.filter(t => t.milestone).sort((a,b) => a.start - b.start);
+    html += '<h2 class="wn-h">Milepæler</h2>';
+    if(!milestones.length){
+      html += '<div class="view-empty">Ingen milepæler i planen enda — merk en oppgave som milepæl i redigeringspanelet.</div>';
+    }
+    milestones.forEach(m => {
+      const target = unitToDate(m.start);
+      const dayDiff = Math.round((target - new Date()) / 86400000);
+      const when = dayDiff > 0 ? 'nås ' + fmt(target) + ' · om ' + dayDiff + ' dager'
+                 : dayDiff < 0 ? 'måldato ' + fmt(target) + ' · passert' : 'nås i dag';
+      const chain = closure(state, m.id).filter(t => !t.milestone);
+      const done = chain.filter(t => t.end <= now + eps);
+      const rest = chain.filter(t => t.end > now + eps).sort((a,b) => a.end - b.end);
+      const pct = chain.length ? Math.round(100 * done.length / chain.length) : null;
+      html += '<div class="ms-card">' +
+        '<div class="ms-head"><h3>' + esc(m.label) + '</h3><span class="ms-when">' + esc(when) + '</span></div>' +
+        (m.dod ? '<div class="ms-dod"><b>Ferdig betyr:</b> ' + esc(m.dod) + '</div>' : '') +
+        ((m.links || []).length ? '<div class="ms-links">' + m.links.map(l =>
+          '<a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.label || l.url) + ' ↗</a>').join('') + '</div>' : '') +
+        (pct !== null
+          ? '<div class="ms-progress"><i style="width:' + pct + '%"></i></div>' +
+            '<div class="ms-meta">' + done.length + ' av ' + chain.length + ' koblede oppgaver planlagt ferdige (' + pct + ' %)</div>' +
+            (rest.length ? '<div class="ms-rest"><b>Gjenstår:</b> ' +
+              rest.slice(0, 6).map(t => esc(t.label) + ' (' + esc(fmt(unitToDate(t.end))) + ')').join(' · ') +
+              (rest.length > 6 ? ' · +' + (rest.length - 6) + ' til' : '') + '</div>' : '')
+          : '<div class="ms-rest">Ingen oppgaver er koblet til milepælen — koble avhengigheter (⇢) for å få fremdriftsbildet.</div>') +
+        '</div>';
+    });
+    el.innerHTML = html;
+  }
   function renderDash(){ document.getElementById('view-dash').innerHTML = '<div class="view-empty">Dashboardet kommer i et senere steg.</div>'; }
   async function renderLog(){
     const el = document.getElementById('view-log');
@@ -2198,6 +2315,13 @@ if (location.protocol === 'file:') {
     edSel = {status: t.status || 'gronn', cause: t.statusCause || ''};
     paintEdStatus();
     document.getElementById('edExt').checked = !!t.ext;
+    document.getElementById('edMilestone').checked = !!t.milestone;
+    document.getElementById('edDodField').hidden = !t.milestone;
+    document.getElementById('edDod').value = t.dod || '';
+    document.getElementById('edLinks').innerHTML = (t.links || []).map(l =>
+      '<div class="linkrow"><input class="l-label" placeholder="Navn" value="' + esc(l.label || '') + '">' +
+      '<input class="l-url" placeholder="https://…" value="' + esc(l.url || '') + '">' +
+      '<button type="button" title="Fjern lenken">×</button></div>').join('');
     document.getElementById('edDeps').innerHTML = t.deps.length ? t.deps.map(d => {
       const p = getTask(d);
       return '<span class="depchip" data-id="' + esc(d) + '">⇠ ' + esc(p ? p.label : d) +
@@ -2215,6 +2339,21 @@ if (location.protocol === 'file:') {
     paintEdStatus();
   });
   document.getElementById('edCause').addEventListener('change', e => { edSel.cause = e.target.value; });
+  document.getElementById('edMilestone').addEventListener('change', e => {
+    document.getElementById('edDodField').hidden = !e.target.checked;
+  });
+  document.getElementById('edAddLink').addEventListener('click', () => {
+    const row = document.createElement('div');
+    row.className = 'linkrow';
+    row.innerHTML = '<input class="l-label" placeholder="Navn">' +
+      '<input class="l-url" placeholder="https://…">' +
+      '<button type="button" title="Fjern lenken">×</button>';
+    document.getElementById('edLinks').appendChild(row);
+    row.querySelector('.l-label').focus();
+  });
+  document.getElementById('edLinks').addEventListener('click', e => {
+    if(e.target.tagName === 'BUTTON') e.target.closest('.linkrow').remove();
+  });
   document.getElementById('edDeps').addEventListener('click', e => {
     if(e.target.tagName !== 'BUTTON') return;
     e.target.closest('.depchip').remove();
@@ -2234,6 +2373,24 @@ if (location.protocol === 'file:') {
     }
     const ext = document.getElementById('edExt').checked;
     if(!!t.ext !== ext){ t.ext = ext; touch(t, 'meta'); }
+    const ms = document.getElementById('edMilestone').checked;
+    if(!!t.milestone !== ms){
+      if(ms) t.milestone = true; else delete t.milestone;
+      touch(t, 'meta');
+    }
+    const dod = document.getElementById('edDod').value.trim();
+    if((t.dod || '') !== dod){
+      if(dod) t.dod = dod; else delete t.dod;
+      touch(t, 'meta');
+    }
+    const links = [...document.querySelectorAll('#edLinks .linkrow')].map(row => ({
+      label: row.querySelector('.l-label').value.trim(),
+      url: row.querySelector('.l-url').value.trim()
+    })).filter(l => l.url);
+    if(JSON.stringify(links) !== JSON.stringify(t.links || [])){
+      if(links.length) t.links = links; else delete t.links;
+      touch(t, 'meta');
+    }
     const keep = [...document.querySelectorAll('#edDeps .depchip')].map(el => el.dataset.id);
     if(keep.length !== t.deps.length){ t.deps = t.deps.filter(d => keep.includes(d)); touch(t, 'deps'); }
     resolveDeps();

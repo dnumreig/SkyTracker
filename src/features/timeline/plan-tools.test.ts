@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeImportDiff, IMPORT_GROUP_PROPS } from "./import-diff.js";
+import { computeImportDiff, depClosure, IMPORT_GROUP_PROPS } from "./plan-tools.js";
 import { GROUP_PROPS, mergePlans, type Plan, type PlanTask } from "./merge";
 
 function task(over: Partial<PlanTask>): PlanTask {
@@ -186,5 +186,20 @@ describe("computeImportDiff — endringsoppdaging", () => {
 
   it("feltgruppene er identiske med merge.ts sine (ingen drift)", () => {
     expect(IMPORT_GROUP_PROPS).toEqual(GROUP_PROPS);
+  });
+});
+
+describe("depClosure — transitiv avhengighetskjede", () => {
+  it("finner direkte og indirekte forgjengere, uten duplikater eller sykler", () => {
+    const p = plan([
+      task({ id: "a" }),
+      task({ id: "b", deps: ["a"] }),
+      task({ id: "c", deps: ["b", "a"] }),
+      task({ id: "m", deps: ["c"], milestone: true }),
+      task({ id: "urelatert" }),
+    ]);
+    const ids = depClosure(p, "m").map((t) => t.id).sort();
+    expect(ids).toEqual(["a", "b", "c"]);
+    expect(depClosure(p, "a")).toEqual([]);
   });
 });

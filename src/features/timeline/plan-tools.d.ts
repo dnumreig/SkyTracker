@@ -16,3 +16,5 @@ export declare function computeImportDiff(
 ): { plan: Plan; changes: ImportChange[] };
 
 export declare const IMPORT_GROUP_PROPS: Record<TaskFieldGroup, string[]>;
+
+export declare function depClosure(plan: Plan, id: string): PlanTask[];
