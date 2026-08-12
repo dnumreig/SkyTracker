@@ -598,6 +598,37 @@
   .ms-rest{padding:0 20px 16px;font-size:12.5px;color:var(--ink-soft);max-width:90ch}
   .ms-rest b{color:var(--ink)}
 
+  /* ---------- dashboard ---------- */
+  .dash-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:14px;margin-bottom:18px}
+  .stat{border:1px solid var(--line);background:var(--card);padding:16px 18px 14px}
+  .stat .n{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(28px,3vw,40px);letter-spacing:-.02em;line-height:1}
+  .stat .l{font-family:'Spline Sans Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);margin-top:7px}
+  .stat .s{font-size:11px;color:var(--ink-faint);margin-top:2px}
+  .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  @media(max-width:1050px){.dash-grid{grid-template-columns:1fr}}
+  .dash-card{border:1px solid var(--line);background:var(--card)}
+  .dash-card h3{font-family:'Fraunces',serif;font-weight:600;font-size:17px;padding:14px 18px 2px;letter-spacing:-.01em}
+  .dash-card .dc-sub{font-size:11.5px;color:var(--ink-soft);padding:0 18px 10px}
+  .dash-card .dc-body{padding:0 18px 16px}
+  .spark{width:100%;height:56px;display:block}
+  .horizon{grid-column:1 / -1}
+  .hz-svg{width:100%;height:86px;display:block}
+  .hz-list{display:flex;gap:16px;flex-wrap:wrap;padding:4px 18px 14px;font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:var(--ink-soft)}
+  .hz-list b{color:var(--ink)}
+  .buf-row{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line-soft);font-size:12.5px;flex-wrap:wrap}
+  .buf-row:first-child{border-top:none}
+  .buf-name{font-weight:600;flex:none;max-width:24ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .buf-bar{flex:1;min-width:110px;height:7px;border-radius:3px;background:var(--paper-deep);overflow:hidden;position:relative}
+  .buf-bar i{position:absolute;left:0;top:0;bottom:0;background:#d9a416}
+  .buf-bar.overrun i{background:var(--accent)}
+  .buf-num{font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:var(--ink-soft);flex:none}
+  .red-row{display:flex;gap:8px;align-items:baseline;padding:6px 0;border-top:1px solid var(--line-soft);font-size:12.5px}
+  .red-row:first-child{border-top:none}
+  .eco-row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line-soft);font-size:12.5px}
+  .eco-row:first-child{border-top:none}
+  .eco-row b{font-family:'Spline Sans Mono',monospace;font-size:11.5px}
+  .dash-note{margin-top:16px;font-size:10.5px;color:var(--ink-faint);font-family:'Spline Sans Mono',monospace;line-height:1.8}
+
   /* ---------- endringslogg ---------- */
   .log-list{border:1px solid var(--line);background:var(--card);padding:6px 0 14px}
   .log-day{font-family:'Fraunces',serif;font-weight:600;font-size:16px;padding:18px 22px 8px}
@@ -2249,7 +2280,158 @@ if (location.protocol === 'file:') {
     });
     el.innerHTML = html;
   }
-  function renderDash(){ document.getElementById('view-dash').innerHTML = '<div class="view-empty">Dashboardet kommer i et senere steg.</div>'; }
+  /* Telleregler (samme i alle fliser — dokumentert nederst i visningen):
+     fullført = ikke-milepæl med planlagt slutt før i dag · i arbeid = pågår i dag ·
+     pipeline = starter etter i dag · milepælsfremdrift = andel av avhengighetskjeden
+     med planlagt slutt før i dag. Kroner er alltid estimater. */
+  function renderDash(){
+    const el = document.getElementById('view-dash');
+    const now = todayUnit();
+    const eps = 1e-9;
+    const pool = state.tasks.filter(t => !presenting || t.ext);
+    const work = pool.filter(t => !t.milestone);
+    const done = work.filter(t => t.end <= now + eps);
+    const doing = work.filter(t => t.start <= now && t.end > now + eps);
+    const pipe = work.filter(t => t.start > now);
+    const mss = pool.filter(t => t.milestone).sort((a,b) => a.start - b.start);
+    const closure = typeof depClosure === 'function' ? depClosure : () => [];
+    const nok = n => n >= 1e6 ? ((Math.round(n/1e5)/10).toLocaleString('nb-NO') + ' MNOK')
+                              : (Math.round(n/1000).toLocaleString('nb-NO') + ' kNOK');
+    const dateToUnit = d => (d.getFullYear() - BASE_Y) * 12 + (d.getMonth() - BASE_M) +
+      (d.getDate() - 1) / new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+
+    // stat-fliser
+    const eco = typeof planEconomy === 'function' ? planEconomy({tasks: pool}) : {cost:0, revenue:0};
+    let html = '<div class="dash-stats">' +
+      '<div class="stat"><div class="n">' + done.length + '</div><div class="l">Fullført</div><div class="s">planlagt slutt passert</div></div>' +
+      '<div class="stat"><div class="n">' + doing.length + '</div><div class="l">I arbeid</div><div class="s">pågår i dag</div></div>' +
+      '<div class="stat"><div class="n">' + pipe.length + '</div><div class="l">I pipeline</div><div class="s">starter senere</div></div>' +
+      (eco.revenue > 0 ? '<div class="stat"><div class="n">' + nok(eco.revenue) + '</div><div class="l">Forventet inntjening</div><div class="s">estimat, hele planen</div></div>' : '') +
+      (!presenting && eco.cost > 0 ? '<div class="stat"><div class="n">' + nok(eco.cost) + '</div><div class="l">Estimert kost</div><div class="s">internt styringstall</div></div>' : '') +
+      '</div>';
+
+    // horisonten — hele planen som én linje
+    const W = 1000, H = 86, x = u => 20 + (u / N_MONTHS) * (W - 40);
+    let hz = '<svg class="hz-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+      '<line x1="20" y1="46" x2="' + (W-20) + '" y2="46" stroke="var(--line)" stroke-width="2"/>';
+    for(let i=0;i<=N_MONTHS;i+=1){
+      if(monthInfo(i).m === 0) hz += '<line x1="' + x(i) + '" y1="38" x2="' + x(i) + '" y2="54" stroke="var(--ink-faint)" stroke-width="1"/>' +
+        '<text x="' + x(i) + '" y="76" text-anchor="middle" font-size="10" fill="var(--ink-faint)" font-family="Spline Sans Mono">' + monthInfo(i).y + '</text>';
+    }
+    hz += '<line x1="' + x(now) + '" y1="24" x2="' + x(now) + '" y2="62" stroke="var(--accent)" stroke-width="2"/>' +
+      '<text x="' + x(now) + '" y="16" text-anchor="middle" font-size="9.5" fill="var(--accent)" font-family="Spline Sans Mono">I DAG</text>';
+    mss.forEach(m => {
+      const col = presenting ? 'var(--ink)' : (STATUS_COL[m.status] || STATUS_COL.gronn);
+      hz += '<circle cx="' + x(m.start) + '" cy="46" r="7" fill="' + col + '" stroke="var(--card)" stroke-width="2"><title>' +
+        esc(m.label) + ' · ' + esc(fmt(unitToDate(m.start))) + '</title></circle>';
+    });
+    hz += '</svg>';
+    const upcoming = mss.filter(m => m.start >= now - eps).slice(0, 5);
+    html += '<div class="dash-grid"><div class="dash-card horizon"><h3>Horisonten</h3>' +
+      '<div class="dc-sub">' + N_MONTHS + ' måneder · milepæler' + (presenting ? '' : ' farget etter statussignal') + '</div>' +
+      hz +
+      (upcoming.length ? '<div class="hz-list">' + upcoming.map(m =>
+        '<span><b>' + esc(m.label) + '</b> · ' + esc(fmt(unitToDate(m.start))) + '</span>').join('') + '</div>' : '') +
+      '</div>';
+
+    // neste milepæl
+    const next = mss.find(m => m.start >= now - eps);
+    if(next){
+      const chain = closure(state, next.id).filter(t => !t.milestone && (!presenting || t.ext));
+      const chDone = chain.filter(t => t.end <= now + eps);
+      const pct = chain.length ? Math.round(100 * chDone.length / chain.length) : null;
+      const dd = Math.max(0, Math.round((unitToDate(next.start) - new Date()) / 86400000));
+      html += '<div class="dash-card"><h3>Neste milepæl</h3>' +
+        '<div class="dc-sub">' + esc(next.label) + ' · ' + esc(fmt(unitToDate(next.start))) + '</div>' +
+        '<div class="dc-body">' +
+        '<div class="stat" style="border:none;padding:0 0 8px"><div class="n">' + dd + '</div><div class="l">dager igjen</div></div>' +
+        (next.dod ? '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px"><b style="color:var(--ink)">Ferdig betyr:</b> ' + esc(next.dod) + '</div>' : '') +
+        (pct !== null ? '<div class="ms-progress" style="margin:0 0 6px"><i style="width:' + pct + '%"></i></div>' +
+          '<div class="buf-num">' + chDone.length + ' av ' + chain.length + ' koblede oppgaver planlagt ferdige (' + pct + ' %)</div>' : '') +
+        '</div></div>';
+    }
+
+    // buffer-helse
+    const bufs = typeof bufferStatuses === 'function' ? bufferStatuses({tasks: pool}) : [];
+    html += '<div class="dash-card"><h3>Buffer-helse</h3><div class="dc-sub">føring 1.5 — reserven før hver milepæl</div><div class="dc-body">' +
+      (bufs.length ? bufs.map(b =>
+        '<div class="buf-row"><span class="buf-name">' + esc(b.label) + '</span>' +
+        '<span class="buf-bar' + (b.overrunWeeks > 0 ? ' overrun' : '') + '"><i style="width:' + Math.round(100 * Math.min(1, b.usedWeeks / b.bufferWeeks)) + '%"></i></span>' +
+        '<span class="buf-num">' + (Math.round(b.usedWeeks*10)/10) + ' av ' + b.bufferWeeks + ' uker' +
+        (b.overrunWeeks > 0 ? ' · +' + (Math.round(b.overrunWeeks*10)/10) + ' over' : '') + '</span>' +
+        '<span class="buf-num" id="buftrend-' + esc(b.taskId) + '"></span></div>').join('')
+      : '<div class="buf-num">Ingen milepæler har buffer satt enda — legg inn uker i redigeringspanelet.</div>') +
+      '</div></div>';
+
+    if(!presenting){
+      // aktivitetspuls: planlagt fullførte per uke, siste 12 uker
+      const buckets = [];
+      for(let j = 11; j >= 0; j--){
+        const from = new Date(); from.setDate(from.getDate() - 7 * (j + 1));
+        const to = new Date(); to.setDate(to.getDate() - 7 * j);
+        const a = dateToUnit(from), b = dateToUnit(to);
+        buckets.push(work.filter(t => t.end > a && t.end <= b).length);
+      }
+      const maxB = Math.max(1, ...buckets);
+      const bw = 300 / 12;
+      html += '<div class="dash-card"><h3>Aktivitetspuls</h3><div class="dc-sub">oppgaver planlagt fullført per uke · siste 12 uker</div><div class="dc-body">' +
+        '<svg class="spark" viewBox="0 0 300 56" preserveAspectRatio="none">' +
+        buckets.map((v,i) => {
+          const bh = Math.max(2, (v/maxB) * 48);
+          return '<rect x="' + (i*bw+2) + '" y="' + (52-bh) + '" width="' + (bw-4) + '" height="' + bh + '" rx="2" fill="var(--sea)"><title>' + v + ' fullført</title></rect>';
+        }).join('') + '</svg></div></div>';
+
+      // statussignal-bildet
+      const n = {gronn:0, gul:0, rod:0};
+      pool.forEach(t => { if(n[t.status] !== undefined) n[t.status]++; });
+      const rode = pool.filter(t => t.status === 'rod');
+      html += '<div class="dash-card"><h3>Statussignal-bildet</h3><div class="dc-sub">per oppgave · røde krever beslutning</div><div class="dc-body">' +
+        '<div class="tl-summary" style="font-size:13px;margin-bottom:8px">' +
+        '<span><i style="background:#2e7d43"></i>' + n.gronn + ' grønn</span>' +
+        '<span><i style="background:#d9a416"></i>' + n.gul + ' gul</span>' +
+        '<span><i style="background:#c3441c"></i>' + n.rod + ' rød</span></div>' +
+        (rode.length ? rode.map(t => '<div class="red-row"><span class="wn-dot" style="background:#c3441c"></span>' +
+          '<b>' + esc(t.label) + '</b><span class="imp-det">' + esc(t.statusCause || 'uten årsak') + '</span></div>').join('') : '') +
+        '</div></div>';
+
+      // økonomi per milepæl
+      const ecoRows = mss.filter(m => typeof milestoneCost === 'function' &&
+        (milestoneCost(state, m.id) > 0 || (m.revenue || 0) > 0));
+      if(ecoRows.length){
+        html += '<div class="dash-card"><h3>Kost / nytte per milepæl</h3><div class="dc-sub">estimater — kost = egen + avhengighetskjeden</div><div class="dc-body">' +
+          ecoRows.map(m => '<div class="eco-row"><span>' + esc(m.label) + '</span><b>' +
+            nok(milestoneCost(state, m.id)) + ((m.revenue || 0) > 0 ? ' → ' + nok(m.revenue) : '') + '</b></div>').join('') +
+          '</div></div>';
+      }
+    } else if(mss.some(m => (m.revenue || 0) > 0)){
+      // investorvariant: inntjening som aggregater per milepæl, aldri kost
+      html += '<div class="dash-card"><h3>Forventet inntjening per milepæl</h3><div class="dc-sub">estimater</div><div class="dc-body">' +
+        mss.filter(m => (m.revenue || 0) > 0).map(m =>
+          '<div class="eco-row"><span>' + esc(m.label) + '</span><b>' + nok(m.revenue) + '</b></div>').join('') +
+        '</div></div>';
+    }
+
+    html += '</div><div class="dash-note">Telleregler: fullført = planlagt slutt før i dag · i arbeid = pågår i dag · pipeline = starter senere · ' +
+      'milepælsfremdrift = andel av avhengighetskjeden med planlagt slutt før i dag · alle kroner er estimater' +
+      (presenting ? ' · investorvisning: kun eksternt merket innhold' : '') + '</div>';
+    el.innerHTML = html;
+
+    // buffertrend fra ukesnapshots (kun delt modus)
+    if(HOSTED && bufs.length){
+      fetch('api/timeline-buffer-history', {cache:'no-store'}).then(r => r.ok ? r.json() : {snapshots:[]}).then(j => {
+        const by = {};
+        (j.snapshots || []).forEach(s => { (by[s.milestoneId] = by[s.milestoneId] || []).push(s); });
+        bufs.forEach(b => {
+          const rows = by[b.taskId];
+          const holder = document.getElementById('buftrend-' + b.taskId);
+          if(!rows || rows.length < 2 || !holder) return;
+          const last = rows[rows.length-1].usedWeeks, prev = rows[rows.length-2].usedWeeks;
+          holder.textContent = last > prev ? '↗ øker' : last < prev ? '↘ avtar' : '→ stabil';
+          holder.style.color = last > prev ? 'var(--accent)' : 'var(--ink-faint)';
+        });
+      }).catch(() => {});
+    }
+  }
   async function renderLog(){
     const el = document.getElementById('view-log');
     if(!HOSTED){
