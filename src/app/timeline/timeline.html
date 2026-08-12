@@ -508,7 +508,8 @@
       </div>
       <div class="help-card">
         <div class="hc-head"><span class="ico">⭳</span><h4>Lagring og deling</h4></div>
-        <p>Åpnet <b>via SkyTracker</b> er planen felles: endringer autolagres for alle (☁-status øverst).
+        <p>Åpnet <b>via SkyTracker</b> er planen felles: endringer autolagres for alle (☁-status øverst),
+        og <b>andres lagringer dukker opp av seg selv</b> innen ~10 sekunder — uten omlasting.
         Samtidige endringer <b>flettes felt for felt</b> — hver egenskap (tid, navn, status, avhengigheter,
         delmål) har eget versjonsnummer, så to personer kolliderer bare hvis de endrer nøyaktig samme felt
         på samme oppgave samtidig (da vinner siste lagring det ene feltet, resten beholdes).
@@ -1719,8 +1720,10 @@ if (location.protocol === 'file:') {
     }
   }
   let pendingSave = false;   // endret etter at en push startet?
+  let pushing = false;       // PUT underveis — polling holder seg unna
   async function pushPlan(){
     pendingSave = false;
+    pushing = true;
     try{
       const r = await fetch('api/timeline-plan', {
         method:'PUT', headers:{'Content-Type':'application/json'},
@@ -1750,6 +1753,8 @@ if (location.protocol === 'file:') {
       }
     }catch(err){
       setSaveNote('lagring feilet — prøver igjen ved neste endring');
+    }finally{
+      pushing = false;
     }
   }
   function scheduleServerSave(){
@@ -1759,6 +1764,30 @@ if (location.protocol === 'file:') {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(pushPlan, 900);
   }
+
+  /* ---------- polling: andres lagringer dukker opp av seg selv ---------- */
+  const POLL_MS = 10000;
+  async function pollTick(){
+    if(!HOSTED || !serverReady) return;
+    // ikke midt i brukerens egen redigering eller lagring
+    if(drag || mDrag || colDrag || linkSource || openTaskId) return;
+    if(pendingSave || pushing) return;
+    if(importBack.classList.contains('open') || claudeBack.classList.contains('open')) return;
+    try{
+      const r = await fetch('api/timeline-plan', {cache:'no-store'});
+      if(!r.ok) return;
+      const j = await r.json();
+      // sjekk på nytt — brukeren kan ha begynt å dra mens vi ventet på svar
+      if(drag || mDrag || pendingSave || pushing) return;
+      if(j.plan && j.plan.version !== serverVersion){
+        applyRemote(j.plan.data, j.plan.version);
+        const tid = j.plan.updatedAt
+          ? new Date(j.plan.updatedAt).toLocaleTimeString('nb-NO', {hour:'2-digit', minute:'2-digit'}) : '';
+        setSaveNote('oppdatert av ' + (j.plan.updatedBy || 'noen andre') + (tid ? ' ' + tid : ''));
+      }
+    }catch(e){ /* frakoblet — prøver igjen neste runde */ }
+  }
+  if(HOSTED) setInterval(pollTick, POLL_MS);
 
   /* ================== presentasjonsmodus (investorvisning) ================== */
   const mainTitle = document.getElementById('mainTitle');
