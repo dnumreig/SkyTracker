@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { mergePlans, type Plan } from "@/features/timeline/merge";
+import { planDelta } from "@/features/timeline/plan-delta";
 import type { Prisma } from "@/generated/prisma/client";
 
 // Shared state for the /timeline tool. One row (id "default").
@@ -65,8 +66,30 @@ export async function PUT(req: Request) {
       data: { data: merged as unknown as Prisma.InputJsonValue, version: { increment: 1 }, updatedBy },
     });
     if (updated.count === 1) {
+      await logChanges(stored.data as unknown as Plan, merged, updatedBy);
       return Response.json({ version: stored.version + 1, data: merged });
     }
   }
   return Response.json({ error: "contention — try again" }, { status: 409 });
+}
+
+// The change log is best-effort: a failed log write must never fail the save.
+async function logChanges(before: Plan, after: Plan, editor: string | null) {
+  try {
+    const changes = planDelta(before, after);
+    if (!changes.length) return;
+    await prisma.timelineChange.createMany({
+      data: changes.map((c) => ({
+        taskId: c.taskId,
+        taskLabel: c.taskLabel,
+        kind: c.kind,
+        groups: c.groups?.join(",") ?? null,
+        before: (c.before ?? undefined) as Prisma.InputJsonValue | undefined,
+        after: (c.after ?? undefined) as Prisma.InputJsonValue | undefined,
+        editor,
+      })),
+    });
+  } catch {
+    // tabellen kan mangle før migrasjonen er kjørt — lagringen skal uansett lykkes
+  }
 }

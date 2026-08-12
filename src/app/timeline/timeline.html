@@ -539,6 +539,15 @@
   }
   .ro-banner b{color:var(--gold)}
 
+  /* ---------- endringslogg ---------- */
+  .log-list{border:1px solid var(--line);background:var(--card);padding:6px 0 14px}
+  .log-day{font-family:'Fraunces',serif;font-weight:600;font-size:16px;padding:18px 22px 8px}
+  .log-day::first-letter{text-transform:uppercase}
+  .log-row{display:flex;gap:10px;align-items:baseline;padding:7px 22px;border-bottom:1px solid var(--line-soft);font-size:13px}
+  .log-row:last-child{border-bottom:none}
+  .log-when{font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--ink-faint);flex:none;width:42px}
+  .log-body b{font-weight:600}
+
   footer{
     margin-top:34px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
     font-family:'Spline Sans Mono',monospace;font-size:10.5px;letter-spacing:.06em;
@@ -2070,7 +2079,50 @@ if (location.protocol === 'file:') {
   // plassholdere — fylles av senere steg
   function renderWhatNow(){ document.getElementById('view-whatnow').innerHTML = '<div class="view-empty">«Hva nå»-visningen kommer i et senere steg.</div>'; }
   function renderDash(){ document.getElementById('view-dash').innerHTML = '<div class="view-empty">Dashboardet kommer i et senere steg.</div>'; }
-  function renderLog(){ document.getElementById('view-log').innerHTML = '<div class="view-empty">Endringsloggen kommer i et senere steg.</div>'; }
+  async function renderLog(){
+    const el = document.getElementById('view-log');
+    if(!HOSTED){
+      el.innerHTML = '<div class="view-empty">Endringsloggen føres i den delte utgaven — åpne tidslinjen via SkyTracker.</div>';
+      return;
+    }
+    el.innerHTML = '<div class="view-empty">Henter endringslogg …</div>';
+    let rows = [];
+    try{
+      const r = await fetch('api/timeline-changes?limit=120', {cache:'no-store'});
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      rows = (await r.json()).changes || [];
+    }catch(err){
+      el.innerHTML = '<div class="view-empty">Klarte ikke å hente endringsloggen (' + esc(err.message) + ').</div>';
+      return;
+    }
+    if(!rows.length){
+      el.innerHTML = '<div class="view-empty">Ingen endringer logget enda — loggen fylles etter hvert som planen redigeres.</div>';
+      return;
+    }
+    const KIND_TXT = {ny:'la til', endret:'endret', slettet:'slettet'};
+    const byDay = new Map();
+    rows.forEach(c => {
+      const key = new Date(c.at).toLocaleDateString('nb-NO', {weekday:'long', day:'numeric', month:'long'});
+      if(!byDay.has(key)) byDay.set(key, []);
+      byDay.get(key).push(c);
+    });
+    let html = '<div class="log-list">';
+    byDay.forEach((list, day) => {
+      html += '<h3 class="log-day">' + esc(day) + '</h3>';
+      list.forEach(c => {
+        const t = new Date(c.at).toLocaleTimeString('nb-NO', {hour:'2-digit', minute:'2-digit'});
+        const groups = (c.groups || '').split(',').filter(Boolean);
+        const det = c.kind === 'endret' && c.before && c.after
+          ? changeDetail({groups, before: c.before, after: c.after}) : '';
+        html += '<div class="log-row">' +
+          '<span class="log-when">' + t + '</span>' +
+          '<span class="imp-kind ' + esc(c.kind) + '">' + (KIND_TXT[c.kind] || esc(c.kind)) + '</span>' +
+          '<span class="log-body"><b>' + esc(c.editor || 'ukjent') + '</b> — «' + esc(c.taskLabel) + '»' +
+          (det ? '<span class="imp-det"> · ' + det + '</span>' : '') + '</span></div>';
+      });
+    });
+    el.innerHTML = html + '</div>';
+  }
 
   /* ================== Data-meny ================== */
   const dataMenu = document.getElementById('dataMenu');
