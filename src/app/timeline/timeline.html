@@ -889,6 +889,16 @@ if (location.protocol === 'file:') {
           <span>Buffer før måldato (uker — føring 1.5)</span>
           <input id="edBuffer" type="number" min="0" step="1" placeholder="f.eks. 4">
         </div>
+        <div class="ed-row">
+          <div class="ed-field">
+            <span>Kostnad (NOK, estimat)</span>
+            <input id="edCost" type="number" min="0" step="1000" placeholder="valgfritt">
+          </div>
+          <div class="ed-field">
+            <span>Forventet inntjening (NOK, estimat)</span>
+            <input id="edRevenue" type="number" min="0" step="1000" placeholder="mest på milepæler">
+          </div>
+        </div>
         <div class="ed-field">
           <span>Dokumentlenker (beslutninger, referater, spesifikasjoner)</span>
           <div id="edLinks"></div>
@@ -2218,6 +2228,10 @@ if (location.protocol === 'file:') {
         (m.dod ? '<div class="ms-dod"><b>Ferdig betyr:</b> ' + esc(m.dod) + '</div>' : '') +
         ((m.links || []).length ? '<div class="ms-links">' + m.links.map(l =>
           '<a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.label || l.url) + ' ↗</a>').join('') + '</div>' : '') +
+        (typeof milestoneCost === 'function' && milestoneCost(state, m.id) > 0
+          ? '<div class="ms-meta">Kost til milepælen: ~' + milestoneCost(state, m.id).toLocaleString('nb-NO') + ' kr (estimat)' +
+            (typeof m.revenue === 'number' && m.revenue > 0 ? ' · forventet inntjening: ~' + m.revenue.toLocaleString('nb-NO') + ' kr (estimat)' : '') + '</div>'
+          : '') +
         (typeof m.buffer === 'number' && m.buffer > 0 && typeof bufferStatuses === 'function'
           ? (() => {
               const bs = bufferStatuses(state).find(x => x.taskId === m.id);
@@ -2360,6 +2374,8 @@ if (location.protocol === 'file:') {
     document.getElementById('edBufferField').hidden = !t.milestone;
     document.getElementById('edDod').value = t.dod || '';
     document.getElementById('edBuffer').value = typeof t.buffer === 'number' ? t.buffer : '';
+    document.getElementById('edCost').value = typeof t.cost === 'number' ? t.cost : '';
+    document.getElementById('edRevenue').value = typeof t.revenue === 'number' ? t.revenue : '';
     document.getElementById('edLinks').innerHTML = (t.links || []).map(l =>
       '<div class="linkrow"><input class="l-label" placeholder="Navn" value="' + esc(l.label || '') + '">' +
       '<input class="l-url" placeholder="https://…" value="' + esc(l.url || '') + '">' +
@@ -2431,6 +2447,16 @@ if (location.protocol === 'file:') {
     if(t.buffer !== newBuf){
       if(newBuf !== undefined) t.buffer = newBuf; else delete t.buffer;
       touch(t, 'buffer');
+    }
+    const numField = id => {
+      const v = parseFloat(document.getElementById(id).value);
+      return isFinite(v) && v >= 0 && document.getElementById(id).value !== '' ? v : undefined;
+    };
+    const cost = numField('edCost'), revenue = numField('edRevenue');
+    if(t.cost !== cost || t.revenue !== revenue){
+      if(cost !== undefined) t.cost = cost; else delete t.cost;
+      if(revenue !== undefined) t.revenue = revenue; else delete t.revenue;
+      touch(t, 'okonomi');
     }
     const links = [...document.querySelectorAll('#edLinks .linkrow')].map(row => ({
       label: row.querySelector('.l-label').value.trim(),

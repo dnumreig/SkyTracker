@@ -38,10 +38,26 @@ Bruk steg på `0.25` (≈ én uke) i hovedplanen og `0.125` i delmål.
     "t2": false,
     "status": "gronn",
     "statusCause": null,
-    "statusAt": null
+    "statusAt": null,
+    "dod": "Definisjon av ferdig (kun milepæler)",
+    "links": [{ "label": "Beslutningsreferat", "url": "https://…" }],
+    "buffer": 4,
+    "cost": 250000,
+    "revenue": 1000000
   }]
 }
 ```
+
+De fem siste feltene er **valgfrie**:
+- `dod` — definisjon av ferdig, kort prosatekst. Kun meningsfull på milepæler.
+- `links` — dokumentlenker (beslutninger, referater, spesifikasjoner).
+- `buffer` — antall **uker** buffer reservert før milepælens måldato (føring 1.5).
+  Kun på milepæler.
+- `cost` — estimert kostnad i NOK. Kan settes på enhver oppgave; baner og milepæler
+  summeres automatisk (milepælens kost = egen + hele avhengighetskjeden).
+- `revenue` — forventet inntjening i NOK. Mest meningsfull på milepæler/leveranser.
+  Både kost og inntjening vises alltid som **estimater** i verktøyet — sett dem bare når
+  dokumentasjonen gir grunnlag for tallet, og rund heller av enn å dikte presisjon.
 
 ## Regler
 

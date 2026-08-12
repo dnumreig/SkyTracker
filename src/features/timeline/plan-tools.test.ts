@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bufferStatuses, computeImportDiff, depClosure, IMPORT_GROUP_PROPS } from "./plan-tools.js";
+import { bufferStatuses, computeImportDiff, depClosure, IMPORT_GROUP_PROPS, laneEconomy, milestoneCost, planEconomy } from "./plan-tools.js";
 import { GROUP_PROPS, mergePlans, type Plan, type PlanTask } from "./merge";
 
 function task(over: Partial<PlanTask>): PlanTask {
@@ -229,6 +229,30 @@ describe("bufferStatuses — føring 1.5: buffer per milepæl (1 uke = 0.25 enhe
   it("milepæl uten koblede oppgaver har urørt buffer", () => {
     const p = plan([task({ id: "m", start: 2, end: 2, milestone: true, buffer: 2 })]);
     expect(bufferStatuses(p)[0]).toMatchObject({ usedWeeks: 0, overrunWeeks: 0 });
+  });
+});
+
+describe("økonomi — valgfri kost/inntjening med opprulling", () => {
+  const p = plan([
+    task({ id: "a", lane: "produkt", cost: 100_000 }),
+    task({ id: "b", lane: "produkt", cost: 50_000, deps: ["a"] }),
+    task({ id: "c", lane: "org" }),                                   // uten kost
+    task({ id: "m", lane: "kommers", milestone: true, deps: ["b"], cost: 25_000, revenue: 1_000_000 }),
+  ]);
+
+  it("planEconomy summerer kost og inntjening over hele planen", () => {
+    expect(planEconomy(p)).toEqual({ cost: 175_000, revenue: 1_000_000 });
+  });
+
+  it("milestoneCost = egen kost + hele avhengighetskjeden", () => {
+    expect(milestoneCost(p, "m")).toBe(175_000);
+  });
+
+  it("laneEconomy summerer per bane og hopper over baner uten tall", () => {
+    const lanes = laneEconomy(p);
+    expect(lanes.produkt).toEqual({ cost: 150_000, revenue: 0 });
+    expect(lanes.kommers).toEqual({ cost: 25_000, revenue: 1_000_000 });
+    expect(lanes.org).toBeUndefined();
   });
 });
 

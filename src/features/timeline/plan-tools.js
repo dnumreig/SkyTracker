@@ -15,6 +15,7 @@ const IMPORT_GROUP_PROPS = {
   subtasks: ["subtasks"],
   meta: ["lane", "t2", "milestone", "source", "ext", "dod", "links"],
   buffer: ["buffer"],
+  okonomi: ["cost", "revenue"],
 };
 const IMPORT_FIELD_GROUPS = Object.keys(IMPORT_GROUP_PROPS);
 
@@ -206,6 +207,36 @@ function bufferStatuses(plan) {
     });
 }
 
+/* Økonomi: valgfri `cost` og `revenue` (NOK, ESTIMATER) på oppgaver.
+   Opprulling skjer her — banene og planen lagrer aldri egne tall. */
+const numOr0 = (v) => (typeof v === "number" && isFinite(v) ? v : 0);
+
+function planEconomy(plan) {
+  return (plan.tasks || []).reduce(
+    (acc, t) => ({ cost: acc.cost + numOr0(t.cost), revenue: acc.revenue + numOr0(t.revenue) }),
+    { cost: 0, revenue: 0 },
+  );
+}
+
+/** Kost for å nå en milepæl: egen kost + hele avhengighetskjeden. */
+function milestoneCost(plan, id) {
+  const byId = new Map((plan.tasks || []).map((t) => [t.id, t]));
+  const own = numOr0(byId.get(id) && byId.get(id).cost);
+  return own + depClosure(plan, id).reduce((sum, t) => sum + numOr0(t.cost), 0);
+}
+
+/** Sum per bane — baner uten et eneste tall utelates. */
+function laneEconomy(plan) {
+  const out = {};
+  (plan.tasks || []).forEach((t) => {
+    if (t.cost === undefined && t.revenue === undefined) return;
+    const e = out[t.lane] || (out[t.lane] = { cost: 0, revenue: 0 });
+    e.cost += numOr0(t.cost);
+    e.revenue += numOr0(t.revenue);
+  });
+  return out;
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { computeImportDiff, IMPORT_GROUP_PROPS, depClosure, bufferStatuses };
+  module.exports = { computeImportDiff, IMPORT_GROUP_PROPS, depClosure, bufferStatuses, planEconomy, milestoneCost, laneEconomy };
 }

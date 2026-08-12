@@ -29,3 +29,9 @@ export type BufferStatus = {
 };
 
 export declare function bufferStatuses(plan: Plan): BufferStatus[];
+
+export type Economy = { cost: number; revenue: number };
+
+export declare function planEconomy(plan: Plan): Economy;
+export declare function milestoneCost(plan: Plan, id: string): number;
+export declare function laneEconomy(plan: Plan): Record<string, Economy>;
