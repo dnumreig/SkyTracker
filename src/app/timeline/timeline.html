@@ -60,6 +60,7 @@
     padding:8px 14px;cursor:pointer;border-radius:2px;transition:background .15s ease,color .15s ease;
   }
   button:hover{background:var(--ink);color:var(--paper)}
+  button:disabled{opacity:.4;cursor:default;pointer-events:none}
   button.ghost{border-color:var(--line);color:var(--ink-soft)}
   button.ghost:hover{border-color:var(--ink);background:var(--card);color:var(--ink)}
   .dirty-note{font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--gold);min-width:120px;text-align:right}
@@ -393,6 +394,41 @@
     padding:12px 22px;border-top:1px solid var(--line);flex-wrap:wrap;
   }
   .modal-foot .note{font-size:11px;color:var(--ink-faint);font-family:'Spline Sans Mono',monospace}
+  .modal-foot .btns{display:flex;gap:8px;align-items:center}
+
+  /* ---------- import-forhåndsvisning + Claude-pakke ---------- */
+  .imp-sum{
+    display:flex;gap:18px;flex-wrap:wrap;padding:14px 22px;border-bottom:1px solid var(--line);
+    font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+  .imp-sum b{font-size:16px;margin-right:5px;color:var(--ink)}
+  .imp-list{list-style:none;margin:0;padding:6px 0;max-height:46vh;overflow:auto}
+  .imp-list li{display:flex;gap:10px;align-items:baseline;padding:8px 22px;border-bottom:1px solid var(--line-soft);font-size:13px}
+  .imp-list li:last-child{border-bottom:none}
+  .imp-kind{
+    flex:none;font-family:'Spline Sans Mono',monospace;font-size:9.5px;letter-spacing:.08em;
+    text-transform:uppercase;padding:1px 8px;border-radius:8px;border:1px solid var(--line);color:var(--ink-soft);
+  }
+  .imp-kind.ny{background:var(--pine);color:#fff;border-color:var(--pine)}
+  .imp-kind.endret{background:var(--paper-deep);color:var(--ink)}
+  .imp-kind.slettet{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .imp-name{font-weight:600;flex:none;max-width:34ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .imp-det{color:var(--ink-soft);font-size:12px}
+  .claude-steps{padding:14px 22px 18px;max-width:72ch}
+  .claude-steps p{font-size:13.5px;color:var(--ink-soft);margin:0 0 6px}
+  .claude-steps p b, .claude-steps li b{color:var(--ink)}
+  .claude-steps ol{margin:8px 0 0 20px}
+  .claude-steps li{font-size:13.5px;color:var(--ink-soft);margin:8px 0}
+  .claude-steps code{
+    font-family:'Spline Sans Mono',monospace;font-size:.85em;background:var(--paper-deep);
+    border:1px solid var(--line);border-radius:3px;padding:0 5px;color:var(--ink);
+  }
+  .modal-foot a.btnlike{
+    font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    border:1px solid var(--line);color:var(--ink-soft);padding:8px 14px;border-radius:2px;text-decoration:none;
+  }
+  .modal-foot a.btnlike:hover{border-color:var(--ink);color:var(--ink)}
 
   footer{
     margin-top:34px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
@@ -432,6 +468,7 @@
       <button class="ghost" id="helpBtn">Hjelp</button>
       <button class="ghost" id="exportBtn">Eksporter</button>
       <button class="ghost" id="importBtn">Importer</button>
+      <button class="ghost" id="claudeBtn" title="Last ned plan + instruksjoner og oppdater planen i en lokal Claude-økt">Oppdater med Claude</button>
       <input type="file" id="importFile" accept="application/json" style="display:none">
       <button id="resetBtn">Nullstill til plan</button>
     </div>
@@ -507,9 +544,9 @@
       <div class="help-card">
         <div class="hc-head"><span class="ico">✳</span><h4>Oppdater med Claude</h4></div>
         <p>Tidslinjen kan vedlikeholdes sammen med Claude Code på bakgrunn av dokumentasjon:
-        trykk <b>Eksporter</b>, la Claude redigere JSON-filen, og trykk <b>Importer</b>.
-        Arbeidsflyten er lik enten du åpner verktøyet lokalt eller via SkyTracker.
-        <a href="claude-guide.html"><b>Les hvordan →</b></a></p>
+        trykk <b>Oppdater med Claude</b> for å laste ned planen + instruksjonene og få oppskriften.
+        Importen viser alltid en <b>forhåndsvisning</b> av endringene før noe lagres — du trenger
+        aldri lese JSON selv. <a href="claude-guide.html"><b>Les hvordan →</b></a></p>
       </div>
     </div>
   </div>
@@ -550,9 +587,16 @@
 <div class="cause-menu" id="causeMenu"></div>
 <button class="ghost" id="presentExit">Avslutt presentasjon (Esc)</button>
 
-<!-- Lokal modus (fil på disk): last skytracker-data.js skrevet av sync-skytracker.command.
+<!-- Delt import-logikk (smart import): samme fil kjøres i nettleseren her, i den
+     hostede utgaven (/timeline/import-diff.js) og i vitest — én kilde, null drift.
+     Lokal modus (fil på disk): last også skytracker-data.js fra sync-skytracker.command.
      Hostet i SkyTracker hentes data i stedet live fra /api/timeline-export ved knappetrykk. -->
 <script>
+(function(){
+  var __id = document.createElement('script');
+  __id.src = location.protocol === 'file:' ? 'import-diff.js' : 'timeline/import-diff.js';
+  document.head.appendChild(__id);
+})();
 if (location.protocol === 'file:') {
   var __st = document.createElement('script');
   __st.src = 'skytracker-data.js';
@@ -583,6 +627,53 @@ if (location.protocol === 'file:') {
     <div class="modal-foot">
       <button class="ghost" id="addSubBtn">＋ Nytt delmål</button>
       <span class="note">Oppløsning: uke · dobbeltklikk navn for å redigere · × sletter delmål</span>
+    </div>
+  </div>
+</div>
+
+<!-- import-forhåndsvisning -->
+<div class="modal-back" id="importBack">
+  <div class="modal" style="width:min(780px,100%)">
+    <div class="modal-head">
+      <div>
+        <h2>Forhåndsvisning av import</h2>
+        <div class="md" id="impSub"></div>
+      </div>
+      <div class="mh-note">Ingenting lagres før du trykker «Bruk endringene».</div>
+      <button id="impCloseX">Lukk</button>
+    </div>
+    <div class="modal-body">
+      <div class="imp-sum" id="impSum"></div>
+      <ul class="imp-list" id="impList"></ul>
+    </div>
+    <div class="modal-foot">
+      <span class="note" id="impNote"></span>
+      <span class="btns">
+        <button class="ghost" id="impCancel">Avbryt</button>
+        <button id="impApply">Bruk endringene</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Claude-pakke -->
+<div class="modal-back" id="claudeBack">
+  <div class="modal" style="width:min(660px,100%)">
+    <div class="modal-head">
+      <div>
+        <h2>Oppdater med Claude</h2>
+        <div class="md">Eksporter → Claude-økt → Importer med forhåndsvisning</div>
+      </div>
+      <button id="claudeClose">Lukk</button>
+    </div>
+    <div class="modal-body">
+      <div class="claude-steps" id="claudeSteps"></div>
+    </div>
+    <div class="modal-foot">
+      <a class="btnlike" href="claude-guide.html">Åpne full guide →</a>
+      <span class="btns">
+        <button id="claudePkgBtn">Last ned Claude-pakken</button>
+      </span>
     </div>
   </div>
 </div>
@@ -618,6 +709,12 @@ if (location.protocol === 'file:') {
     return new Date(y, m, day);
   }
   function fmt(d){ return d.getDate() + '. ' + MND[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); }
+  function todayUnit(){
+    const n = new Date();
+    const dim = new Date(n.getFullYear(), n.getMonth()+1, 0).getDate();
+    const u = (n.getFullYear() - BASE_Y) * 12 + (n.getMonth() - BASE_M) + (n.getDate() - 1) / dim;
+    return Math.max(0, Math.min(N_MONTHS, u));
+  }
   function rangeText(t){
     const a = unitToDate(t.start), b = unitToDate(t.end);
     b.setDate(b.getDate() - 1);
@@ -905,8 +1002,9 @@ if (location.protocol === 'file:') {
 
     const today = document.createElement('div');
     today.className = 'today';
-    today.style.left = ((9/31)*MONTH_W) + 'px';
-    today.innerHTML = '<span class="tl">I DAG · 10. AUG</span>';
+    today.style.left = (todayUnit()*MONTH_W) + 'px';
+    const tn = new Date();
+    today.innerHTML = '<span class="tl">I DAG · ' + tn.getDate() + '. ' + MND[tn.getMonth()].toUpperCase() + '</span>';
     chart.appendChild(today);
 
     // lanes + rader
@@ -1118,7 +1216,7 @@ if (location.protocol === 'file:') {
 
   /* ================== rader: legg til / fjern ================== */
   function addTask(laneKey){
-    const start = snapTo(9/31, SNAP);
+    const start = snapTo(Math.min(todayUnit(), N_MONTHS - 1), SNAP);
     const t = {id:uid(), lane:laneKey, label:'Ny oppgave', start, end:start+1, deps:[], subtasks:[], fv:{}, status:'gronn'};
     if(myName){ t.editedBy = myName; t.editedAt = new Date().toISOString(); }
     // sett inn etter siste oppgave i samme lane (beholder gruppering)
@@ -1182,7 +1280,9 @@ if (location.protocol === 'file:') {
   document.getElementById('linkCancel').addEventListener('click', cancelLink);
   document.addEventListener('keydown', e => {
     if(e.key === 'Escape'){
-      if(linkSource) cancelLink();
+      if(importBack.classList.contains('open')) closeImportPreview();
+      else if(claudeBack.classList.contains('open')) claudeBack.classList.remove('open');
+      else if(linkSource) cancelLink();
       else if(openTaskId) closeDetail();
       else if(presenting) exitPresent();
     }
@@ -1670,6 +1770,8 @@ if (location.protocol === 'file:') {
     presenting = true;
     cancelLink();
     closeCauseMenu();
+    closeImportPreview();
+    claudeBack.classList.remove('open');
     if(openTaskId) closeDetail();
     document.body.classList.add('presenting');
     mainTitle.innerHTML = 'Veikart — <span class="accent">Skytale.</span>';
@@ -1719,17 +1821,77 @@ if (location.protocol === 'file:') {
     render();
     updateSyncBtn();
   });
-  document.getElementById('exportBtn').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  function downloadFile(name, text, mime){
+    const blob = new Blob([text], {type: mime});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'skytale-telenor-plan.json';
+    a.download = name;
     a.click();
     URL.revokeObjectURL(a.href);
-  });
+  }
+  const exportPlan = () => downloadFile('skytale-telenor-plan.json', JSON.stringify(state, null, 2), 'application/json');
+  document.getElementById('exportBtn').addEventListener('click', exportPlan);
   document.getElementById('importBtn').addEventListener('click', () => {
     document.getElementById('importFile').click();
   });
+
+  /* ---------- smart import med forhåndsvisning ---------- */
+  const importBack = document.getElementById('importBack');
+  let pendingImport = null;
+  const GROUP_TXT = {tid:'tidsrom', label:'navn', status:'statussignal', deps:'avhengigheter', subtasks:'delmål', meta:'egenskaper'};
+  const statusTxt = t => ({gronn:'GRØNN', gul:'GUL', rod:'RØD'}[t.status] || t.status || 'GRØNN') +
+    (t.statusCause ? ' (' + t.statusCause + ')' : '');
+  function changeDetail(c){
+    return (c.groups || []).map(g => {
+      if(g === 'tid') return esc(rangeText(c.before)) + ' → ' + esc(rangeText(c.after));
+      if(g === 'label') return '«' + esc(c.before.label) + '» → «' + esc(c.after.label) + '»';
+      if(g === 'status') return esc(statusTxt(c.before)) + ' → ' + esc(statusTxt(c.after));
+      if(g === 'deps') return 'avhengigheter: ' + (c.before.deps || []).length + ' → ' + (c.after.deps || []).length;
+      if(g === 'subtasks') return 'delmål: ' + (c.before.subtasks || []).length + ' → ' + (c.after.subtasks || []).length;
+      return GROUP_TXT[g];
+    }).join(' · ');
+  }
+  function openImportPreview(res){
+    pendingImport = res.plan;
+    const KINDS = ['ny','endret','slettet','bevart'];
+    const KIND_TXT = {ny:'nye', endret:'endret', slettet:'slettes', bevart:'bevart (ST)'};
+    const n = {ny:0, endret:0, slettet:0, bevart:0};
+    res.changes.forEach(c => { n[c.kind]++; });
+    const real = res.changes.filter(c => c.kind !== 'bevart').length;
+    document.getElementById('impSub').textContent = real
+      ? real + (real === 1 ? ' endring' : ' endringer') + ' i filen'
+      : 'Filen er identisk med planen slik den står';
+    document.getElementById('impSum').innerHTML = KINDS
+      .filter(k => n[k]).map(k => '<span><b>' + n[k] + '</b>' + KIND_TXT[k] + '</span>').join('');
+    document.getElementById('impList').innerHTML = res.changes.map(c =>
+      '<li><span class="imp-kind ' + c.kind + '">' + KIND_TXT[c.kind] + '</span>' +
+      '<span class="imp-name">' + esc(c.label || c.id) + '</span>' +
+      '<span class="imp-det">' + (c.kind === 'endret' ? changeDetail(c) :
+        c.kind === 'bevart' ? 'SkyTracker-speilrad — beholdes selv om den mangler i filen' : '') + '</span></li>'
+    ).join('') || '<li><span class="imp-det">Ingen endringer å vise.</span></li>';
+    document.getElementById('impNote').textContent = !real ? '' : HOSTED
+      ? (canWrite ? 'Bruk endringene = lagres for alle.' : 'Kun lesetilgang — endringene forblir lokale hos deg.')
+      : 'Endringene lagres i din nettleser.';
+    document.getElementById('impApply').disabled = !real;
+    importBack.classList.add('open');
+  }
+  function closeImportPreview(){
+    pendingImport = null;
+    importBack.classList.remove('open');
+  }
+  document.getElementById('impApply').addEventListener('click', () => {
+    if(pendingImport){
+      state = normalize(pendingImport);
+      resolveDeps();
+      save(); render();
+      updateSyncBtn();
+    }
+    closeImportPreview();
+  });
+  document.getElementById('impCancel').addEventListener('click', closeImportPreview);
+  document.getElementById('impCloseX').addEventListener('click', closeImportPreview);
+  importBack.addEventListener('click', e => { if(e.target === importBack) closeImportPreview(); });
+
   document.getElementById('importFile').addEventListener('change', e => {
     const f = e.target.files[0];
     if(!f) return;
@@ -1738,10 +1900,8 @@ if (location.protocol === 'file:') {
       try{
         const s = JSON.parse(r.result);
         if(!s || !Array.isArray(s.lanes) || !Array.isArray(s.tasks)) throw new Error('feil format');
-        state = normalize(s);
-        resolveDeps();
-        save(); render();
-        updateSyncBtn();
+        if(typeof computeImportDiff !== 'function') throw new Error('import-modulen er ikke lastet — last siden på nytt og prøv igjen');
+        openImportPreview(computeImportDiff(state, s, {editor: myName || undefined, now: new Date().toISOString()}));
       }catch(err){
         alert('Kunne ikke lese filen: ' + err.message);
       }
@@ -1749,6 +1909,44 @@ if (location.protocol === 'file:') {
     };
     r.readAsText(f);
   });
+
+  /* ---------- Claude-pakken ---------- */
+  const claudeBack = document.getElementById('claudeBack');
+  document.getElementById('claudeBtn').addEventListener('click', () => {
+    document.getElementById('claudeSteps').innerHTML = HOSTED ? (
+      '<p>Planen vedlikeholdes i en <b>lokal Claude-økt</b> på din maskin. Du trenger ikke kunne ' +
+      'JSON — instruksjonsfilen forklarer alt til Claude, og importen viser alltid en ' +
+      'forhåndsvisning før noe lagres.</p><ol>' +
+      '<li><b>Last ned Claude-pakken</b> — planen (<code>skytale-telenor-plan.json</code>) og ' +
+      'instruksjonene (<code>claude-instruksjoner.md</code>) havner i nedlastingsmappen din.</li>' +
+      '<li>Åpne terminalen i mappen med filene og start <code>claude</code>.</li>' +
+      '<li>Be om endringene: «les claude-instruksjoner.md, og oppdater planen: …» — pek gjerne ' +
+      'på referater eller dokumenter.</li>' +
+      '<li>Trykk <b>Importer</b> her, velg filen, se over forhåndsvisningen og bekreft.</li></ol>'
+    ) : (
+      '<p>Åpnet lokalt fra fil: instruksjonene ligger allerede i denne mappen som ' +
+      '<code>CLAUDE.md</code> og leses automatisk når en Claude-økt startes her.</p><ol>' +
+      '<li><b>Last ned Claude-pakken</b> (planen som JSON) og legg filen i denne mappen.</li>' +
+      '<li>Start <code>claude</code> i mappen.</li>' +
+      '<li>Be om endringene du vil ha — pek på dokumentasjonen.</li>' +
+      '<li>Trykk <b>Importer</b>, velg filen, se over forhåndsvisningen og bekreft.</li></ol>'
+    );
+    claudeBack.classList.add('open');
+  });
+  document.getElementById('claudePkgBtn').addEventListener('click', async () => {
+    exportPlan();
+    if(HOSTED){
+      try{
+        const r = await fetch('timeline/claude-instruksjoner.md', {cache:'no-store'});
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        downloadFile('claude-instruksjoner.md', await r.text(), 'text/markdown');
+      }catch(err){
+        alert('Planen ble lastet ned, men ikke instruksjonsfilen (' + err.message + '). Prøv igjen.');
+      }
+    }
+  });
+  document.getElementById('claudeClose').addEventListener('click', () => claudeBack.classList.remove('open'));
+  claudeBack.addEventListener('click', e => { if(e.target === claudeBack) claudeBack.classList.remove('open'); });
 
   render();
   initServerPlan();
