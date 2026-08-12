@@ -12,7 +12,7 @@ export type TaskFieldGroup = "tid" | "label" | "status" | "deps" | "subtasks" | 
 export const TASK_FIELD_GROUPS: TaskFieldGroup[] = ["tid", "label", "status", "deps", "subtasks", "meta"];
 
 // Which task properties belong to which field group.
-const GROUP_PROPS: Record<TaskFieldGroup, string[]> = {
+export const GROUP_PROPS: Record<TaskFieldGroup, string[]> = {
   tid: ["start", "end"],
   label: ["label"],
   status: ["status", "statusCause", "statusAt"],
