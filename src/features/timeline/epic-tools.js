@@ -583,7 +583,7 @@ function releasePace(plan, r, todayDay) {
   const head = pct(done) + " levert · " + pct(elapsed) + " av tiden brukt";
   const tail = done >= 1 ? "alt levert · sett «Skippet» når den er ute"
     : forecastDay ? "med dagens tempo ferdig " + dayWords(forecastDay) + (deltaDays === 0 ? ", på målet" : deltaDays > 0 ? ", " + daysWords(deltaDays) + " etter målet" : ", " + daysWords(-deltaDays) + " før målet")
-    : readings < 2 ? "tempo etter neste lesing" : "ingenting levert ennå";
+    : readings < 2 ? "tempo etter neste lesing" : units.done === 0 ? "ingenting levert ennå" : "tempo regnes fra " + dayWords(startDay);   // the clock has not started: the items sit in a coming sprint
   return { code, text: head + " · " + tail, done, elapsed, startDay, elapsedDays, totalDays, tempo, forecastDay, deltaDays, readings };
 }
 /** The legend's status strip: the next release not yet out, how far away it is, the share delivered and the tempo colour in words. */
@@ -625,7 +625,9 @@ function releaseBurndownData(plan, r, todayDay) {
   const actual = (a.history || []).map((h) => ({ day: h.day, remaining: h.pointsTotal > 0 ? h.pointsTotal - h.pointsDone : h.total - h.done }));
   const pace = releasePace(plan, r, todayDay);
   const endDay = [r.targetDate, r.shippedDate || todayDay, ...actual.map((p) => p.day)].sort().pop();
-  return { startDay: pace ? pace.startDay : releaseStartDay(plan, r), targetDay: r.targetDate, endDay, todayDay, total: unit === "SP" ? pr.pointsTotal : pr.total, unit, actual, forecastDay: pace ? pace.forecastDay : null };
+  const startDay = pace ? pace.startDay : releaseStartDay(plan, r);
+  const axisStart = actual.length && actual[0].day < startDay ? actual[0].day : startDay;   // readings before the clock's start (items moved to a later sprint) stay on the chart
+  return { startDay, axisStart, targetDay: r.targetDate, endDay, todayDay, total: unit === "SP" ? pr.pointsTotal : pr.total, unit, actual, forecastDay: pace ? pace.forecastDay : null };
 }
 /** The sprint's open bugs and stories that carry no release label at all: what sprint planning still has to stamp. */
 function sprintUnlabelledWiql(iterationPath) {

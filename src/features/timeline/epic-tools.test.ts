@@ -704,7 +704,7 @@ describe("R11: the tempo of a release", () => {
     const today = "2026-10-12";
     const h = [{ day: "2026-10-09", pointsDone: 4, pointsTotal: 70, done: 1, total: 2 }, { day: today, pointsDone: 10, pointsTotal: 79, done: 1, total: 2 }];
     const a = mk({ items: items([10], [69]), history: h });
-    expect(releaseBurndownData(a.p, a.r, today)).toEqual({ startDay: "2026-10-05", targetDay: "2026-10-22", endDay: "2026-10-22", todayDay: today, total: 79, unit: "SP", actual: [{ day: "2026-10-09", remaining: 66 }, { day: today, remaining: 69 }], forecastDay: "2026-12-09" });
+    expect(releaseBurndownData(a.p, a.r, today)).toEqual({ startDay: "2026-10-05", axisStart: "2026-10-05", targetDay: "2026-10-22", endDay: "2026-10-22", todayDay: today, total: 79, unit: "SP", actual: [{ day: "2026-10-09", remaining: 66 }, { day: today, remaining: 69 }], forecastDay: "2026-12-09" });
     expect(releaseBurndownData(a.p, a.r, "2026-10-30")!.endDay).toBe("2026-10-30");
     const shipped = mk({ items: items([10], [69]), history: h }, { shippedDate: "2026-10-20" });
     expect(releaseBurndownData(shipped.p, shipped.r, "2026-11-30")).toMatchObject({ endDay: "2026-10-22", forecastDay: null });
@@ -724,5 +724,22 @@ describe("R11: the tempo of a release", () => {
     expect(kept.length).toBe(120);
     expect(kept[0].day).toBe(dayKey(new Date(2026, 0, 11)));
     expect(normalizePlan({ lanes: [], tasks: [], releases: [rel({ ado: { at: "x", label: "2.0.1", items: [], history: [], sprints: [] } })] }).releases![0].ado).toEqual({ at: "x", label: "2.0.1", items: [] });
+  });
+});
+
+describe("R11: a release whose clock starts after today (items in a coming sprint)", () => {
+  const sprints = { at: "x", items: [{ name: "Sprint 72", path: "Skytale\\Sprint 72", start: "2026-10-26", finish: "2026-11-06" }] };
+  const p = normalizePlan({ lanes: [], tasks: [], sprints, releases: [{ key: "r", version: "2.0.2", targetDate: "2026-11-12", ado: { at: "x", label: "2.0.2", items: [
+    { id: 1, type: "Bug", title: "a", state: "Closed", points: 5, assignee: null, iteration: "Sprint 72" }, { id: 2, type: "Bug", title: "b", state: "New", points: 11, assignee: null, iteration: "Sprint 72" },
+  ], history: [{ day: "2026-10-12", pointsDone: 5, pointsTotal: 16, done: 1, total: 2 }, { day: "2026-10-13", pointsDone: 5, pointsTotal: 16, done: 1, total: 2 }] } }] });
+  it("says where the tempo counts from instead of «ingenting levert ennå», and stays green", () => {
+    const pace = releasePace(p, p.releases![0], "2026-10-13")!;
+    expect(pace).toMatchObject({ code: "gronn", elapsedDays: 0, tempo: null, startDay: "2026-10-26" });
+    expect(pace.text).toBe("31 % levert · 0 % av tiden brukt · tempo regnes fra 26. okt");
+  });
+  it("the burndown's axis starts at the earlier of the clock's start and the first reading", () => {
+    const d = releaseBurndownData(p, p.releases![0], "2026-10-13")!;
+    expect(d.axisStart).toBe("2026-10-12");
+    expect(d.startDay).toBe("2026-10-26");
   });
 });
