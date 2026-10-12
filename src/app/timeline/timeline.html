@@ -608,8 +608,10 @@
         (feltet «Release» på bugs og stories, satt av utviklingsleder i sprintplanleggingen): «Oppdater fra ADO» leser dem inn, fyllingen
         i segmentet er poeng levert, og skuffen lister alt. En feilrettingsrelease er bare et segment; en feature-release er segmentet pluss
         featurene som ender på linjen under sine egne epics. Bugs blir aldri features. Sett «Skippet» når den er ute. <b>Fargen i segmentet er tempoet</b>:
-        grønn når dagens tempo (poeng levert per arbeidsdag siden start) rekker måldatoen, gul inntil tre arbeidsdager etter, rød senere; før to lesinger
-        på ulike dager gjelder den rette linjen fra start til mål. Skuffen viser burndown per dag, itemene per tilstand og sprint mot release. For skrivere
+        grønn når dagens tempo (poeng levert per arbeidsdag siden start) rekker måldatoen, gul inntil tre arbeidsdager etter, rød senere; før noe
+        er levert etter start gjelder den rette linjen fra start til mål, med én arbeidsdags slakk. Klokka starter ved den eldste sprinten blant itemene,
+        men aldri før første lesing som fant labelen: innholdet fantes ikke før det. Skuffen viser burndown for hver arbeidsdag (fra dagen ADO sier
+        hvert item ble løst, så en dag uten lesing gir ikke hull), itemene per tilstand og sprint mot release. For skrivere
         leses labelene på nytt ved innlasting når siste lesing er eldre enn seks timer.</p></div>
       <div class="help-card"><h4>Fremdrift og sprintrapport</h4>
         <p><b>Fremdrift</b> skrives inn i redigeringen på dag 10 (poeng gjort av totalt, eller prosent) og tegnes som en fylling i den mørke
@@ -2426,7 +2428,7 @@ window.__bootTimeline = function(){
       ' · ' + pr.text + (r.ado ? ' · lest fra ADO ' + whenText(r.ado.at) : '');
   }
   const PACE_LABEL = { gronn: 'Grønn', gul: 'Gul', rod: 'Rød' };
-  function burndownSvg(d){   // R11: remaining units per reading day, the ideal line start → target, the tempo's projection, today
+  function burndownSvg(d){   // R11: today's scope left per working day, the ideal line start → target, the tempo's projection, today
     const W = 480, H = 160, L = 34, R = 14, T = 16, B = 26;
     const span = Math.max(1, calendarDays(d.axisStart, d.endDay));
     const maxY = Math.max(1, d.total, ...d.actual.map(p => p.remaining));
@@ -2475,6 +2477,7 @@ window.__bootTimeline = function(){
     const spt = releaseSprintText(r);
     if(spt) html += '<p class="rel-sprints">' + esc(spt) + '</p>';
     const bd = releaseBurndownData(state, r, todayDay);
+    if(bd && bd.firstScope) html += '<p class="rel-sprints" title="Innholdet har endret seg siden første lesing">Innhold nå ' + bd.total + ' ' + bd.unit + ' · ' + bd.firstScope.total + ' ' + bd.unit + ' ved første lesing ' + esc(relDay(bd.firstScope.day)) + '</p>';
     if(bd && bd.actual.length) html += burndownSvg(bd) + burndownTable(bd);
     html += group('Bugs', items.filter(i => i.type === 'Bug')) + group('Stories', items.filter(i => i.type !== 'Bug'));
     if(r.ado && !items.length) html += '<p class="hist-empty">Ingenting i ADO har labelen ennå.</p>';

@@ -11,12 +11,20 @@ import type { AdoClient, AdoWorkItem } from "./client";
 export { releaseQueryUrl, releaseWiql, sprintUnlabelledWiql };
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
+const DONE = ["Resolved", "Closed"];
+/** When the work was done: the resolved day (QA closing it later is not delivery), the closed day for an item closed without resolving. */
+function releaseDelivered(w: AdoWorkItem): string | null {
+  if (!DONE.includes(str(w.fields["System.State"]))) return null;
+  const d = str(w.fields["Microsoft.VSTS.Common.ResolvedDate"]) || str(w.fields["Microsoft.VSTS.Common.ClosedDate"]);
+  return d ? d.slice(0, 10) : null;
+}
 const leaf = (path: string) => path.split("\\").pop() ?? path;
 /** A work item as the release keeps it: enough for the drawer's list, nothing that changes every hour. */
 export function releaseItemOf(w: AdoWorkItem): ReleaseItem {
   const who = w.fields["System.AssignedTo"] as { displayName?: string } | string | undefined;
   const assignee = typeof who === "string" ? who : who?.displayName ?? null;
   const iteration = leaf(str(w.fields["System.IterationPath"]));
+  const delivered = releaseDelivered(w);
   return {
     id: w.id,
     type: w.fields["System.WorkItemType"] === "Bug" ? "Bug" : "User Story",
@@ -25,6 +33,7 @@ export function releaseItemOf(w: AdoWorkItem): ReleaseItem {
     points: Number(w.fields["Microsoft.VSTS.Scheduling.StoryPoints"] ?? 0) || 0,
     assignee: assignee || null,
     ...(iteration ? { iteration } : {}),
+    ...(delivered ? { delivered } : {}),
   };
 }
 

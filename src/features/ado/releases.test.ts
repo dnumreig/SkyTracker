@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { AdoClient, AdoWorkItem } from "./client";
-import { historyWith, refreshReleases, releaseQueryUrl, releaseWiql, sprintUnlabelledWiql } from "./releases";
+import { historyWith, refreshReleases, releaseItemOf, releaseQueryUrl, releaseWiql, sprintUnlabelledWiql } from "./releases";
 import { normalizePlan } from "@/features/timeline/epic-tools.js";
 import type { Plan } from "@/features/timeline/merge";
 
 const NOW = new Date("2026-10-12T10:40:00.000Z");
 const DAY = "2026-10-12";
 const S71 = "Skytale\\Sprint 71", S72 = "Skytale\\Sprint 72";
-const wi = (id: number, type: string, title: string, state: string, points: number, release: string, path: string | null, assignee?: string): AdoWorkItem => ({
+const wi = (id: number, type: string, title: string, state: string, points: number, release: string, path: string | null, assignee?: string, dates: Record<string, string> = {}): AdoWorkItem => ({
   id,
   fields: {
+    ...dates,
     "System.WorkItemType": type, "System.Title": title, "System.State": state, "Microsoft.VSTS.Scheduling.StoryPoints": points, "Custom.Release": release,
     ...(path ? { "System.IterationPath": path } : {}),
     ...(assignee ? { "System.AssignedTo": { displayName: assignee, uniqueName: assignee.toLowerCase().replace(/ /g, ".") + "@skytale.no" } } : {}),
@@ -19,8 +20,8 @@ const wi = (id: number, type: string, title: string, state: string, points: numb
 const ITEMS: AdoWorkItem[] = [
   wi(4804, "User Story", "Receipts", "New", 3, "2.0.1", S71),
   wi(4536, "Bug", "Nav bar", "New", 8, "2.0.1", S71, "Tor Håkon Moen"),
-  wi(4817, "User Story", "Otel", "Closed", 3, "2.0.1", S71),
-  wi(4769, "Bug", "Group call drop", "Resolved", 5, "2.0.1", S72),
+  wi(4817, "User Story", "Otel", "Closed", 3, "2.0.1", S71, undefined, { "Microsoft.VSTS.Common.ResolvedDate": "2026-10-09T13:00:00Z", "Microsoft.VSTS.Common.ClosedDate": "2026-10-12T09:00:00Z" }),
+  wi(4769, "Bug", "Group call drop", "Resolved", 5, "2.0.1", S72, undefined, { "Microsoft.VSTS.Common.ResolvedDate": "2026-10-11T08:00:00Z" }),
   wi(4999, "Bug", "Other", "New", 2, "2.0.2", null),
   wi(4998, "Bug", "Removed one", "Removed", 1, "2.0.1", S71),
   wi(4777, "Bug", "No label yet", "Active", 2, "", S71),
@@ -52,9 +53,9 @@ describe("refreshReleases (R10 + R11)", () => {
     const a = r.plan.releases![0];
     expect(a.ado).toEqual({ at: NOW.toISOString(), label: "2.0.1", items: [
       { id: 4536, type: "Bug", title: "Nav bar", state: "New", points: 8, assignee: "Tor Håkon Moen", iteration: "Sprint 71" },
-      { id: 4769, type: "Bug", title: "Group call drop", state: "Resolved", points: 5, assignee: null, iteration: "Sprint 72" },
+      { id: 4769, type: "Bug", title: "Group call drop", state: "Resolved", points: 5, assignee: null, iteration: "Sprint 72", delivered: "2026-10-11" },
       { id: 4804, type: "User Story", title: "Receipts", state: "New", points: 3, assignee: null, iteration: "Sprint 71" },
-      { id: 4817, type: "User Story", title: "Otel", state: "Closed", points: 3, assignee: null, iteration: "Sprint 71" },
+      { id: 4817, type: "User Story", title: "Otel", state: "Closed", points: 3, assignee: null, iteration: "Sprint 71", delivered: "2026-10-09" },   // resolved, not closed: delivered is when the work was done
     ], history: [{ day: DAY, pointsDone: 8, pointsTotal: 19, done: 2, total: 4 }], sprints: [{ name: "Sprint 71", unlabelled: 1 }, { name: "Sprint 72", unlabelled: 0 }] });
     expect(a.v).toBe(2);
     expect(r.plan.releases![1].ado).toEqual({ at: NOW.toISOString(), label: "2.0.2", items: [{ id: 4999, type: "Bug", title: "Other", state: "New", points: 2, assignee: null }], history: [{ day: DAY, pointsDone: 0, pointsTotal: 2, done: 0, total: 1 }], sprints: [{ name: "Sprint 71", unlabelled: 1 }] });
@@ -84,6 +85,12 @@ describe("refreshReleases (R10 + R11)", () => {
     expect(releaseWiql("it's")).toContain("'it''s'");
     expect(sprintUnlabelledWiql("Skytale\\Sprint 71")).toBe("SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.IterationPath] = 'Skytale\\Sprint 71' AND [Custom.Release] = '' AND [System.WorkItemType] IN ('Bug', 'User Story') AND [System.State] NOT IN ('Closed', 'Removed')");
     expect(releaseQueryUrl("2.0.1")).toBe("https://dev.azure.com/SkytaleAS/Skytale/_workitems?_a=query&wiql=" + encodeURIComponent(releaseWiql("2.0.1")));
+  });
+  it("releaseItemOf: delivered is the resolved day, the closed day for an item closed without resolving, nothing while open", () => {
+    const closedOnly = wi(1, "Bug", "Cut", "Closed", 2, "2.0.1", S71, undefined, { "Microsoft.VSTS.Common.ClosedDate": "2026-10-08T10:00:00Z" });
+    expect(releaseItemOf(closedOnly).delivered).toBe("2026-10-08");
+    const reopened = wi(2, "Bug", "Reopened", "Active", 2, "2.0.1", S71, undefined, { "Microsoft.VSTS.Common.ResolvedDate": "2026-10-08T10:00:00Z" });
+    expect(releaseItemOf(reopened)).not.toHaveProperty("delivered");
   });
   it("historyWith replaces the same day, keeps the days sorted and the latest 120", () => {
     const pt = (day: string, pointsDone: number) => ({ day, pointsDone, pointsTotal: 79, done: 0, total: 0 });

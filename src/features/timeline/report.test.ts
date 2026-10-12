@@ -56,8 +56,8 @@ describe("sprintReportMarkdown", () => {
     p.releases = normalizePlan({ lanes: [], tasks: [], releases: [
       { key: "r0", version: "2.0.0", targetDate: "2026-10-01", shippedDate: "2026-10-07" },
       { key: "r1", version: "2.0.1", targetDate: "2026-10-22", ado: { at: "x", label: "2.0.1", items: [
-        { id: 1, type: "Bug", title: "a", state: "Closed", points: 10, assignee: null, iteration: "Sprint 71" }, { id: 2, type: "User Story", title: "b", state: "Active", points: 69, assignee: null, iteration: "Sprint 71" },
-      ], history: [{ day: "2026-10-09", pointsDone: 4, pointsTotal: 79, done: 1, total: 2 }, { day: "2026-10-12", pointsDone: 10, pointsTotal: 79, done: 1, total: 2 }] } },
+        { id: 1, type: "Bug", title: "a", state: "Closed", points: 10, assignee: null, iteration: "Sprint 71", delivered: "2026-10-09" }, { id: 2, type: "User Story", title: "b", state: "Active", points: 69, assignee: null, iteration: "Sprint 71" },
+      ], history: [{ day: "2026-10-05", pointsDone: 0, pointsTotal: 79, done: 0, total: 2 }, { day: "2026-10-12", pointsDone: 10, pointsTotal: 79, done: 1, total: 2 }] } },
       { key: "r2", version: "2.0.2", targetDate: "2026-11-12" },
     ] }).releases;
     const md = sprintReportMarkdown({ title: "Sprintrapport Sprint 71", strip: STRIP, path: path(), plan: p, laneName, todayUnit: TODAY, todayDay: "2026-10-12" });

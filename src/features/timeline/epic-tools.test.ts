@@ -616,8 +616,8 @@ describe("R11: working days", () => {
 });
 
 describe("R11: the tempo of a release", () => {
-  const items = (done: number[], open: number[]) => [
-    ...done.map((p, i) => ({ id: 100 + i, type: "Bug", title: "d" + i, state: "Closed", points: p, assignee: null, iteration: "Sprint 71" })),
+  const items = (done: number[], open: number[], delivered = "2026-10-09") => [
+    ...done.map((p, i) => ({ id: 100 + i, type: "Bug", title: "d" + i, state: "Closed", points: p, assignee: null, iteration: "Sprint 71", delivered })),
     ...open.map((p, i) => ({ id: 200 + i, type: "User Story", title: "o" + i, state: "Active", points: p, assignee: null, iteration: "Sprint 71" })),
   ];
   const sprints = { at: "2026-10-12T00:00:00.000Z", items: [{ name: "Sprint 71", path: "Skytale\\Sprint 71", start: "2026-10-05", finish: "2026-10-23" }] };
@@ -632,22 +632,37 @@ describe("R11: the tempo of a release", () => {
     const b = mk({ items: items([10], [69]).map((i) => ({ ...i, iteration: "Sprint 99" })) }, { targetDate: "2026-11-12" });
     expect(releaseStartDay(b.p, b.r)).toBe("2026-10-28");
   });
-  it("the straight line until two readings exist: green when delivered keeps up with the time used, yellow behind, red past the target", () => {
+  it("the clock starts no earlier than the first reading that found the label: the scope did not exist before it", () => {
+    const c = mk({ items: items([], [82]), history: hist(["2026-10-12"]) });   // 2.0.1: stamped on 12.10, a week into Sprint 71
+    expect(releaseStartDay(c.p, c.r)).toBe("2026-10-12");
+    const empty = { day: "2026-10-09", pointsDone: 0, pointsTotal: 0, done: 0, total: 0 };   // read before anything carried the label
+    const d = mk({ items: items([], [82]), history: [empty, ...hist(["2026-10-13"])] });
+    expect(releaseStartDay(d.p, d.r)).toBe("2026-10-13");
+    const e = mk({ items: items([], [82]).map((i) => ({ ...i, iteration: "Sprint 99" })), history: hist(["2026-10-12"]) }, { targetDate: "2026-11-12" });
+    expect(releaseStartDay(e.p, e.r)).toBe("2026-10-28");   // a later sprint start still wins
+  });
+  it("day one of a short release is green with nothing delivered: the straight line allows one working day, at least 10 %", () => {
+    const c = mk({ items: items([], [82]), history: hist(["2026-10-13"]) });   // 13.10–22.10: eight working days
+    expect(releasePace(c.p, c.r, "2026-10-13")).toMatchObject({ code: "gronn", startDay: "2026-10-13", elapsedDays: 1, totalDays: 8, tempo: null });
+    expect(releasePace(c.p, c.r, "2026-10-13")!.text).toBe("0 % levert · 13 % av tiden brukt · ingenting levert ennå");
+    expect(releasePace(c.p, c.r, "2026-10-14")!.code).toBe("gul");   // two days in, nothing delivered
+  });
+  it("the straight line until something is delivered after the start: green when delivered keeps up with the time used, yellow behind, red past the target", () => {
     const today = "2026-10-12";   // 6 of 14 working days from 5.10 to 22.10
-    const g = mk({ items: items([30], [49]), history: hist([today]) });   // 38 % delivered, 43 % of the time
-    expect(releasePace(g.p, g.r, today)).toMatchObject({ code: "gronn", readings: 1, tempo: null, forecastDay: null, elapsedDays: 6, totalDays: 14, startDay: "2026-10-05" });
-    expect(releasePace(g.p, g.r, today)!.text).toBe("38 % levert · 43 % av tiden brukt · tempo etter neste lesing");
-    const y = mk({ items: items([10], [69]), history: hist([today]) });   // 13 % delivered
+    const g = mk({ items: items([30], [49], "2026-10-02"), history: hist(["2026-10-05"]) });   // 38 % delivered, all of it before the start; 43 % of the time
+    expect(releasePace(g.p, g.r, today)).toMatchObject({ code: "gronn", tempo: null, forecastDay: null, elapsedDays: 6, totalDays: 14, startDay: "2026-10-05" });
+    expect(releasePace(g.p, g.r, today)!.text).toBe("38 % levert · 43 % av tiden brukt · ingenting levert siden 5. okt");
+    const y = mk({ items: items([10], [69], "2026-10-02"), history: hist(["2026-10-05"]) });   // 13 % delivered
     expect(releasePace(y.p, y.r, today)!.code).toBe("gul");
     expect(releasePace(y.p, y.r, "2026-10-23")!.code).toBe("rod");   // the target day is past
     expect(releasePace(y.p, y.r, "2026-10-01")).toMatchObject({ code: "gronn", elapsed: 0, elapsedDays: 0 });   // today before the start
   });
-  it("with two readings the tempo decides: units per working day since the start, the finish in working days, three days of yellow", () => {
+  it("the tempo decides once something is delivered after the start: units per working day since the start, the finish in working days, three days of yellow", () => {
     const today = "2026-10-12";
-    const two = hist(["2026-10-09", today]);
+    const two = hist(["2026-10-05"]);   // one reading is enough: the delivered days say when
     const late = mk({ items: items([10], [69]), history: two });   // 10 SP in 6 days: 69 left needs 42 more → 9 Dec
     const lp = releasePace(late.p, late.r, today)!;
-    expect(lp).toMatchObject({ code: "rod", readings: 2, forecastDay: "2026-12-09", deltaDays: 34 });
+    expect(lp).toMatchObject({ code: "rod", readings: 1, forecastDay: "2026-12-09", deltaDays: 34 });
     expect(lp.tempo).toBeCloseTo(10 / 6);
     expect(lp.text).toBe("13 % levert · 43 % av tiden brukt · med dagens tempo ferdig 9. des, 34 arbeidsdager etter målet");
     const ok = mk({ items: items([42], [37]), history: two });   // 7/day: 37 left → 6 more → 20 Oct, two days before
@@ -662,6 +677,15 @@ describe("R11: the tempo of a release", () => {
     const onIt = mk({ items: items([34], [45]), history: two });  // 5.67/day: 45 left → 8 more → 22 Oct, on the target
     expect(releasePace(onIt.p, onIt.r, today)!.text).toContain("ferdig 22. okt, på målet");
   });
+  it("points delivered before the start count as delivered but not in the tempo", () => {
+    const today = "2026-10-12";
+    const its = [...items([10], [], "2026-10-02"), ...items([20], [49]).map((i) => ({ ...i, id: i.id + 50 }))];   // 10 before the start, 20 after
+    const m = mk({ items: its, history: hist(["2026-10-05"]) });
+    const pace = releasePace(m.p, m.r, today)!;
+    expect(pace.done).toBeCloseTo(30 / 79);
+    expect(pace.tempo).toBeCloseTo(20 / 6);   // 49 left at 3.33/day → 15 more → 2 Nov
+    expect(pace).toMatchObject({ code: "rod", forecastDay: "2026-11-02", deltaDays: 7 });
+  });
   it("no pace when shipped, unread or empty; everything delivered is green and says so; two readings with nothing delivered say so", () => {
     const shipped = mk({ items: items([10], [69]), history: hist(["2026-10-12"]) }, { shippedDate: "2026-10-22" });
     expect(releasePace(shipped.p, shipped.r, "2026-10-23")).toBeNull();
@@ -669,10 +693,10 @@ describe("R11: the tempo of a release", () => {
     expect(releasePace(unread.p, unread.r, "2026-10-12")).toBeNull();
     const empty = mk({ items: [] });
     expect(releasePace(empty.p, empty.r, "2026-10-12")).toBeNull();
-    const all = mk({ items: items([79], []), history: hist(["2026-10-09", "2026-10-12"]) });
+    const all = mk({ items: items([79], []), history: hist(["2026-10-05", "2026-10-12"]) });
     expect(releasePace(all.p, all.r, "2026-10-12")).toMatchObject({ code: "gronn", forecastDay: null });
     expect(releasePace(all.p, all.r, "2026-10-12")!.text).toBe("100 % levert · 43 % av tiden brukt · alt levert · sett «Skippet» når den er ute");
-    const none = mk({ items: items([], [79]), history: hist(["2026-10-09", "2026-10-12"]) });
+    const none = mk({ items: items([], [79]), history: hist(["2026-10-05", "2026-10-12"]) });
     expect(releasePace(none.p, none.r, "2026-10-12")!.text).toBe("0 % levert · 43 % av tiden brukt · ingenting levert ennå");
   });
   it("nextReleaseText: the first unshipped release by target day, calendar days away, the share delivered and the colour in words", () => {
@@ -700,25 +724,44 @@ describe("R11: the tempo of a release", () => {
     expect(releaseSprintText(r)).toBe("5 items i 2.0.1: 3 i Sprint 71, 1 i Sprint 72, 1 uten sprint · Sprint 71 har 3 items uten release-label");
     expect(releaseSprintText(mk(undefined).r)).toBe("");
   });
-  it("releaseBurndownData: remaining per reading day, the axis from the start to the latest of target, today and the readings, the forecast day", () => {
+  it("releaseBurndownData: today's scope left on every working day from the delivered days (no holes where nobody read), the forecast day, the scope at the first reading", () => {
     const today = "2026-10-12";
-    const h = [{ day: "2026-10-09", pointsDone: 4, pointsTotal: 70, done: 1, total: 2 }, { day: today, pointsDone: 10, pointsTotal: 79, done: 1, total: 2 }];
-    const a = mk({ items: items([10], [69]), history: h });
-    expect(releaseBurndownData(a.p, a.r, today)).toEqual({ startDay: "2026-10-05", axisStart: "2026-10-05", targetDay: "2026-10-22", endDay: "2026-10-22", todayDay: today, total: 79, unit: "SP", actual: [{ day: "2026-10-09", remaining: 66 }, { day: today, remaining: 69 }], forecastDay: "2026-12-09" });
+    const its = [
+      { id: 1, type: "Bug", title: "a", state: "Closed", points: 4, assignee: null, iteration: "Sprint 71", delivered: "2026-10-07" },
+      { id: 2, type: "Bug", title: "b", state: "Resolved", points: 6, assignee: null, iteration: "Sprint 71", delivered: "2026-10-09" },
+      { id: 3, type: "User Story", title: "c", state: "Active", points: 69, assignee: null, iteration: "Sprint 71" },
+    ];
+    const h = [{ day: "2026-10-05", pointsDone: 0, pointsTotal: 70, done: 0, total: 2 }, { day: today, pointsDone: 10, pointsTotal: 79, done: 2, total: 3 }];
+    const a = mk({ items: its, history: h });
+    expect(releaseBurndownData(a.p, a.r, today)).toEqual({ startDay: "2026-10-05", axisStart: "2026-10-05", targetDay: "2026-10-22", endDay: "2026-10-22", todayDay: today, total: 79, unit: "SP",
+      actual: [{ day: "2026-10-05", remaining: 79 }, { day: "2026-10-06", remaining: 79 }, { day: "2026-10-07", remaining: 75 }, { day: "2026-10-08", remaining: 75 }, { day: "2026-10-09", remaining: 69 }, { day: today, remaining: 69 }],
+      forecastDay: "2026-12-09", firstScope: { day: "2026-10-05", total: 70 } });
     expect(releaseBurndownData(a.p, a.r, "2026-10-30")!.endDay).toBe("2026-10-30");
-    const shipped = mk({ items: items([10], [69]), history: h }, { shippedDate: "2026-10-20" });
-    expect(releaseBurndownData(shipped.p, shipped.r, "2026-11-30")).toMatchObject({ endDay: "2026-10-22", forecastDay: null });
+    const same = mk({ items: its, history: [{ ...h[0], pointsTotal: 79 }] });
+    expect(releaseBurndownData(same.p, same.r, today)!.firstScope).toBeNull();   // the scope has not moved
+    const shipped = mk({ items: its, history: h }, { shippedDate: "2026-10-08" });
+    const sd = releaseBurndownData(shipped.p, shipped.r, "2026-11-30")!;
+    expect(sd).toMatchObject({ endDay: "2026-10-22", forecastDay: null });
+    expect(sd.actual.map((p) => p.day)).toEqual(["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08"]);   // the curve stops at the shipped day
     expect(releaseBurndownData(mk(undefined).p, mk(undefined).r, today)).toBeNull();
+  });
+  it("a done item without a delivered day (read before R11's last change) counts as done from the axis start", () => {
+    const its = [{ id: 1, type: "Bug", title: "a", state: "Closed", points: 4, assignee: null, iteration: "Sprint 71" }, { id: 2, type: "Bug", title: "b", state: "New", points: 6, assignee: null, iteration: "Sprint 71" }];
+    const a = mk({ items: its, history: hist(["2026-10-05"]) });
+    expect(releaseBurndownData(a.p, a.r, "2026-10-06")!.actual).toEqual([{ day: "2026-10-05", remaining: 6 }, { day: "2026-10-06", remaining: 6 }]);
+    expect(releasePace(a.p, a.r, "2026-10-06")!.tempo).toBeNull();
   });
   it("normalizePlan keeps the history one per day, sorted, the latest 120, the sprint counts, and the iteration only as text", () => {
     const rel = (over: Record<string, unknown>) => ({ key: "r1", version: "2.0.1", targetDate: "2026-10-22", ...over });
     const history = [{ day: "2026-10-12", pointsDone: 10, pointsTotal: 79, done: 1, total: 2 }, { day: "2026-10-09", pointsDone: 4, pointsTotal: 70, done: 1, total: 2 }, { day: "2026-10-12", pointsDone: 12, pointsTotal: 79, done: 2, total: 2 }, { day: "nope", pointsDone: 1, pointsTotal: 1, done: 1, total: 1 }, "junk"];
-    const p = normalizePlan({ lanes: [], tasks: [], releases: [rel({ ado: { at: "x", label: "2.0.1", items: [{ id: 1, type: "Bug", title: "a", state: "New", points: 1, assignee: null, iteration: "Sprint 71" }, { id: 2, type: "Bug", title: "b", state: "New", points: 1, assignee: null, iteration: "" }], history, sprints: [{ name: "Sprint 71", unlabelled: 3 }, { unlabelled: 1 }, { name: "Sprint 72", unlabelled: -2 }, "x"] } })] });
+    const p = normalizePlan({ lanes: [], tasks: [], releases: [rel({ ado: { at: "x", label: "2.0.1", items: [{ id: 1, type: "Bug", title: "a", state: "Closed", points: 1, assignee: null, iteration: "Sprint 71", delivered: "2026-10-09" }, { id: 2, type: "Bug", title: "b", state: "New", points: 1, assignee: null, iteration: "", delivered: "2026-13-40" }], history, sprints: [{ name: "Sprint 71", unlabelled: 3 }, { unlabelled: 1 }, { name: "Sprint 72", unlabelled: -2 }, "x"] } })] });
     const a = p.releases![0].ado!;
     expect(a.history).toEqual([{ day: "2026-10-09", pointsDone: 4, pointsTotal: 70, done: 1, total: 2 }, { day: "2026-10-12", pointsDone: 12, pointsTotal: 79, done: 2, total: 2 }]);
     expect(a.sprints).toEqual([{ name: "Sprint 71", unlabelled: 3 }, { name: "Sprint 72", unlabelled: 0 }]);
     expect(a.items[0].iteration).toBe("Sprint 71");
     expect(a.items[1]).not.toHaveProperty("iteration");
+    expect(a.items[0].delivered).toBe("2026-10-09");
+    expect(a.items[1]).not.toHaveProperty("delivered");
     const many = Array.from({ length: 130 }, (_, i) => ({ day: dayKey(new Date(2026, 0, 1 + i)), pointsDone: i, pointsTotal: 200, done: 0, total: 0 }));
     const kept = normalizePlan({ lanes: [], tasks: [], releases: [rel({ ado: { at: "x", label: "2.0.1", items: [], history: many } })] }).releases![0].ado!.history!;
     expect(kept.length).toBe(120);
