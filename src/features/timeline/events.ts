@@ -2,8 +2,8 @@
 // (a goal date moved, a span widened, an epic reordered), with a Norwegian
 // summary rendered once. The PUT handler logs these on every save; later the
 // compare mode (R1b) reuses the same function for "since the baseline".
-import type { Plan, PlanLane, PlanTask, Wish } from "./merge";
-import { WEEK, BACKLOG, MIX_LABEL, unitToDate, fmtDate, rangeWeeks } from "./epic-tools.js";
+import type { Plan, PlanLane, PlanTask, Release, Wish } from "./merge";
+import { WEEK, BACKLOG, MIX_LABEL, unitToDate, fmtDate, rangeWeeks, dayToUnit, releaseScope } from "./epic-tools.js";
 
 export const EVENT_CODES = [
   "epic.ny", "epic.slettet", "epic.navn", "epic.maltall", "epic.eier", "epic.maldato", "epic.ekstern", "epic.prioritet", "epic.ado",
@@ -15,11 +15,12 @@ export const EVENT_CODES = [
   "feature.fremdrift", "feature.ko", "plan.kapasitet",
   "onske.registrert", "onske.besluttet", "onske.slettet",
   "feature.beskrivelse", "feature.type", "feature.flater", "feature.fastdato", "feature.klasse",
+  "release.ny", "release.slettet", "release.versjon", "release.maldato", "release.skippet", "release.notat", "release.scope", "release.lest",
 ] as const;
 export type EventCode = (typeof EVENT_CODES)[number];
 export type Cause = "bruker" | "avhengighet" | "ado" | "system";
 export type PlanEvent = {
-  targetType: "epic" | "feature" | "plan" | "onske";
+  targetType: "epic" | "feature" | "plan" | "onske" | "release";
   targetId: string;
   targetLabel: string;
   laneKey: string | null;
@@ -263,6 +264,22 @@ export function diffPlans(before: Plan, after: Plan, opts: DiffOptions = {}): Pl
       ev.push({ ...wbase(w), code: "onske.besluttet", before: { status: b.status ?? "ubehandlet" }, after: { status: w.status ?? "ubehandlet", owner: w.owner ?? null, sizeClass: w.sizeClass ?? null, forum: w.forum ?? null, reason: w.reason ?? null }, summary: decision(w) });
   }
   for (const b of before.wishes ?? []) if (!aw.has(b.id)) ev.push({ ...wbase(b), code: "onske.slettet", before: { status: b.status ?? "ubehandlet" }, summary: "Ønske slettet: «" + b.title + "»" });
+
+  // ----- releases (R10): the version, the target day (a reason, like an epic's goal), shipped, note, the ADO label -----
+  const br = new Map((before.releases ?? []).map((r) => [r.key, r])), ar = new Map((after.releases ?? []).map((r) => [r.key, r]));
+  const rbase = (r: Release) => ({ targetType: "release" as const, targetId: r.key, targetLabel: "Release " + r.version, laneKey: null, cause: dc });
+  const dayWords = (d: string) => date(dayToUnit(d));
+  for (const r of after.releases ?? []) {
+    const b = br.get(r.key);
+    if (!b) { ev.push({ ...rbase(r), code: "release.ny", after: { version: r.version, targetDate: r.targetDate }, summary: "Ny release " + r.version + " · mål " + dayWords(r.targetDate) }); continue; }
+    if (b.version !== r.version) ev.push({ ...rbase(r), code: "release.versjon", before: b.version, after: r.version, summary: "Versjon: " + q(b.version) + " → " + q(r.version) });
+    if (b.targetDate !== r.targetDate) ev.push({ ...rbase(r), code: "release.maldato", before: { date: b.targetDate }, after: { date: r.targetDate }, summary: "Måldato: " + dayWords(b.targetDate) + " → " + dayWords(r.targetDate) });
+    if ((b.shippedDate ?? null) !== (r.shippedDate ?? null))
+      ev.push({ ...rbase(r), code: "release.skippet", before: b.shippedDate ?? null, after: r.shippedDate ?? null, summary: r.shippedDate ? "Skippet " + dayWords(r.shippedDate) : "Skippet-dato fjernet" });
+    if ((b.note ?? "") !== (r.note ?? "")) ev.push({ ...rbase(r), code: "release.notat", before: b.note ?? null, after: r.note ?? null, summary: textChange("Notat", b.note, r.note) });
+    if (releaseScope(b) !== releaseScope(r)) ev.push({ ...rbase(r), code: "release.scope", before: releaseScope(b), after: releaseScope(r), summary: "ADO-label: " + q(releaseScope(b)) + " → " + q(releaseScope(r)) });
+  }
+  for (const b of before.releases ?? []) if (!ar.has(b.key)) ev.push({ ...rbase(b), code: "release.slettet", before: { version: b.version, targetDate: b.targetDate }, summary: "Release slettet: " + b.version });
   return ev;
 }
 
@@ -278,6 +295,7 @@ export function needsReason(e: PlanEvent): boolean {
     case "epic.maldato": return (e.before as { date: number | null }).date !== null;
     case "epic.prioritet":
     case "epic.tilstand":
+    case "release.maldato":
     case "feature.epic": return true;
     case "feature.spenn": { const b = e.before as { likely: number; late: number }, a = e.after as { likely: number; late: number }; return a.late > b.late || a.likely > b.likely; }
     case "feature.flyttet": return (e.after as { start: number }).start - (e.before as { start: number }).start >= WEEK - 1e-9;

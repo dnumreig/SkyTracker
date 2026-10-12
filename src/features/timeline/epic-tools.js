@@ -80,6 +80,21 @@ function normalizePlan(plan) {
   if (p.sprintGoals && typeof p.sprintGoals === "object" && !Array.isArray(p.sprintGoals)) {
     Object.keys(p.sprintGoals).forEach((k) => { const g = p.sprintGoals[k]; if (!g || typeof g !== "object" || typeof g.text !== "string" || typeof g.at !== "string") delete p.sprintGoals[k]; });
   } else delete p.sprintGoals;
+  // releases (R10): a version with a target day, a shipped day once out, and the ADO read-back of its label's bugs and stories
+  p.deletedReleases = p.deletedReleases && typeof p.deletedReleases === "object" ? p.deletedReleases : {};
+  const validDay = (d) => { if (!isDay(d)) return false; const q = d.split("-").map(Number), dt = new Date(q[0], q[1] - 1, q[2]); return dt.getFullYear() === q[0] && dt.getMonth() === q[1] - 1 && dt.getDate() === q[2]; };   // a real calendar day, not just the shape
+  p.releases = (Array.isArray(p.releases) ? p.releases : []).filter((r) => r && typeof r === "object" && typeof r.key === "string" && r.key && text(r.version, 40) && validDay(r.targetDate)).map((r) => {
+    const out = { key: r.key, v: num(r.v, 0), version: text(r.version, 40), targetDate: r.targetDate };
+    if (validDay(r.shippedDate)) out.shippedDate = r.shippedDate;
+    const note = text(r.note, 2000); if (note) out.note = note;
+    const label = text(r.label, 60); if (label && label !== out.version) out.label = label;
+    if (r.ado && typeof r.ado === "object" && typeof r.ado.at === "string" && Array.isArray(r.ado.items)) {
+      out.ado = { at: r.ado.at, label: typeof r.ado.label === "string" && r.ado.label ? r.ado.label : out.label || out.version, items: r.ado.items.filter((i) => i && typeof i === "object" && typeof i.id === "number").map((i) => ({
+        id: i.id, type: i.type === "Bug" ? "Bug" : "User Story", title: typeof i.title === "string" ? i.title.slice(0, 200) : "", state: typeof i.state === "string" && i.state ? i.state : "New", points: Math.max(0, num(i.points, 0)), assignee: typeof i.assignee === "string" && i.assignee ? i.assignee : null,
+      })) };
+    }
+    return out;
+  }).sort((a, b) => releaseEnd(a) - releaseEnd(b) || a.version.localeCompare(b.version));
   p.lanes.forEach((l) => {
     if (typeof l.owner !== "string" || !l.owner) l.owner = OWNER_DEFAULT;
     if (num(l.goalDate, null) === null) delete l.goalDate;
@@ -461,6 +476,45 @@ function epicProgressSignal(plan, laneKey, today) {
 }
 function progressText(t, s) { return "fremdrift " + Math.round(s.done * 100) + " % · tid " + Math.round(s.elapsed * 100) + " %"; }
 
+/* ---------- releases (R10): the band above the sprint ruler ---------- */
+const RELEASE_DONE_STATES = ["Resolved", "Closed"];   // what ADO calls done for a bug or a story
+/** The chart unit of a YYYY-MM-DD day (local midnight), shared by the sprint ruler and the release band. */
+function dayToUnit(day) { const q = String(day).split("-").map(Number); return dateToUnit(new Date(q[0], q[1] - 1, q[2])); }
+/** The release label in ADO (`Custom.Release`): the version unless overridden. */
+function releaseScope(r) { return r.label || r.version; }
+function releaseEnd(r) { return dayToUnit(r.shippedDate || r.targetDate); }
+/** The ADO query behind a release: every Bug and User Story carrying the label, any state but Removed. */
+function releaseWiql(label) {
+  return "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project AND [Custom.Release] = '" + String(label).replace(/'/g, "''") + "' AND [System.WorkItemType] IN ('Bug', 'User Story') AND [System.State] <> 'Removed' ORDER BY [System.WorkItemType], [System.Id]";
+}
+const ADO_PROJECT_URL = "https://dev.azure.com/SkytaleAS/Skytale";
+/** The same query opened in ADO's work item hub («Åpne i ADO» in the release drawer). */
+function releaseQueryUrl(label) { return ADO_PROJECT_URL + "/_workitems?_a=query&wiql=" + encodeURIComponent(releaseWiql(label)); }
+/** The releases as segments on the band, sorted by end day: each starts where the previous one ends, the first two weeks before its own end. */
+function releaseSegments(plan, todayUnit) {
+  const list = ((plan && plan.releases) || []).slice().sort((a, b) => releaseEnd(a) - releaseEnd(b) || a.version.localeCompare(b.version));
+  let prev = null;
+  return list.map((r) => {
+    const end = releaseEnd(r);
+    const start = prev === null ? end - 2 * WEEK : Math.min(prev, end - WEEK / 7);
+    prev = end;
+    return { release: r, start, end, shipped: !!r.shippedDate, overdue: !r.shippedDate && typeof todayUnit === "number" && end < todayUnit };
+  });
+}
+const releaseItemDone = (i) => RELEASE_DONE_STATES.includes(i.state);
+/** Points Resolved/Closed over all points (items by count when nobody pointed them), with the counts in words. */
+function releaseProgress(r) {
+  const a = r && r.ado;
+  if (!a || !Array.isArray(a.items)) return { fraction: null, text: "ikke lest fra ADO", bugs: 0, stories: 0, done: 0, total: 0, pointsDone: 0, pointsTotal: 0 };
+  const items = a.items, doneItems = items.filter(releaseItemDone);
+  const pointsTotal = items.reduce((s, i) => s + (i.points || 0), 0), pointsDone = doneItems.reduce((s, i) => s + (i.points || 0), 0);
+  const bugs = items.filter((i) => i.type === "Bug").length, stories = items.length - bugs, done = doneItems.length, total = items.length;
+  const n = (c, one, many) => c + " " + (c === 1 ? one : many);
+  const fraction = pointsTotal > 0 ? pointsDone / pointsTotal : total ? done / total : 0;
+  const text = !total ? "ingenting med labelen i ADO" : n(bugs, "bug", "bugs") + ", " + n(stories, "story", "stories") + " · " + (pointsTotal > 0 ? pointsDone + "/" + pointsTotal + " SP levert" : done + " av " + total + " levert");
+  return { fraction, text, bugs, stories, done, total, pointsDone, pointsTotal };
+}
+
 /* ---------- sprints: from ADO's iterations, cached in plan.sprints ---------- */
 function dayKey(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 function currentSprint(sprints, date) {
@@ -489,6 +543,7 @@ if (typeof module !== "undefined") {
     isoWeek, weekSpan, windowLabel, epicWindowText, discoveryOverdue,
     shelfTasks, epicCounts, sizeClass, sizeClassDerived, sizeClassText, bufferLabel, rawLabel, previewPlacement,
     dayKey, currentSprint, sprintDay, sprintLabel,
+    dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
     progressFraction, progressSignal, epicProgressSignal, progressText,
     MIX, MIX_LABEL, capacityFactor, elapsedWeeks, queueFloor, resolveQueue,
   };

@@ -6,6 +6,7 @@ import {
   shelfTasks, epicCounts, sizeClass, bufferLabel, rawLabel, previewPlacement,
   currentSprint, sprintDay, sprintLabel, progressFraction, progressSignal, epicProgressSignal, progressText,
   resolveQueue, queueFloor, capacityFactor, elapsedWeeks, wishesByStatus, WISH_STATUS_LABEL, WISH_SOURCE_LABEL, sizeClassDerived, sizeClassText, FEATURE_TYPE_LABEL, AREAS,
+  dayToUnit, releaseSegments, releaseProgress, releaseScope,
 } from "./epic-tools.js";
 import type { Plan, PlanTask } from "./merge";
 
@@ -527,5 +528,60 @@ describe("R9: the four attributes from the old board", () => {
     expect(resolveQueue(p)).toEqual([{ id: "c", by: "b", kind: "queue" }]);
     expect(p.tasks.find((t) => t.id === "b")!.start).toBeCloseTo(S + 0.5);
     expect(p.tasks.find((t) => t.id === "c")!.start).toBeCloseTo(S + 2);
+  });
+});
+
+describe("releases (R10): the normaliser, the band segments and the progress text", () => {
+  const rel = (over: Record<string, unknown>) => ({ key: "r1", version: "2.0.1", targetDate: "2026-10-22", ...over });
+  it("keeps a release with key, version and a valid target day, drops the rest, sorts by end day", () => {
+    const p = normalizePlan({ lanes: [], tasks: [], releases: [
+      rel({ key: "r2", version: "2.0.2", targetDate: "2026-11-12", v: 3, note: " patch to ", label: "2.0.2+ota.1", shippedDate: "not-a-day" }),
+      rel({}),
+      rel({ key: "r3", version: "", targetDate: "2026-12-01" }),
+      rel({ key: "r4", version: "1.9", targetDate: "2026-13-45" }),
+      rel({ key: "r0", version: "2.0.0", targetDate: "2026-10-30", shippedDate: "2026-10-07" }),
+      null,
+    ], deletedReleases: { gone: 2 } });
+    expect(p.releases!.map((r) => r.key)).toEqual(["r0", "r1", "r2"]);   // r0 ends on its shipped day, before r1's target
+    expect(p.releases![2]).toEqual({ key: "r2", v: 3, version: "2.0.2", targetDate: "2026-11-12", note: "patch to", label: "2.0.2+ota.1" });
+    expect(p.releases![1]).toEqual({ key: "r1", v: 0, version: "2.0.1", targetDate: "2026-10-22" });
+    expect(p.deletedReleases).toEqual({ gone: 2 });
+    expect(normalizePlan({ lanes: [], tasks: [] }).releases).toEqual([]);
+  });
+  it("keeps the ADO read-back only when it has a time and an items array; items are cleaned", () => {
+    const p = normalizePlan({ lanes: [], tasks: [], releases: [
+      rel({ ado: { at: "2026-10-12T20:00:00.000Z", label: "2.0.1", items: [{ id: 4536, type: "Bug", title: "Nav bar", state: "New", points: 8, assignee: "THM" }, { id: 4804, type: "Weird", title: "Receipts", state: "Closed", points: "x" }, "junk"] } }),
+      rel({ key: "r2", ado: { items: [] } }),
+    ] });
+    expect(p.releases![0].ado).toEqual({ at: "2026-10-12T20:00:00.000Z", label: "2.0.1", items: [
+      { id: 4536, type: "Bug", title: "Nav bar", state: "New", points: 8, assignee: "THM" },
+      { id: 4804, type: "User Story", title: "Receipts", state: "Closed", points: 0, assignee: null },
+    ] });
+    expect(p.releases![1].ado).toBeUndefined();
+  });
+  it("segments: each release starts where the previous one ends, the first two weeks before its end; shipped and overdue flags", () => {
+    const p = normalizePlan({ lanes: [], tasks: [], releases: [rel({ key: "b", version: "2.0.1", targetDate: "2026-10-22" }), rel({ key: "a", version: "2.0.0", targetDate: "2026-10-01", shippedDate: "2026-10-07" })] });
+    const today = dayToUnit("2026-10-12");
+    const s = releaseSegments(p, today);
+    expect(s.map((x) => x.release.version)).toEqual(["2.0.0", "2.0.1"]);
+    expect(s[0].end).toBeCloseTo(dayToUnit("2026-10-07"), 6);
+    expect(s[0].start).toBeCloseTo(s[0].end - 2 * WEEK, 6);
+    expect(s[1].start).toBeCloseTo(s[0].end, 6);
+    expect(s[1].end).toBeCloseTo(dayToUnit("2026-10-22"), 6);
+    expect([s[0].shipped, s[0].overdue, s[1].shipped, s[1].overdue]).toEqual([true, false, false, false]);
+    expect(releaseSegments(p, dayToUnit("2026-10-30"))[1].overdue).toBe(true);
+  });
+  it("progress: points done over points total, the counts in words; items without points count by number; nothing read = no fraction", () => {
+    const items = [
+      { id: 1, type: "Bug", title: "a", state: "Closed", points: 5, assignee: null }, { id: 2, type: "Bug", title: "b", state: "Active", points: 3, assignee: null },
+      { id: 3, type: "User Story", title: "c", state: "Resolved", points: 2, assignee: null },
+    ];
+    const r = normalizePlan({ lanes: [], tasks: [], releases: [rel({ ado: { at: "2026-10-12T20:00:00.000Z", label: "2.0.1", items } })] }).releases![0];
+    expect(releaseProgress(r)).toMatchObject({ fraction: 0.7, text: "2 bugs, 1 story · 7/10 SP levert", bugs: 2, stories: 1, done: 2, total: 3, pointsDone: 7, pointsTotal: 10 });
+    const noPoints = normalizePlan({ lanes: [], tasks: [], releases: [rel({ ado: { at: "x", label: "2.0.1", items: items.map((i) => ({ ...i, points: 0 })) } })] }).releases![0];
+    expect(releaseProgress(noPoints)).toMatchObject({ fraction: 2 / 3, text: "2 bugs, 1 story · 2 av 3 levert" });
+    expect(releaseProgress(normalizePlan({ lanes: [], tasks: [], releases: [rel({})] }).releases![0])).toMatchObject({ fraction: null, text: "ikke lest fra ADO" });
+    expect(releaseScope(rel({ label: "2.0.1+ota.2" }) as never)).toBe("2.0.1+ota.2");
+    expect(releaseScope(rel({}) as never)).toBe("2.0.1");
   });
 });
