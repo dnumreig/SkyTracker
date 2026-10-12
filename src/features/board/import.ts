@@ -44,6 +44,8 @@ const snapWeek = (u: number) => Math.round(u / WEEK) * WEEK;
 /** Every card that is not a gap and has not been imported yet (a task carries its `cardId`), with a duplicate hint. */
 export function cardsToImport(plan: Plan, cards: OldCard[]): CardCandidate[] {
   const held = new Set(plan.tasks.map((t) => t.cardId).filter((x): x is string => typeof x === "string"));
+  // a card that was imported and later deleted leaves a tombstone on its task id ("card" + id): handled, never offered again
+  for (const id of Object.keys(plan.deleted ?? {})) if (id.startsWith("card")) held.add(id.slice(4));
   const labels = new Map(plan.tasks.map((t) => [norm(t.label), t.label]));
   return cards.filter((c) => !c.isGap && !held.has(c.id)).map((c) => ({ ...c, similar: labels.get(norm(c.title)) ?? null }));
 }
