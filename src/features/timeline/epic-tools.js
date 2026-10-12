@@ -90,8 +90,13 @@ function normalizePlan(plan) {
     const label = text(r.label, 60); if (label && label !== out.version) out.label = label;
     if (r.ado && typeof r.ado === "object" && typeof r.ado.at === "string" && Array.isArray(r.ado.items)) {
       out.ado = { at: r.ado.at, label: typeof r.ado.label === "string" && r.ado.label ? r.ado.label : out.label || out.version, items: r.ado.items.filter((i) => i && typeof i === "object" && typeof i.id === "number").map((i) => ({
-        id: i.id, type: i.type === "Bug" ? "Bug" : "User Story", title: typeof i.title === "string" ? i.title.slice(0, 200) : "", state: typeof i.state === "string" && i.state ? i.state : "New", points: Math.max(0, num(i.points, 0)), assignee: typeof i.assignee === "string" && i.assignee ? i.assignee : null,
+        id: i.id, type: i.type === "Bug" ? "Bug" : "User Story", title: typeof i.title === "string" ? i.title.slice(0, 200) : "", state: typeof i.state === "string" && i.state ? i.state : "New", points: Math.max(0, num(i.points, 0)), assignee: typeof i.assignee === "string" && i.assignee ? i.assignee : null, ...(typeof i.iteration === "string" && i.iteration ? { iteration: i.iteration } : {}),
       })) };
+      const hist = new Map();   // R11: one reading per day, the day's last wins, the latest kept
+      (Array.isArray(r.ado.history) ? r.ado.history : []).forEach((h) => { if (h && typeof h === "object" && validDay(h.day)) hist.set(h.day, { day: h.day, pointsDone: Math.max(0, num(h.pointsDone, 0)), pointsTotal: Math.max(0, num(h.pointsTotal, 0)), done: Math.max(0, num(h.done, 0)), total: Math.max(0, num(h.total, 0)) }); });
+      if (hist.size) out.ado.history = [...hist.values()].sort((x, y) => (x.day < y.day ? -1 : 1)).slice(-RELEASE_HISTORY_MAX);
+      const sprints = (Array.isArray(r.ado.sprints) ? r.ado.sprints : []).filter((s) => s && typeof s === "object" && typeof s.name === "string" && s.name).map((s) => ({ name: s.name, unlabelled: Math.max(0, num(s.unlabelled, 0)) }));
+      if (sprints.length) out.ado.sprints = sprints;
     }
     return out;
   }).sort((a, b) => releaseEnd(a) - releaseEnd(b) || a.version.localeCompare(b.version));
@@ -519,6 +524,116 @@ function releaseProgress(r) {
   return { fraction, text, bugs, stories, done, total, pointsDone, pointsTotal };
 }
 
+/* ---------- R11: progress towards a release: working days, tempo, history, sprint vs release ---------- */
+const RELEASE_HISTORY_MAX = 120;              // one point per day: four months of readings
+const RELEASE_MAX_AGE_MS = 6 * 3600 * 1000;   // the page re-reads the labels on load when the last read is older (writers)
+const PACE_SLACK = 0.1;                       // the feature signal's slack, reused for the straight line
+const PACE_LATE_DAYS = 3;                     // working days after the target that still count as yellow
+const PACE_WORD = { gronn: "grønn", gul: "gul", rod: "rød" };
+const dayOf = (day) => { const q = String(day).split("-").map(Number); return new Date(q[0], q[1] - 1, q[2]); };
+const isWorkDay = (d) => d.getDay() !== 0 && d.getDay() !== 6;
+/** Working days (Mon–Fri) from day a through day b, both inclusive; 0 when b is before a. */
+function workDays(a, b) {
+  if (!a || !b || b < a) return 0;
+  let n = 0;
+  for (const c = dayOf(a); dayKey(c) <= b; c.setDate(c.getDate() + 1)) if (isWorkDay(c)) n++;
+  return n;
+}
+/** Working days after day a up to and including day b (a's own day never counts). */
+function workDaysBetween(a, b) { return workDays(a, b) - (b >= a && isWorkDay(dayOf(a)) ? 1 : 0); }
+/** The day n working days after `day` (n = 0: the day itself). */
+function addWorkDays(day, n) {
+  const c = dayOf(day);
+  for (let left = Math.max(0, Math.ceil(n)); left > 0; ) { c.setDate(c.getDate() + 1); if (isWorkDay(c)) left--; }
+  return dayKey(c);
+}
+/** Calendar days from a to b, negative when b is before a. */
+function calendarDays(a, b) { const A = dayOf(a), B = dayOf(b); return Math.round((Date.UTC(B.getFullYear(), B.getMonth(), B.getDate()) - Date.UTC(A.getFullYear(), A.getMonth(), A.getDate())) / 86400000); }
+/** Where the release's clock starts: the sprint start of the oldest iteration among its items, else the segment's start. */
+function releaseStartDay(plan, r) {
+  const sprints = (plan && plan.sprints && plan.sprints.items) || [];
+  const starts = ((r.ado && r.ado.items) || []).map((i) => { const s = i.iteration && sprints.find((sp) => sp.name === i.iteration); return s ? s.start : null; }).filter(Boolean).sort();
+  if (starts.length) return starts[0];
+  const seg = releaseSegments(plan).find((s) => s.release.key === r.key);
+  return dayKey(unitToDate(seg ? seg.start : releaseEnd(r) - 2 * WEEK));
+}
+const PACE_WORDS = ["null", "én", "to", "tre", "fire", "fem", "seks", "sju", "åtte", "ni", "ti", "elleve", "tolv"];
+const daysWords = (n) => (n <= 12 ? PACE_WORDS[n] : String(n)) + " arbeidsdag" + (n === 1 ? "" : "er");
+const dayWords = (day) => fmtDate(dayOf(day));
+const pct = (f) => Math.round(f * 100) + " %";
+/** The tempo signal of a release that is not out yet: the colour its segment wears and the sentence the drawer, the strip and the report say. */
+function releasePace(plan, r, todayDay) {
+  if (!r || r.shippedDate || !r.ado) return null;
+  const pr = releaseProgress(r);
+  if (!pr.total) return null;
+  const units = pr.pointsTotal > 0 ? { done: pr.pointsDone, total: pr.pointsTotal } : { done: pr.done, total: pr.total };
+  const startDay = releaseStartDay(plan, r);
+  const elapsedDays = workDays(startDay, todayDay), totalDays = workDays(startDay, r.targetDate);
+  const elapsed = totalDays > 0 ? Math.max(0, Math.min(1, elapsedDays / totalDays)) : todayDay >= r.targetDate ? 1 : 0;
+  const done = pr.fraction;
+  const readings = new Set((r.ado.history || []).map((h) => h.day)).size;
+  const tempo = readings >= 2 && elapsedDays > 0 && units.done > 0 ? units.done / elapsedDays : null;
+  const forecastDay = tempo !== null && done < 1 ? addWorkDays(todayDay, Math.ceil((units.total - units.done) / tempo)) : null;
+  const deltaDays = forecastDay ? (forecastDay > r.targetDate ? workDaysBetween(r.targetDate, forecastDay) : -workDaysBetween(forecastDay, r.targetDate)) : null;
+  const past = todayDay > r.targetDate;
+  let code;
+  if (done >= 1) code = "gronn";
+  else if (deltaDays !== null) code = deltaDays <= 0 ? "gronn" : deltaDays <= PACE_LATE_DAYS ? "gul" : "rod";
+  else code = past ? "rod" : done + PACE_SLACK >= elapsed ? "gronn" : "gul";
+  const head = pct(done) + " levert · " + pct(elapsed) + " av tiden brukt";
+  const tail = done >= 1 ? "alt levert · sett «Skippet» når den er ute"
+    : forecastDay ? "med dagens tempo ferdig " + dayWords(forecastDay) + (deltaDays === 0 ? ", på målet" : deltaDays > 0 ? ", " + daysWords(deltaDays) + " etter målet" : ", " + daysWords(-deltaDays) + " før målet")
+    : readings < 2 ? "tempo etter neste lesing" : units.done === 0 ? "ingenting levert ennå" : "tempo regnes fra " + dayWords(startDay);   // the clock has not started: the items sit in a coming sprint
+  return { code, text: head + " · " + tail, done, elapsed, startDay, elapsedDays, totalDays, tempo, forecastDay, deltaDays, readings };
+}
+/** The legend's status strip: the next release not yet out, how far away it is, the share delivered and the tempo colour in words. */
+function nextReleaseText(plan, todayDay) {
+  const r = ((plan && plan.releases) || []).filter((x) => !x.shippedDate).sort((a, b) => (a.targetDate < b.targetDate ? -1 : a.targetDate > b.targetDate ? 1 : 0))[0];
+  if (!r) return null;
+  const n = calendarDays(todayDay, r.targetDate);
+  const when = n > 0 ? "om " + n + (n === 1 ? " dag" : " dager") : n === 0 ? "i dag" : -n + (n === -1 ? " dag" : " dager") + " på overtid";
+  const pr = releaseProgress(r), pace = releasePace(plan, r, todayDay);
+  return { text: "Neste release " + r.version + " " + when + " · " + (pr.fraction === null ? "ikke lest fra ADO" : pct(pr.fraction)) + (pace ? " · " + PACE_WORD[pace.code] : ""), code: pace ? pace.code : null, release: r };
+}
+const STATE_ORDER = ["New", "Active", "Resolved", "Closed"];
+/** The items by state, ADO's order first, then whatever else the process has. */
+function releaseStateCounts(r) {
+  const counts = new Map();
+  ((r && r.ado && r.ado.items) || []).forEach((i) => counts.set(i.state, (counts.get(i.state) || 0) + 1));
+  const rank = (s) => { const k = STATE_ORDER.indexOf(s); return k < 0 ? STATE_ORDER.length : k; };
+  return [...counts.entries()].map(([state, count]) => ({ state, count })).sort((a, b) => rank(a.state) - rank(b.state) || a.state.localeCompare(b.state));
+}
+/** «16 items i 2.0.1: 15 i Sprint 71, 1 i Sprint 72 · Sprint 71 har 3 items uten release-label» */
+function releaseSprintText(r) {
+  const items = (r && r.ado && r.ado.items) || [];
+  if (!items.length) return "";
+  const by = new Map();
+  let none = 0;
+  items.forEach((i) => { if (i.iteration) by.set(i.iteration, (by.get(i.iteration) || 0) + 1); else none++; });
+  const n = (c, one, many) => c + " " + (c === 1 ? one : many);
+  const parts = [...by.entries()].sort((a, b) => a[0].localeCompare(b[0], "nb")).map(([k, c]) => c + " i " + k);
+  if (none) parts.push(none + " uten sprint");
+  const extra = (r.ado.sprints || []).filter((s) => s.unlabelled > 0).map((s) => s.name + " har " + n(s.unlabelled, "item", "items") + " uten release-label");
+  return n(items.length, "item", "items") + " i " + releaseScope(r) + ": " + parts.join(", ") + (extra.length ? " · " + extra.join(" · ") : "");
+}
+/** The burndown's numbers: remaining units per reading day, the ideal line's ends and the day the tempo points at. */
+function releaseBurndownData(plan, r, todayDay) {
+  const a = r && r.ado;
+  if (!a || !Array.isArray(a.items) || !a.items.length) return null;
+  const pr = releaseProgress(r);
+  const unit = pr.pointsTotal > 0 ? "SP" : "items";
+  const actual = (a.history || []).map((h) => ({ day: h.day, remaining: h.pointsTotal > 0 ? h.pointsTotal - h.pointsDone : h.total - h.done }));
+  const pace = releasePace(plan, r, todayDay);
+  const endDay = [r.targetDate, r.shippedDate || todayDay, ...actual.map((p) => p.day)].sort().pop();
+  const startDay = pace ? pace.startDay : releaseStartDay(plan, r);
+  const axisStart = actual.length && actual[0].day < startDay ? actual[0].day : startDay;   // readings before the clock's start (items moved to a later sprint) stay on the chart
+  return { startDay, axisStart, targetDay: r.targetDate, endDay, todayDay, total: unit === "SP" ? pr.pointsTotal : pr.total, unit, actual, forecastDay: pace ? pace.forecastDay : null };
+}
+/** The sprint's open bugs and stories that carry no release label at all: what sprint planning still has to stamp. */
+function sprintUnlabelledWiql(iterationPath) {
+  return "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.IterationPath] = '" + String(iterationPath).replace(/'/g, "''") + "' AND [Custom.Release] = '' AND [System.WorkItemType] IN ('Bug', 'User Story') AND [System.State] NOT IN ('Closed', 'Removed')";
+}
+
 /* ---------- sprints: from ADO's iterations, cached in plan.sprints ---------- */
 function dayKey(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 function currentSprint(sprints, date) {
@@ -548,6 +663,7 @@ if (typeof module !== "undefined") {
     shelfTasks, epicCounts, sizeClass, sizeClassDerived, sizeClassText, bufferLabel, rawLabel, previewPlacement,
     dayKey, currentSprint, sprintDay, sprintLabel,
     dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
+    workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
     progressFraction, progressSignal, epicProgressSignal, progressText,
     MIX, MIX_LABEL, capacityFactor, elapsedWeeks, queueFloor, resolveQueue,
   };

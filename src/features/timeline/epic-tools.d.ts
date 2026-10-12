@@ -79,3 +79,21 @@ export declare function releaseItemDone(item: { state: string }): boolean;
 export declare function releaseProgress(r: Release): { fraction: number | null; text: string; bugs: number; stories: number; done: number; total: number; pointsDone: number; pointsTotal: number };
 export declare function releaseWiql(label: string): string;
 export declare function releaseQueryUrl(label: string): string;
+
+/* R11: progress towards a release */
+export type PaceCode = "gronn" | "gul" | "rod";
+export declare const PACE_WORD: Record<PaceCode, string>;
+export declare const RELEASE_HISTORY_MAX: number;
+export declare const RELEASE_MAX_AGE_MS: number;
+export declare function workDays(a: string, b: string): number;
+export declare function workDaysBetween(a: string, b: string): number;
+export declare function addWorkDays(day: string, n: number): string;
+export declare function calendarDays(a: string, b: string): number;
+export declare function releaseStartDay(plan: Plan, r: Release): string;
+export type ReleasePace = { code: PaceCode; text: string; done: number; elapsed: number; startDay: string; elapsedDays: number; totalDays: number; tempo: number | null; forecastDay: string | null; deltaDays: number | null; readings: number };
+export declare function releasePace(plan: Plan, r: Release, todayDay: string): ReleasePace | null;
+export declare function nextReleaseText(plan: Plan, todayDay: string): { text: string; code: PaceCode | null; release: Release } | null;
+export declare function releaseStateCounts(r: Release): { state: string; count: number }[];
+export declare function releaseSprintText(r: Release): string;
+export declare function releaseBurndownData(plan: Plan, r: Release, todayDay: string): { startDay: string; axisStart: string; targetDay: string; endDay: string; todayDay: string; total: number; unit: "SP" | "items"; actual: { day: string; remaining: number }[]; forecastDay: string | null } | null;
+export declare function sprintUnlabelledWiql(iterationPath: string): string;
