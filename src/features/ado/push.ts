@@ -6,7 +6,7 @@ import type { AdoConflict, LaneAdo, Plan, PlanLane, PlanTask, Sprint, TaskAdo } 
 import { adoEvent, type PlanEvent } from "@/features/timeline/events";
 import type { AdoClient, AdoWorkItem, JsonPatch } from "./client";
 import { ADO_CHILD_REL, ADO_WORK_ITEM_TYPE } from "./config";
-import { epicFields, featureFields, fieldPatch, FIELD_LABEL, planFieldWrites, relationPatch, relTarget, snapshotAfter, storyFields, type Fields, type OwnedField } from "./plan-mappers";
+import { adoValue, epicFields, F, featureFields, fieldPatch, FIELD_LABEL, htmlToText, OWNED_FIELDS, planFieldWrites, relationPatch, relTarget, snapshotAfter, storyFields, type Fields, type OwnedField, type Snapshot } from "./plan-mappers";
 import { deliveredDay, parseSprints, readStories } from "./sync";
 
 export type PushTarget = { kind: "epic" | "feature"; id: string };
@@ -126,10 +126,20 @@ export async function refreshPlan(plan: Plan, client: AdoClient, now: Date): Pro
     if (c.length) next.conflicts = c; else delete next.conflicts;
     return next;
   };
+  // first contact with an item that has an ADO id but was never pushed (seed, hand-typed id): adopt ADO's text and take the
+  // snapshot, so the first push writes only what someone changes in the tool afterwards, never over ADO's own text
+  const snapshotOf = (w: AdoWorkItem): Snapshot => { const out: Snapshot = {}; for (const f of OWNED_FIELDS) out[f] = adoValue(w, f); return out; };
+  const adopt = (w: AdoWorkItem, target: Target, has: { description?: string }): LaneAdo => {
+    const text = htmlToText(typeof w.fields[F.description] === "string" ? (w.fields[F.description] as string) : "");
+    if (!has.description && text) has.description = text;
+    events.push(adoEvent("ado.lest", target, "Koblet til ADO #" + w.id + ": tekst og øyeblikksbilde hentet", { after: { adoId: w.id } }));
+    return { pushedAt: now.toISOString(), snapshot: snapshotOf(w) };
+  };
   for (const l of p.lanes) {
     const w = l.adoId ? byId.get(l.adoId) : undefined;
     if (!w) continue;
     read.epics++;
+    if (!l.ado) { l.ado = adopt(w, { targetType: "epic", targetId: l.key, targetLabel: l.name, laneKey: l.key }, l); bumpLane(l); }
     const next = withConflicts(l.ado, check({ kind: "epic", targetType: "epic", targetId: l.key, targetLabel: l.name, laneKey: l.key }, epicFields(p, l), l.ado, w));
     if (JSON.stringify(next) !== JSON.stringify(l.ado)) { l.ado = next; bumpLane(l); }
   }
@@ -137,6 +147,7 @@ export async function refreshPlan(plan: Plan, client: AdoClient, now: Date): Pro
     const w = t.adoId ? byId.get(t.adoId) : undefined;
     if (!w) continue;
     read.features++;
+    if (!t.ado) { const had = t.description; t.ado = adopt(w, { targetType: "feature", targetId: t.id, targetLabel: t.label, laneKey: t.lane }, t); bump(t, "ado"); if (t.description !== had) bump(t, "meta"); }
     // Resolved/Closed in ADO is the one transition ADO owns: adopt it before comparing, so it is never a conflict
     const day = deliveredDay(w);
     if (day && t.state !== "levert") { t.state = "levert"; t.deliveredAt = day; bump(t, "state"); read.levert++; }

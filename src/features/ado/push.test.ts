@@ -3,6 +3,7 @@ import { dateToUnit } from "@/features/timeline/epic-tools.js";
 import type { Plan } from "@/features/timeline/merge";
 import type { AdoClient, AdoWorkItem, JsonPatch } from "./client";
 import { pushItem, PushFailed, refreshPlan, refreshSprints } from "./push";
+import { adoValue, featureFields, planFieldWrites } from "./plan-mappers";
 
 const D = (y: number, m: number, d: number) => dateToUnit(new Date(y, m - 1, d));
 const NOW = new Date("2026-10-09T08:00:00.000Z");
@@ -202,5 +203,31 @@ describe("progress from the stories (stage 5)", () => {
     const typed = JSON.parse(JSON.stringify(pushed.plan));
     const r3 = await refreshPlan(typed, ado.client, NOW);
     expect(r3.plan.tasks.find((t) => t.id === "kap")!.progress).toEqual({ pct: 20, at: "typed", source: "manuell" });
+  });
+});
+
+describe("refreshPlan: first contact with an item that has an ADO id but was never pushed", () => {
+  it("adopts ADO's text and takes a snapshot, so the first push never overwrites what ADO holds", async () => {
+    const feature: AdoWorkItem = { id: 4566, fields: { "System.WorkItemType": "Feature", "System.Title": "Tråder og svar", "System.State": "Discovery", "System.Description": "<div>Ekte tekst fra ADO.</div><div>Linje to.</div>" }, relations: [] };
+    const epic: AdoWorkItem = { id: 4802, fields: { "System.WorkItemType": "Epic", "System.Title": "Bedre samhandling i chats", "System.State": "Active", "System.Description": "<p>Epic-tekst</p>" }, relations: [] };
+    const ado = fakeAdo([feature, epic]);
+    const p: Plan = {
+      lanes: [{ key: "kanaler", name: "Bedre samhandling i chats", state: "aktiv", priority: 1, v: 1, adoId: 4802 }],
+      tasks: [{ id: "tr", lane: "kanaler", label: "Tråder og svar", kind: "discovery", start: D(2026, 11, 2), end: D(2026, 11, 27), state: "utredes", assignee: "THM", order: 1, fv: { tid: 1 }, adoId: 4566 }],
+    };
+    const r = await refreshPlan(p, ado.client, NOW);
+    const tr = r.plan.tasks.find((t) => t.id === "tr")!, lane = r.plan.lanes[0];
+    expect(tr.description).toBe("Ekte tekst fra ADO.\nLinje to.");
+    expect(tr.ado!.snapshot).toEqual({ title: "Tråder og svar", description: adoValue(feature, "description"), state: "Discovery", targetDate: null, startDate: null, tags: null });
+    expect(lane.description).toBe("Epic-tekst");
+    expect(lane.ado!.snapshot.title).toBe("Bedre samhandling i chats");
+    expect(r.conflicts).toEqual([]);
+    expect(r.events.some((e) => e.code === "ado.lest" && /koblet til ADO #4566/i.test(e.summary))).toBe(true);
+    const w = planFieldWrites(featureFields(r.plan, tr), feature, tr.ado!.snapshot);
+    expect(Object.keys(w.writes).sort()).toEqual(["startDate", "targetDate"]);   // the dates SkyTracker owns and ADO lacks; never the text
+    expect(w.conflicts).toEqual([]);
+    // a second refresh adopts nothing new
+    const r2 = await refreshPlan(r.plan, ado.client, NOW);
+    expect(r2.events.filter((e) => /koblet/i.test(e.summary)).length).toBe(0);
   });
 });
