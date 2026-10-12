@@ -14,7 +14,7 @@ export const EVENT_CODES = [
   "feature.estimat-hentet", "plan.sprintmaal", "ado.push", "ado.konflikt", "ado.lest",
   "feature.fremdrift", "feature.ko", "plan.kapasitet",
   "onske.registrert", "onske.besluttet", "onske.slettet",
-  "feature.beskrivelse", "feature.type", "feature.flater", "feature.fastdato",
+  "feature.beskrivelse", "feature.type", "feature.flater", "feature.fastdato", "feature.klasse",
 ] as const;
 export type EventCode = (typeof EVENT_CODES)[number];
 export type Cause = "bruker" | "avhengighet" | "ado" | "system";
@@ -175,6 +175,7 @@ export function diffPlans(before: Plan, after: Plan, opts: DiffOptions = {}): Pl
     if ((b.type ?? "feature") !== (t.type ?? "feature")) ev.push({ ...base, code: "feature.type", before: b.type ?? "feature", after: t.type ?? "feature", summary: "Type: " + typeLabel(b.type) + " → " + typeLabel(t.type) });
     if ((b.areas ?? []).join(";") !== (t.areas ?? []).join(";")) ev.push({ ...base, code: "feature.flater", before: b.areas ?? [], after: t.areas ?? [], summary: "Flater: " + ((t.areas ?? []).join(", ") || "ingen") });
     if (!!b.fixedEnd !== !!t.fixedEnd) ev.push({ ...base, code: "feature.fastdato", before: !!b.fixedEnd, after: !!t.fixedEnd, summary: "Fast dato: " + (t.fixedEnd ? "på" : "av") });
+    if ((b.sizeClass ?? null) !== (t.sizeClass ?? null)) ev.push({ ...base, code: "feature.klasse", before: b.sizeClass ?? null, after: t.sizeClass ?? null, summary: "Utredningsklasse: " + (b.sizeClass ?? "ingen") + " → " + (t.sizeClass ?? "ingen") });
     if (b.lane !== t.lane) ev.push({ ...base, code: "feature.epic", before: b.lane, after: t.lane, summary: `Flyttet fra ${q(laneName(b.lane))} til ${q(laneName(t.lane))}` });
     else if (movedTasks.has(t.id)) {
       const from = taskIdsInLane(before, t.lane).indexOf(t.id) + 1, to = taskIdsInLane(after, t.lane).indexOf(t.id) + 1;

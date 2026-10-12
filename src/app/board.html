@@ -174,6 +174,10 @@
       <div class="ed-field"><span>Flater</span><div class="ed-kind" id="edAreas"><button data-a="Backend">Backend</button><button data-a="Frontend">Frontend</button><button data-a="iOS">iOS</button><button data-a="Android">Android</button><button data-a="Desktop">Desktop</button><button data-a="Admin">Admin</button></div></div>
     </div>
     <label class="ed-check"><input type="checkbox" id="edFixed"> Fast dato – køen flytter den aldri</label>
+    <div class="ed-row" id="edClassRow" hidden>
+      <div class="ed-field"><span>Utredningsklasse</span><div class="ed-kind" id="edClass"><button data-c="S">S · 1 uke</button><button data-c="M">M · 2 uker</button><button data-c="L">L · 4 uker</button><button data-c="XL">XL · 6 uker</button></div></div>
+      <label class="ed-field" style="max-width:200px"><span>Utredning ferdig</span><input id="edEnd" type="date"></label>
+    </div>
     <div class="ed-row" id="edReadyRow" hidden><button class="ghost" type="button" id="edReady">Klar for veikart …</button><span class="md">Byggetiden fra utredningen, i uker. Da er featuren utredet og klar for veikartet.</span></div>
     <div class="ed-row" id="edEstRow" hidden>
       <label class="ed-field"><span>Sannsynlig (uker)</span><input id="edLikely" type="number" min="1" step="1"></label>
@@ -357,7 +361,9 @@ window.__bootBoard = function(){
   }
 
   /* ---------- the card editor: the four attributes, name and owner ---------- */
-  let edDeps = [];
+  let edDeps = [], edClass = null;
+  function paintEdClass(){ [...$('edClass').querySelectorAll('button')].forEach(b => b.classList.toggle('on', b.dataset.c === edClass)); }
+  $('edClass').addEventListener('click', e => { const b = e.target.closest('button[data-c]'); if(!b) return; const t = getTask(editId); if(!t) return; edClass = b.dataset.c; paintEdClass(); $('edEnd').value = toDateInput(t.start + CLASS_WEEKS[edClass] * WEEK); });
   const spanText = r => r.likely === r.late ? String(r.late) : r.likely + '–' + r.late;
   function paintEdDeps(t){
     const box = $('edDeps');
@@ -380,6 +386,9 @@ window.__bootBoard = function(){
     edType = t.type || 'feature'; edAreas = new Set(t.areas || []); paintEdAttrs(); $('edFixed').checked = !!t.fixedEnd;
     const est = t.kind === 'estimate' && t.state !== 'levert';
     $('edReadyRow').hidden = !(canWrite && t.kind === 'discovery' && t.state === 'utredes');
+    const disc = t.kind === 'discovery' && t.state === 'utredes';
+    $('edClassRow').hidden = !disc;
+    if(disc){ edClass = t.sizeClass || null; paintEdClass(); $('edEnd').value = toDateInput(t.end); }
     $('edEstRow').hidden = !est; $('edEstNote').hidden = !est;
     if(est){ const r = rangeWeeks(t) || { likely: 1, late: 1 }; $('edLikely').value = r.likely; $('edLate').value = r.late; $('edBuffer').value = t.bufferWeeks || 0; $('edEstNote').textContent = (t.raw ? 'Utredningen sa rått ' + t.raw.likely + '–' + t.raw.late + ' uker. ' : '') + 'Ukene her er byggetid på tidslinjen, buffer legges på begge ender.'; }
     edDeps = [...(t.deps || [])]; paintEdDeps(t);
@@ -399,6 +408,11 @@ window.__bootBoard = function(){
     const areas = AREAS.filter(a => edAreas.has(a)); if((t.areas || []).join(';') !== areas.join(';')){ if(areas.length) t.areas = areas; else delete t.areas; touch(t, 'meta'); }
     const fixed = $('edFixed').checked; if(!!t.fixedEnd !== fixed){ if(fixed) t.fixedEnd = true; else delete t.fixedEnd; touch(t, 'tid'); }
     const lines = [];
+    if(t.kind === 'discovery' && t.state === 'utredes'){   // klassen er løftet; datoen følger den, men kan justeres
+      const end0 = t.end, end = fromDateInput($('edEnd').value);
+      if((t.sizeClass || null) !== edClass){ if(edClass) t.sizeClass = edClass; else delete t.sizeClass; touch(t, 'tid'); }
+      if(end !== null && Math.abs(end - end0) > 1e-9){ t.end = Math.max(t.start + WEEK, end); touch(t, 'tid'); if(t.end > end0 + 1e-9) lines.push(t.label + ': utredning slutt ' + fmtDate(unitToDate(end0)) + ' → ' + fmtDate(unitToDate(t.end))); }
+    }
     if(t.kind === 'estimate' && t.state !== 'levert'){
       const r0 = rangeWeeks(t) || { likely: 1, late: 1 }, oldBuf = t.bufferWeeks || 0;
       const lw = Math.max(1, parseInt($('edLikely').value, 10) || r0.likely), hw = Math.max(lw, parseInt($('edLate').value, 10) || lw), buf = Math.max(0, parseInt($('edBuffer').value, 10) || 0);

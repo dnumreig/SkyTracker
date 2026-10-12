@@ -303,3 +303,18 @@ describe("diffPlans: the four attributes (R9)", () => {
     expect(diffPlans(a, b).map((e) => e.summary)).toContain("Fast dato: av");
   });
 });
+
+describe("diffPlans: the discovery's size class (R8, edited later)", () => {
+  it("a changed class is logged in words and never asks on its own; the later end date asks as before", () => {
+    const b = one([lane("x")], [disc({ id: "d", state: "utredes", sizeClass: "M", start: 2, end: 2.5 } as Partial<PlanTask>)]);
+    const a = one([lane("x")], [disc({ id: "d", state: "utredes", sizeClass: "L", start: 2, end: 3 } as Partial<PlanTask>)]);
+    const ev = diffPlans(b, a);
+    expect(ev.map((e) => [e.code, e.summary])).toEqual([
+      ["feature.klasse", "Utredningsklasse: M → L"],
+      ["feature.utredning-slutt", ev[1].summary],
+    ]);
+    expect(needsReason(ev[0])).toBe(false);
+    expect(needsReason(ev[1])).toBe(true);
+    expect(diffPlans(a, one([lane("x")], [disc({ id: "d", state: "utredes", start: 2, end: 3 } as Partial<PlanTask>)]))[0].summary).toBe("Utredningsklasse: L → ingen");
+  });
+});
