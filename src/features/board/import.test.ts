@@ -80,3 +80,11 @@ describe("cardsToImport with similarity hints and a chosen subset (R9, duplicate
     expect(r.plan.tasks.some((t) => t.cardId === "c1")).toBe(false);
   });
 });
+
+describe("cardsToImport after a clean-up", () => {
+  it("a card that was imported and then deleted (a tombstone on its task) is never offered again", () => {
+    const p = normalizePlan({ lanes: [], tasks: [], deleted: { cardc1: 3 } });
+    const cards = [card({ id: "c1", title: "Threads + Reply" }), card({ id: "c2", title: "Proxy Del 1.2" })];
+    expect(cardsToImport(p, cards).map((c) => c.id)).toEqual(["c2"]);
+  });
+});
