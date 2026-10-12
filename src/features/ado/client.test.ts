@@ -66,3 +66,13 @@ describe("createAdoClient.wiql", () => {
     expect(await client(f).wiql("SELECT [System.Id] FROM WorkItems WHERE [System.Id] = 0")).toEqual([]);
   });
 });
+
+describe("createAdoClient.remove", () => {
+  it("DELETEs the work item on the org url (ADO's recycle bin, restorable)", async () => {
+    const f = vi.fn().mockResolvedValue(res(200, { id: 4802, code: 0 }));
+    await client(f).remove(4802);
+    const [url, init] = f.mock.calls[0];
+    expect(String(url)).toBe("https://dev.azure.com/SkytaleAS/_apis/wit/workitems/4802?api-version=7.1");
+    expect(init.method).toBe("DELETE");
+  });
+});

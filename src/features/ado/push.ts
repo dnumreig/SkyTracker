@@ -1,11 +1,11 @@
 // The mirror, as pure functions over a cloned plan: push one epic or feature (creating the parent epic
 // and the discovery story when needed), refresh everything that has an ADO id, refresh the sprint cache.
 // The routes read the stored plan, call these, commit with the version guard and log the events.
-import { BACKLOG } from "@/features/timeline/epic-tools.js";
+import { BACKLOG, normalizePlan } from "@/features/timeline/epic-tools.js";
 import type { AdoConflict, LaneAdo, Plan, PlanLane, PlanTask, Sprint, TaskAdo } from "@/features/timeline/merge";
 import { adoEvent, type PlanEvent } from "@/features/timeline/events";
 import type { AdoClient, AdoWorkItem, JsonPatch } from "./client";
-import { ADO_CHILD_REL, ADO_WORK_ITEM_TYPE } from "./config";
+import { ADO_CHILD_REL, ADO_PARENT_REL, ADO_WORK_ITEM_TYPE } from "./config";
 import { adoValue, epicFields, F, featureFields, fieldPatch, FIELD_LABEL, htmlToText, OWNED_FIELDS, planFieldWrites, relationPatch, relTarget, snapshotAfter, storyFields, type Fields, type OwnedField, type Snapshot } from "./plan-mappers";
 import { deliveredDay, parseSprints, readStories } from "./sync";
 
@@ -178,4 +178,36 @@ export async function refreshSprints(plan: Plan, client: AdoClient, now: Date, m
   const p = clone(plan);
   p.sprints = { at: now.toISOString(), items };
   return { plan: p, changed: true, sprints: items };
+}
+
+/** Deleting an epic (spec: GO 12.10): its features are kept and go to the shelf; when the epic lives in ADO, the features
+ *  are unlinked from it there and the epic is deleted (ADO's recycle bin). The lane gets a tombstone. */
+export type RemoveEpicResult = { plan: Plan; events: PlanEvent[]; removedAdoId: number | null; unlinked: number[] };
+export async function removeEpic(plan: Plan, laneKey: string, client: AdoClient | null, now: Date): Promise<RemoveEpicResult> {
+  const p = clone(plan);
+  const lane = p.lanes.find((l) => l.key === laneKey);
+  if (!lane) throw new Error("no-lane");
+  const children = p.tasks.filter((t) => t.lane === laneKey);
+  const events: PlanEvent[] = [];
+  const unlinked: number[] = [];
+  if (lane.adoId && client) {
+    const ids = children.map((t) => t.adoId).filter((x): x is number => typeof x === "number");
+    for (const w of ids.length ? await client.batch(ids) : []) {
+      const idx = (w.relations ?? []).findIndex((r) => r.rel === ADO_PARENT_REL && relTarget(r) === lane.adoId);
+      if (idx >= 0) { await client.patch(w.id, [{ op: "remove", path: "/relations/" + idx }]); unlinked.push(w.id); }
+    }
+    await client.remove(lane.adoId);
+    events.push(adoEvent("ado.push", { targetType: "epic", targetId: lane.key, targetLabel: lane.name, laneKey: lane.key },
+      "Slettet i ADO #" + lane.adoId + " · " + n(unlinked.length, "feature frikoblet", "features frikoblet"), { before: { adoId: lane.adoId } }));
+  }
+  for (const t of children) {
+    t.lane = BACKLOG;
+    if (t.state === "aktiv") { t.state = "klar"; delete t.committedRange; delete t.activatedAt; bump(t, "state"); }
+    bump(t, "meta");
+  }
+  p.deletedLanes = { ...(p.deletedLanes ?? {}), [laneKey]: (lane.v ?? 0) + 1 };
+  p.lanes = p.lanes.filter((l) => l.key !== laneKey);
+  p.example = false;
+  void now;
+  return { plan: normalizePlan(p), events, removedAdoId: lane.adoId ?? null, unlinked };
 }

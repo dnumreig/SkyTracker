@@ -446,6 +446,10 @@ function exampleSeed(prev) {
     const deletedLanes = prev.deletedLanes && typeof prev.deletedLanes === "object" ? prev.deletedLanes : {};
     p.lanes.forEach((l) => { if (deletedLanes[l.key]) l.v = deletedLanes[l.key] + 1; });
     p.tasks.forEach((t) => { if (deleted[t.id]) t.fv = { tid: deleted[t.id] + 1 }; });
+    // a copy of an example feature still in the plan (say, on the shelf after its epic was deleted): the example wins every field group
+    const prevTasks = new Map((Array.isArray(prev.tasks) ? prev.tasks : []).filter((t) => t && typeof t.id === "string").map((t) => [t.id, t]));
+    const groups = ["tid", "label", "deps", "meta", "state", "est", "ado", "progress"];
+    p.tasks.forEach((t) => { const c = prevTasks.get(t.id); if (!c) return; t.fv = t.fv || {}; groups.forEach((g) => { t.fv[g] = Math.max(t.fv[g] || 0, ((c.fv && c.fv[g]) || 0) + 1); }); });
     p.deleted = Object.assign({}, deleted);
     p.deletedLanes = Object.assign({}, deletedLanes);
   }
