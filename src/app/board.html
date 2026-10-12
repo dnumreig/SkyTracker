@@ -77,6 +77,11 @@
   .ed-check{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--text);cursor:pointer}
   .ed-check input{accent-color:var(--accent)}
   .md{font-size:12px;color:var(--text-3)}
+  .ed-deps{display:flex;gap:6px;flex-wrap:wrap;min-height:22px;margin-bottom:6px}
+  .ed-deps .depchip{display:inline-flex;gap:7px;align-items:center;font-size:12px;background:var(--bad-bg);color:var(--text);padding:3px 8px;border-radius:4px}
+  .ed-deps .depchip button{border:none;background:none;padding:0;font-size:13px;color:var(--danger);line-height:1;cursor:pointer}
+  .ed-deps .none{font-size:12px;color:var(--text-4)}
+  #edDepPick{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line);border-radius:4px;background:var(--input-bg);color:var(--text)}
   .preview{padding:0 20px 16px;font-size:13px;color:var(--text-2);line-height:1.5}
   .preview b.st-gronn{color:var(--ok-fg)} .preview b.st-gul{color:var(--warn-fg)} .preview b.st-rod{color:var(--bad-fg)}
   /* reason dialog */
@@ -126,7 +131,7 @@
   </div>
 </header>
 <div class="wrap">
-  <p class="hint">Hvert kort er en feature i Tidslinjen, og kolonnene er livssyklusen. Dra et kort til neste kolonne: <b>Utredes</b> spør etter eier og størrelse, <b>Klar for veikart</b> etter byggetiden, <b>Aktiv</b> etter epicen. <b>Levert</b> settes fra ADO. Klikk et kort for å redigere beskrivelse, type, flater og fast dato.</p>
+  <p class="hint">Hvert kort er en feature i Tidslinjen, og kolonnene er livssyklusen. Dra et kort til neste kolonne: <b>Utredes</b> spør etter eier og størrelse, <b>Klar for veikart</b> etter byggetiden, <b>Aktiv</b> etter epicen. <b>Levert</b> settes fra ADO. Klikk et kort for å redigere beskrivelse, type, flater, fast dato, estimatet (uker og buffer) og hva den venter på; en utredning får «Klar for veikart …» der.</p>
   <div class="cols" id="cols"></div>
 </div>
 <div class="note" id="note"></div>
@@ -169,6 +174,15 @@
       <div class="ed-field"><span>Flater</span><div class="ed-kind" id="edAreas"><button data-a="Backend">Backend</button><button data-a="Frontend">Frontend</button><button data-a="iOS">iOS</button><button data-a="Android">Android</button><button data-a="Desktop">Desktop</button><button data-a="Admin">Admin</button></div></div>
     </div>
     <label class="ed-check"><input type="checkbox" id="edFixed"> Fast dato – køen flytter den aldri</label>
+    <div class="ed-row" id="edReadyRow" hidden><button class="ghost" type="button" id="edReady">Klar for veikart …</button><span class="md">Byggetiden fra utredningen, i uker. Da er featuren utredet og klar for veikartet.</span></div>
+    <div class="ed-row" id="edEstRow" hidden>
+      <label class="ed-field"><span>Sannsynlig (uker)</span><input id="edLikely" type="number" min="1" step="1"></label>
+      <label class="ed-field"><span>Senest (uker)</span><input id="edLate" type="number" min="1" step="1"></label>
+      <label class="ed-field"><span>Buffer (uker)</span><input id="edBuffer" type="number" min="0" step="1"></label>
+    </div>
+    <div class="md" id="edEstNote" hidden></div>
+    <div class="ed-field"><span>Venter på (blokkere)</span><div class="ed-deps" id="edDeps"></div>
+      <div class="ed-row" id="edDepRow"><select id="edDepPick" style="flex:1"></select><button class="ghost" type="button" id="edDepAdd">Legg til</button></div></div>
   </div></div>
   <div class="modal-foot"><a class="btn" href="/timeline" id="edOpenTimeline">Åpne i Tidslinjen</a><span class="btns"><button class="text" id="edCancel">Avbryt</button><button class="primary" id="edSave">Lagre</button></span></div>
 </div></div>
@@ -227,6 +241,7 @@ window.__bootBoard = function(){
     if(t.type && t.type !== 'feature') chips.push('<span class="chip" title="Type">' + esc(FEATURE_TYPE_LABEL[t.type] || t.type) + '</span>');
     (t.areas || []).forEach(a => chips.push('<span class="chip" title="Flate">' + esc(a) + '</span>'));
     if(t.fixedEnd) chips.push('<span class="chip fixed" title="Fast dato: køen flytter den aldri">fast dato</span>');
+    if((t.deps || []).length) chips.push('<span class="chip" title="Venter på ' + t.deps.length + ' feature(s)">⇠ ' + t.deps.length + '</span>');
     return '<div class="card" data-id="' + esc(t.id) + '"' + (canWrite && t.state !== 'levert' ? ' draggable="true"' : '') + '><div class="ttl">' + esc(t.label) + '</div>' +
       '<div class="epic">' + (lane ? esc(lane.name) : 'Hylla') + '</div><div class="chips">' + chips.join('') + '</div></div>';
   }
@@ -342,6 +357,18 @@ window.__bootBoard = function(){
   }
 
   /* ---------- the card editor: the four attributes, name and owner ---------- */
+  let edDeps = [];
+  const spanText = r => r.likely === r.late ? String(r.late) : r.likely + '–' + r.late;
+  function paintEdDeps(t){
+    const box = $('edDeps');
+    box.innerHTML = edDeps.length ? edDeps.map(d => { const b = getTask(d); return '<span class="depchip" data-id="' + esc(d) + '">' + esc(b ? b.label : d) + (canWrite ? '<button type="button" title="Fjern">×</button>' : '') + '</span>'; }).join('') : '<span class="none">Ingen – denne kan starte når som helst.</span>';
+    const pick = $('edDepPick');
+    const options = state.tasks.filter(o => o.id !== t.id && o.state !== 'levert' && !edDeps.includes(o.id)).sort((a, b) => a.label.localeCompare(b.label, 'nb'));
+    pick.innerHTML = '<option value="">Velg feature …</option>' + options.map(o => '<option value="' + esc(o.id) + '">' + esc(o.label) + (o.lane !== BACKLOG && getLane(o.lane) ? ' (' + esc(getLane(o.lane).name) + ')' : '') + '</option>').join('');
+  }
+  $('edDeps').addEventListener('click', e => { const b = e.target.closest('.depchip button'); if(!b) return; edDeps = edDeps.filter(d => d !== b.closest('.depchip').dataset.id); paintEdDeps(getTask(editId)); });
+  $('edDepAdd').addEventListener('click', () => { const v = $('edDepPick').value; if(!v || edDeps.includes(v)) return; edDeps.push(v); paintEdDeps(getTask(editId)); });
+  $('edReady').addEventListener('click', () => { const id = editId; $('editBack').classList.remove('open'); editId = null; openReady(id); });
   function paintEdAttrs(){ document.querySelectorAll('#edType button').forEach(b => b.classList.toggle('on', b.dataset.t === edType)); document.querySelectorAll('#edAreas button').forEach(b => b.classList.toggle('on', edAreas.has(b.dataset.a))); }
   $('edType').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if(b){ edType = b.dataset.t; paintEdAttrs(); } });
   $('edAreas').addEventListener('click', e => { const b = e.target.closest('button[data-a]'); if(b){ if(edAreas.has(b.dataset.a)) edAreas.delete(b.dataset.a); else edAreas.add(b.dataset.a); paintEdAttrs(); } });
@@ -351,6 +378,12 @@ window.__bootBoard = function(){
     $('edSub').textContent = (lane ? 'I «' + lane.name + '»' : 'På hylla') + ' · ' + (STATE_LABEL[t.state] || t.state) + (t.adoId ? ' · ADO #' + t.adoId : '');
     $('edName').value = t.label; $('edOwner').value = t.assignee || ''; $('edDesc').value = t.description || '';
     edType = t.type || 'feature'; edAreas = new Set(t.areas || []); paintEdAttrs(); $('edFixed').checked = !!t.fixedEnd;
+    const est = t.kind === 'estimate' && t.state !== 'levert';
+    $('edReadyRow').hidden = !(canWrite && t.kind === 'discovery' && t.state === 'utredes');
+    $('edEstRow').hidden = !est; $('edEstNote').hidden = !est;
+    if(est){ const r = rangeWeeks(t) || { likely: 1, late: 1 }; $('edLikely').value = r.likely; $('edLate').value = r.late; $('edBuffer').value = t.bufferWeeks || 0; $('edEstNote').textContent = (t.raw ? 'Utredningen sa rått ' + t.raw.likely + '–' + t.raw.late + ' uker. ' : '') + 'Ukene her er byggetid på tidslinjen, buffer legges på begge ender.'; }
+    edDeps = [...(t.deps || [])]; paintEdDeps(t);
+    $('edDepRow').hidden = !canWrite;
     ['edName', 'edOwner', 'edDesc', 'edFixed'].forEach(k => { $(k).disabled = !canWrite; });
     $('edSave').hidden = !canWrite;
     $('editBack').classList.add('open');
@@ -365,7 +398,20 @@ window.__bootBoard = function(){
     if((t.type || 'feature') !== edType){ if(edType === 'feature') delete t.type; else t.type = edType; touch(t, 'meta'); }
     const areas = AREAS.filter(a => edAreas.has(a)); if((t.areas || []).join(';') !== areas.join(';')){ if(areas.length) t.areas = areas; else delete t.areas; touch(t, 'meta'); }
     const fixed = $('edFixed').checked; if(!!t.fixedEnd !== fixed){ if(fixed) t.fixedEnd = true; else delete t.fixedEnd; touch(t, 'tid'); }
+    const lines = [];
+    if(t.kind === 'estimate' && t.state !== 'levert'){
+      const r0 = rangeWeeks(t) || { likely: 1, late: 1 }, oldBuf = t.bufferWeeks || 0;
+      const lw = Math.max(1, parseInt($('edLikely').value, 10) || r0.likely), hw = Math.max(lw, parseInt($('edLate').value, 10) || lw), buf = Math.max(0, parseInt($('edBuffer').value, 10) || 0);
+      if(lw !== r0.likely || hw !== r0.late){ t.endLikely = t.start + lw * WEEK; t.end = t.start + hw * WEEK; touch(t, 'tid'); }
+      if(buf !== oldBuf){ if(buf) t.bufferWeeks = buf; else delete t.bufferWeeks; const r1 = rangeWeeks(t); t.endLikely = t.start + (r1.likely - oldBuf + buf) * WEEK; t.end = t.start + (r1.late - oldBuf + buf) * WEEK; touch(t, 'est'); touch(t, 'tid'); }
+      const r2 = rangeWeeks(t);
+      if(r2 && (r2.late > r0.late || r2.likely > r0.likely)) lines.push(t.label + ': spenn ' + spanText(r0) + ' → ' + spanText(r2) + ' uker');   // utvidet spenn spør etter grunn, som i Tidslinjen
+      if(t.fixedEnd && r2 && r2.late > r0.late) pendingNote.reasonCode = 'ekstern';
+    }
+    const depsNow = edDeps.filter(d => d !== t.id && getTask(d));
+    if(JSON.stringify(depsNow) !== JSON.stringify(t.deps || [])){ t.deps = depsNow; touch(t, 'deps'); }
     $('editBack').classList.remove('open'); editId = null;
+    if(lines.length) askReason(lines);
     commit();
   });
 
