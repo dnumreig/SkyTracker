@@ -52,7 +52,11 @@ export type Wish = {
 };
 /** What the last push wrote to ADO, field by field, so a refresh can tell «changed in ADO» from «changed here». */
 /** A release (R10): a version with a target day, shipped once out; its scope is the release label in ADO. Versioned like a lane (`v`). */
-export type ReleaseItem = { id: number; type: "Bug" | "User Story"; title: string; state: string; points: number; assignee: string | null };
+export type ReleaseItem = { id: number; type: "Bug" | "User Story"; title: string; state: string; points: number; assignee: string | null; iteration?: string };
+/** One reading per day (R11): what the label held and how much of it was done, for the burndown and the tempo. */
+export type ReleaseHistoryPoint = { day: string; pointsDone: number; pointsTotal: number; done: number; total: number };
+/** Written by the server (refresh), never by the page: the bugs and stories carrying the label, the daily readings and the sprints' unlabelled counts. */
+export type ReleaseAdo = { at: string; label: string; items: ReleaseItem[]; history?: ReleaseHistoryPoint[]; sprints?: { name: string; unlabelled: number }[] };
 export type Release = {
   key: string;
   v?: number;
@@ -62,8 +66,7 @@ export type Release = {
   note?: string;
   /** The `Custom.Release` label when it differs from the version (e.g. `2.0.1+ota.2`). */
   label?: string;
-  /** Written by the server (refresh), never by the page: the bugs and stories carrying the label. */
-  ado?: { at: string; label: string; items: ReleaseItem[] };
+  ado?: ReleaseAdo;
 };
 export type AdoSnapshot = Partial<Record<"title" | "description" | "state" | "targetDate" | "startDate", string | null>>;
 export type AdoConflict = { field: string; ours: string | null; theirs: string | null };
