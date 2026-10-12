@@ -8,16 +8,53 @@
 // tombstones (`deleted[taskId] = version`, `deletedLanes[key] = version`):
 // a tombstone wins over an item whose version hasn't been bumped past it.
 
-export type TaskFieldGroup = "tid" | "label" | "deps" | "meta";
-export const TASK_FIELD_GROUPS: TaskFieldGroup[] = ["tid", "label", "deps", "meta"];
+export type TaskFieldGroup = "tid" | "label" | "deps" | "meta" | "state" | "est" | "ado" | "progress";
+export const TASK_FIELD_GROUPS: TaskFieldGroup[] = ["tid", "label", "deps", "meta", "state", "est", "ado", "progress"];
 
-// Which task properties belong to which field group.
+// Which task properties belong to which field group. `ado` is written by the server (push/refresh), never by the page.
 export const GROUP_PROPS: Record<TaskFieldGroup, string[]> = {
-  tid: ["start", "end", "endLikely"],
+  tid: ["start", "end", "endLikely", "sizeClass", "fixedEnd"],
   label: ["label"],
   deps: ["deps"],
-  meta: ["lane", "kind", "adoId"],
+  meta: ["lane", "kind", "adoId", "order", "assignee", "specPath", "pinned", "description", "type", "areas", "cardId"],
+  state: ["state", "committedRange", "activatedAt", "deliveredAt", "startedAt"],
+  est: ["raw", "bufferWeeks"],
+  ado: ["ado"],
+  progress: ["progress"],
 };
+
+export type Sprint = { name: string; path: string; start: string; finish: string };
+/** The intake (R7b): a wish PreSales registered; produktforum decides it. Versioned like a lane (`v`). */
+export type WishSource = "egen-plan" | "investor" | "kunde" | "ledermote" | "annet";
+export type WishStatus = "ubehandlet" | "utred" | "senere" | "nei";
+export type Wish = {
+  id: string;
+  v?: number;
+  title: string;
+  note?: string;
+  source?: WishSource;
+  askedBy?: string;
+  /** YYYY-MM-DD */
+  askedOn?: string;
+  registeredBy?: string;
+  registeredAt?: string;
+  status?: WishStatus;
+  decidedAt?: string;
+  decidedBy?: string;
+  /** «Produktforum 5. nov»: typed once per session, kept on every decision taken in it. */
+  forum?: string;
+  reason?: string;
+  /** Utred nå: the owner and the size class the forum chose; the created task holds the dates. */
+  owner?: string;
+  sizeClass?: "S" | "M" | "L" | "XL";
+  /** The task on the shelf a yes created. */
+  featureId?: string;
+};
+/** What the last push wrote to ADO, field by field, so a refresh can tell «changed in ADO» from «changed here». */
+export type AdoSnapshot = Partial<Record<"title" | "description" | "state" | "targetDate" | "startDate", string | null>>;
+export type AdoConflict = { field: string; ours: string | null; theirs: string | null };
+export type LaneAdo = { pushedAt: string; snapshot: AdoSnapshot; conflicts?: AdoConflict[] };
+export type TaskAdo = LaneAdo & { storyId?: number; stories?: { count: number; pointsTotal: number; pointsDone: number; iteration: string | null; at: string } };
 
 export type PlanTask = {
   id: string;
@@ -29,6 +66,34 @@ export type PlanTask = {
   endLikely?: number;
   adoId?: number;
   deps?: string[];
+  order?: number;
+  state?: "ny" | "utredes" | "klar" | "aktiv" | "levert";
+  assignee?: string;
+  raw?: { likely: number; late: number; source?: string; pulledAt?: string; by?: string; date?: string };
+  bufferWeeks?: number;
+  committedRange?: { likely: number; late: number; start: number };
+  activatedAt?: string;
+  deliveredAt?: string;
+  /** ISO: when «Start utredning» (or the intake, or an import) started the discovery; discoveries of one owner run in this order (R8). */
+  startedAt?: string;
+  specPath?: string;
+  /** The size class the forum promised when the discovery started (R8): S 1, M 2, L 4, XL 6 weeks. */
+  sizeClass?: "S" | "M" | "L" | "XL";
+  /** Free text: imported from ADO or typed; pushed as the ADO description instead of the generated lines. */
+  description?: string;
+  /** R9, from the old board: what kind of work (investor split product vs. maintenance). */
+  type?: "feature" | "teknisk" | "vedlikehold";
+  /** R9: Backend · Frontend · iOS · Android · Desktop · Admin, pushed as ADO tags. */
+  areas?: string[];
+  /** R9: a hard date; the queue never moves it, moving its end asks with reason «ekstern». */
+  fixedEnd?: boolean;
+  /** R9: the old board's card this feature was imported from; keeps the import idempotent. */
+  cardId?: string;
+  /** The planner dragged it below the queue's floor: it keeps its place and still counts for the ones after it. */
+  pinned?: boolean;
+  ado?: TaskAdo;
+  /** Typed on day 10 (`manuell`) or read from ADO's stories (`ado`): points, or a percent when no points exist. */
+  progress?: { pointsDone?: number; pointsTotal?: number; pct?: number; sprint?: string | null; at: string; source: "manuell" | "ado" };
   fv?: Partial<Record<TaskFieldGroup, number>>;
   [key: string]: unknown;
 };
@@ -41,6 +106,15 @@ export type PlanLane = {
   goalDate?: number;
   goalProvisional?: boolean;
   adoId?: number;
+  priority?: number;
+  metric?: string;
+  externalDate?: boolean;
+  description?: string;
+  state?: "forslag" | "aktiv" | "avsluttet";
+  closedReason?: string;
+  closedAt?: string;
+  outcome?: "nådd" | "ikke nådd" | "endret";
+  ado?: LaneAdo;
 };
 
 export type Plan = {
@@ -49,6 +123,12 @@ export type Plan = {
   tasks: PlanTask[];
   deleted?: Record<string, number>;
   deletedLanes?: Record<string, number>;
+  wishes?: Wish[];
+  deletedWishes?: Record<string, number>;
+  sprints?: { at: string; items: Sprint[] };
+  sprintGoals?: Record<string, { text: string; at: string }>;
+  /** The sprint mix: the share of a sprint that goes to planned features (R5); the factor from raw weeks to elapsed time. */
+  capacity?: { mode: "transition" | "normal"; at: string };
   [key: string]: unknown;
 };
 
@@ -90,6 +170,7 @@ function mergeTombstones(a?: Record<string, number>, b?: Record<string, number>)
 export function mergePlans(stored: Plan, incoming: Plan): Plan {
   const deleted = mergeTombstones(stored.deleted, incoming.deleted);
   const deletedLanes = mergeTombstones(stored.deletedLanes, incoming.deletedLanes);
+  const deletedWishes = mergeTombstones(stored.deletedWishes, incoming.deletedWishes);
 
   // lanes: union by key, versioned (incoming wins ties); a tombstone removes a
   // lane unless its version was bumped PAST the tombstone
@@ -105,6 +186,17 @@ export function mergePlans(stored: Plan, incoming: Plan): Plan {
     const tomb = deletedLanes[l.key];
     return tomb === undefined || (l.v ?? 0) > tomb;
   });
+
+  // wishes: like lanes, by id and version
+  const wishes: Wish[] = [];
+  const wishById = new Map((incoming.wishes ?? []).map((w) => [w.id, w]));
+  for (const s of stored.wishes ?? []) {
+    const i = wishById.get(s.id);
+    wishes.push(i && (i.v ?? 0) >= (s.v ?? 0) ? { ...i } : { ...s });
+    wishById.delete(s.id);
+  }
+  for (const i of wishById.values()) wishes.push({ ...i });
+  const liveWishes = wishes.filter((w) => { const tomb = deletedWishes[w.id]; return tomb === undefined || (w.v ?? 0) > tomb; });
 
   // tasks: union by id, stored order first, incoming-only appended
   const storedMap = new Map(stored.tasks.map((t) => [t.id, t]));
@@ -125,5 +217,18 @@ export function mergePlans(stored: Plan, incoming: Plan): Plan {
     tasks.push(candidate);
   }
 
-  return { ...stored, ...incoming, lanes: liveLanes, tasks, deleted, deletedLanes };
+  // plan-level caches: the sprint list and each sprint's goal carry an `at`; the newer one wins (incoming on ties)
+  const newer = <T extends { at: string }>(a?: T, b?: T) => (!a ? b : !b ? a : b.at >= a.at ? b : a);
+  const sprints = newer(stored.sprints, incoming.sprints);
+  const capacity = newer(stored.capacity, incoming.capacity);
+  const sprintGoals: Record<string, { text: string; at: string }> = {};
+  for (const src of [stored.sprintGoals, incoming.sprintGoals]) for (const [k, g] of Object.entries(src ?? {})) sprintGoals[k] = newer(sprintGoals[k], g)!;
+  const out: Plan = { ...stored, ...incoming, lanes: liveLanes, tasks, deleted, deletedLanes, wishes: liveWishes, deletedWishes };
+  delete out.sprints;
+  delete out.sprintGoals;
+  delete out.capacity;
+  if (sprints) out.sprints = sprints;
+  if (capacity) out.capacity = capacity;
+  if (Object.keys(sprintGoals).length) out.sprintGoals = sprintGoals;
+  return out;
 }

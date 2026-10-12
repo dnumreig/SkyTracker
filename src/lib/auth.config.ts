@@ -1,20 +1,32 @@
 import type { NextAuthConfig } from "next-auth";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
+import { ADO_SCOPE } from "@/features/ado/config";
 
 // Edge-safe config: providers + pages + session strategy + callbacks.
 // NO database adapter, NO Prisma.
 // Imported by both `src/lib/auth.ts` (full Node runtime) and `src/middleware.ts` (Edge runtime).
+// The sign-in asks for the Azure DevOps scope instead of Graph's User.Read (spec §3 «ADO access»):
+// the access token then works against dev.azure.com as the signed-in person; the id token, the group
+// claim and the role are unchanged. The provider's Graph photo fetch gets a 401 and sets no image.
 export default {
   providers: [
     MicrosoftEntraID({
       clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
       clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
       issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER,
+      // SKYTRACKER_ADO_SCOPE=off keeps the old Graph scope: for a tenant where the ADO permission is not on the app registration
+      // yet («Need admin approval» at sign-in); ADO then needs ADO_DEV_TOKEN (local) until the permission is added.
+      authorization: { params: { scope: process.env.SKYTRACKER_ADO_SCOPE === "off" ? "openid profile email User.Read" : "openid profile email offline_access " + ADO_SCOPE } },
     }),
   ],
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   callbacks: {
+    // One sign-in for the whole tool: without this callback next-auth's middleware lets every matched route through
+    // (`authorized` defaults to true), and each page guarded itself; the board at / did not.
+    authorized({ auth }) {
+      return !!auth;
+    },
     jwt({ token, profile, account }) {
       if (profile) {
         // Decode raw ID token to get all claims including groups
