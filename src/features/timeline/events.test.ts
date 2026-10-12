@@ -328,3 +328,27 @@ describe("diffPlans: a plan imported from a file (source «fil»)", () => {
     expect(ev[1].summary.startsWith("Hentet")).toBe(false);
   });
 });
+
+describe("releases (R10): one event per change a person would name", () => {
+  const rel = (over: Record<string, unknown> = {}) => ({ key: "r1", version: "2.0.1", targetDate: "2026-10-22", ...over });
+  const withRel = (releases: unknown[]) => normalizePlan({ lanes: [], tasks: [], releases });
+  it("new, version, target day (asks for a reason), shipped, note, ADO label, deleted", () => {
+    const a = withRel([]), b = withRel([rel()]);
+    expect(diffPlans(a, b).map((e) => [e.code, e.targetType, e.targetId, e.targetLabel, e.summary])).toEqual([["release.ny", "release", "r1", "Release 2.0.1", "Ny release 2.0.1 · mål 22. okt"]]);
+    const c = withRel([rel({ version: "2.0.1a", targetDate: "2026-10-29", shippedDate: "2026-10-30", note: "hotfix", label: "2.0.1+ota.1" })]);
+    const ev = diffPlans(b, c);
+    expect(ev.map((e) => [e.code, e.summary])).toEqual([
+      ["release.versjon", "Versjon: «2.0.1» → «2.0.1a»"],
+      ["release.maldato", "Måldato: 22. okt → 29. okt"],
+      ["release.skippet", "Skippet 30. okt"],
+      ["release.notat", "Notat satt: hotfix"],
+      ["release.scope", "ADO-label: «2.0.1» → «2.0.1+ota.1»"],
+    ]);
+    expect(ev.find((e) => e.code === "release.maldato")).toMatchObject({ before: { date: "2026-10-22" }, after: { date: "2026-10-29" } });
+    expect(ev.filter(needsReason).map((e) => e.code)).toEqual(["release.maldato"]);
+    const d = withRel([{ ...c.releases![0], shippedDate: undefined }]);
+    expect(diffPlans(c, d).map((e) => [e.code, e.summary])).toEqual([["release.skippet", "Skippet-dato fjernet"]]);
+    expect(diffPlans(b, a).map((e) => [e.code, e.targetLabel, e.summary])).toEqual([["release.slettet", "Release 2.0.1", "Release slettet: 2.0.1"]]);
+    expect(diffPlans(b, withRel([rel()]))).toEqual([]);   // the ADO read-back is not a diff event (the refresh logs release.lest itself)
+  });
+});

@@ -1,4 +1,4 @@
-import type { Plan, PlanLane, PlanTask, Sprint, Wish, WishSource, WishStatus } from "./merge";
+import type { Plan, PlanLane, PlanTask, Sprint, Wish, WishSource, WishStatus, Release } from "./merge";
 
 export declare function progressFraction(p: PlanTask["progress"] | undefined | null): number | null;
 export declare function progressSignal(task: PlanTask, todayUnit: number): { code: "gronn" | "gul" | "rod"; done: number; elapsed: number } | null;
@@ -71,3 +71,11 @@ export declare function weekSpan(u1: number, u2: number): string;
 export declare function windowLabel(task: PlanTask): string;
 export declare function epicWindowText(plan: Plan, laneKey: string): string;
 export declare function discoveryOverdue(task: PlanTask, todayUnit: number): boolean;
+export declare const RELEASE_DONE_STATES: string[];
+export declare function dayToUnit(day: string): number;
+export declare function releaseScope(r: Release): string;
+export declare function releaseSegments(plan: Plan, todayUnit?: number): { release: Release; start: number; end: number; shipped: boolean; overdue: boolean }[];
+export declare function releaseItemDone(item: { state: string }): boolean;
+export declare function releaseProgress(r: Release): { fraction: number | null; text: string; bugs: number; stories: number; done: number; total: number; pointsDone: number; pointsTotal: number };
+export declare function releaseWiql(label: string): string;
+export declare function releaseQueryUrl(label: string): string;

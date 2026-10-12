@@ -42,6 +42,7 @@
     --disc-edge:rgba(180,83,9,.3);
     --goal:#0d123e;          /* ocean-1 */
     --today:#ef4444;         /* red-500 */
+    --release:#7c3aed; --release-bg:rgba(124,58,237,.10); --release-fill:rgba(124,58,237,.32);   /* R10: the release band */
     --dep:#94a3b8;           /* slate-400 */
     --tip-bg:#0d123e; --tip-fg:#ffffff;
     --backdrop:rgba(0,0,0,.4);
@@ -67,7 +68,7 @@
       --ado-bg:#294285; --ado-fg:#a5d6e6;
       --late:#71c4df;
       --disc-a:rgba(251,191,36,.55); --disc-b:rgba(251,191,36,.18); --disc-edge:rgba(251,191,36,.5);
-      --goal:#71c4df; --today:#f87171; --dep:#4e94c4;
+      --goal:#71c4df; --today:#f87171; --dep:#4e94c4; --release:#a78bfa; --release-bg:rgba(167,139,250,.14); --release-fill:rgba(167,139,250,.34);
       --tip-bg:#294285;
       --backdrop:rgba(0,0,0,.6);
     }
@@ -184,7 +185,7 @@
   .col-resizer:hover::after,.col-resizer.active::after{background:var(--accent)}
   .labels{border-right:1px solid var(--line);min-width:0}
   .labels .corner{
-    height:58px;border-bottom:1px solid var(--line-soft);display:flex;align-items:flex-end;
+    height:76px;border-bottom:1px solid var(--line-soft);display:flex;align-items:flex-end;
     padding:0 16px 8px;font-size:10px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--text-4);
   }
   .lane-label{
@@ -232,7 +233,7 @@
 
   .chart-scroll{overflow-x:auto;overscroll-behavior-x:contain}
   .chart{position:relative;width:calc(var(--month-w) * 15)}
-  .axis{height:58px;border-bottom:1px solid var(--line-soft);position:sticky;top:0;display:flex;background:var(--surface);z-index:5}
+  .axis{height:76px;border-bottom:1px solid var(--line-soft);position:sticky;top:0;display:flex;background:var(--surface);z-index:5}
   .axis .mth{width:var(--month-w);flex:none;border-left:1px solid var(--line-soft);padding:10px 0 0 9px}
   .axis .mth:first-child{border-left:none}
   .axis .mth .mm{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2)}
@@ -242,10 +243,33 @@
   .axis .sprint{position:absolute;bottom:0;height:16px;font-size:9px;line-height:16px;padding-left:4px;border-left:1px solid var(--line);color:var(--text-4);white-space:nowrap;overflow:hidden;pointer-events:auto}
   .axis .sprint.alt{background:var(--raised)}
   .axis .sprint.now{color:var(--text);font-weight:600;border-left-color:var(--today)}
-  .grid{position:absolute;inset:0;top:58px;pointer-events:none}
+  /* R10: the release band, one segment per version, above the sprint ruler */
+  .axis .releases{position:absolute;left:0;right:0;bottom:16px;height:18px;pointer-events:none}
+  .axis .release{position:absolute;bottom:1px;height:16px;box-sizing:border-box;font-size:10px;line-height:14px;padding:0 5px;border:1px solid var(--release);border-left-style:dashed;border-radius:3px 0 0 3px;background:var(--release-bg);color:var(--text-2);white-space:nowrap;overflow:hidden;pointer-events:auto;cursor:pointer}
+  .axis .release:hover{filter:brightness(.96)}
+  .axis .release .fill{position:absolute;left:0;top:0;bottom:0;background:var(--release-fill)}
+  .axis .release .t{position:relative;font-weight:600}
+  .axis .release .t b{font-weight:400;color:var(--text-3)}
+  .axis .release.shipped{border-style:solid;color:var(--text-3)}
+  .axis .release.overdue{color:var(--bad-fg);border-color:var(--danger)}
+  .chart .release-line{position:absolute;top:76px;bottom:0;width:0;border-left:2px dashed var(--release);opacity:.55;z-index:3;pointer-events:none}
+  .chart .release-line.shipped{border-left-style:solid;opacity:.35}
+  .sw.release{width:16px;height:10px;border:1px solid var(--release);border-left-style:dashed;background:var(--release-bg)}
+  .rel-h{font-size:12px;font-weight:600;color:var(--text-2);margin:14px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+  .rel-h .cnt{font-weight:400;color:var(--text-4)}
+  .rel-row{display:grid;grid-template-columns:52px 1fr 70px 44px 90px;gap:8px;align-items:baseline;padding:5px 0;border-top:1px solid var(--line-soft);font-size:13px;color:var(--text);text-decoration:none}
+  .rel-row:hover .ti{text-decoration:underline}
+  .rel-row .id{font-size:11px;color:var(--text-4)}
+  .rel-row .st,.rel-row .pt,.rel-row .who{font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rel-row.done .ti{color:var(--text-3)}
+  .rel-row.done .st{color:var(--ok-fg)}
+  .rel-note{font-size:13px;color:var(--text);margin:8px 0 2px;white-space:pre-wrap}
+  .rel-scope{font-size:12px;color:var(--text-3);margin:6px 0 4px}
+  .rel-scope code{font-size:11px;background:var(--raised);padding:1px 5px;border-radius:3px}
+  .grid{position:absolute;inset:0;top:76px;pointer-events:none}
   .grid .v{position:absolute;top:0;bottom:0;width:1px;background:var(--line-soft)}
   .grid .v.jan{width:2px;background:var(--text-4);opacity:.6}
-  .chart .today{position:absolute;top:58px;bottom:0;width:2px;background:var(--today);z-index:4;pointer-events:none}
+  .chart .today{position:absolute;top:76px;bottom:0;width:2px;background:var(--today);z-index:4;pointer-events:none}
   .chart .today .tl{
     position:absolute;top:-1px;left:5px;background:var(--today);color:#fff;
     font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;white-space:nowrap;
@@ -379,6 +403,8 @@
   .hist-ev .chip.cause{background:var(--warn-bg);color:var(--warn-fg);margin-left:6px}
   .hist-empty{padding:24px 0;color:var(--text-4);font-size:13px;text-align:center}
   .drawer-foot{padding:10px 16px;border-top:1px solid var(--line-soft);display:flex;justify-content:center}
+  .drawer-foot .btn-link{font-size:13px;padding:6px 12px;border:1px solid var(--line);border-radius:4px;color:var(--text);text-decoration:none;background:var(--surface)}
+  .drawer-foot .btn-link:hover{background:var(--raised)}
   #histBtn{position:relative}
   .count{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--warn);color:#fff;font-size:10px;font-weight:700;line-height:18px;text-align:center}
   .count[hidden]{display:none}
@@ -486,6 +512,7 @@
     <button id="histBtn" title="Hva har flyttet seg, og hvorfor">Historikk<span class="count" id="histBadge" hidden></span></button>
     <button id="investorBtn" hidden title="Planen nå, gjennomføringsevne og målopnåelse – tallene investorene spør om">Investorer</button>
     <button id="helpBtn">Hjelp</button>
+    <button id="addReleaseBtn" title="En versjon med måldato. Det som har release-labelen i ADO (bugs og stories), er innholdet.">＋ Release</button>
     <button class="primary" id="addEpicBtn">＋ Epic</button>
   </div>
 </header>
@@ -550,6 +577,12 @@
         mens featuren utredes. <b>Hent fra ADO</b> lister epics og features som allerede ligger i ADO og tar de valgte inn i planen uten å skrive noe til ADO. <b>Oppdater fra ADO</b> leser tilbake stories, poeng, sprint og det som er lukket («Levert»). Endres et felt i ADO
         etter siste push, listes det som <b>konflikt</b> øverst og overskrives aldri uten at du ber om det. Sprintene på aksen kommer fra ADO;
         «Sprint 71 · dag 4» står på dagens strek, og sprintmålet ved tegnforklaringen. Mangler tilgangen, ber siden deg logge inn på nytt.</p></div>
+      <div class="help-card"><h4>Releaser</h4>
+        <p>En release er verken en epic eller en feature: en <b>versjon med måldato</b> på båndet over sprintlinjalen, med en stiplet
+        linje ned gjennom diagrammet. Sprintene er takten, releasene er versjonene. Innholdet er det som har <b>release-labelen i ADO</b>
+        (feltet «Release» på bugs og stories, satt av utviklingsleder i sprintplanleggingen): «Oppdater fra ADO» leser dem inn, fyllingen
+        i segmentet er poeng levert, og skuffen lister alt. En feilrettingsrelease er bare et segment; en feature-release er segmentet pluss
+        featurene som ender på linjen under sine egne epics. Bugs blir aldri features. Sett «Skippet» når den er ute.</p></div>
       <div class="help-card"><h4>Fremdrift og sprintrapport</h4>
         <p><b>Fremdrift</b> skrives inn i redigeringen på dag 10 (poeng gjort av totalt, eller prosent) og tegnes som en fylling i den mørke
         delen av spennet; har featuren stories med poeng i ADO, tar ADO over ved «Oppdater fra ADO». Chippen <i>fremdrift 60 % · tid 75 %</i> er
@@ -585,6 +618,7 @@
     <span><i class="sw late"></i>Usikker del av spennet</span>
     <span><i class="sw goal"></i>Måldato</span>
     <span><i class="sw today"></i>I dag</span>
+    <span><i class="sw release"></i>Release</span>
     <span><i class="sw depsw"></i>Avhengighet</span>
     <span class="mix" id="mixField" hidden title="Hvor stor del av en sprint som går til planlagte features: faktoren fra rå uker til uker på tidslinjen"><label>Sprintmiks <select id="mixSelect"><option value="transition">overgang (55 % til features)</option><option value="normal">normal (60 %)</option></select></label></span>
     <span class="sprint-goal" id="sprintGoal" hidden></span>
@@ -636,6 +670,19 @@
   </div>
   <div class="drawer-body" id="invBody"></div>
   <div class="drawer-foot"><button id="invExport" title="Last ned som markdown">Eksporter (markdown)</button> <button id="invSlide" title="Åpner ett lysbilde (1280×720) i ny fane">Lysbilde</button></div>
+</aside>
+
+<aside class="drawer" id="relDrawer" hidden>
+  <div class="drawer-head">
+    <div style="flex:1;min-width:0"><h2 id="relTitle">Release</h2><div class="md" id="relSub"></div></div>
+    <button class="x" id="relClose" title="Lukk">✕</button>
+  </div>
+  <div class="drawer-body" id="relBody"></div>
+  <div class="drawer-foot" style="gap:8px;flex-wrap:wrap">
+    <button id="relEdit" title="Versjon, måldato, skippet, ADO-label og notat">Rediger…</button>
+    <button id="relRefresh" hidden title="Les bugs og stories med labelen fra ADO (leser også features og stories)">Oppdater fra ADO</button>
+    <a id="relOpen" class="btn-link" href="#" target="_blank" rel="noopener" title="Samme spørring i ADO">Åpne i ADO ↗</a>
+  </div>
 </aside>
 
 <!-- feature-editor -->
@@ -733,6 +780,33 @@
     <div class="modal-foot">
       <span class="btns"><button class="danger-ghost" id="epDelete">Slett epic …</button><button class="text" id="epHistory">Historikk</button></span>
       <span class="btns"><button class="text" id="epCancel">Avbryt</button><button class="primary" id="epSave">Lagre</button></span>
+    </div>
+  </div>
+</div>
+
+<!-- release-editor (R10) -->
+<div class="modal-back" id="relBack">
+  <div class="modal" style="width:min(520px,100%)">
+    <div class="modal-head">
+      <div><h2 id="relEdTitle">Ny release</h2><div class="md">Versjonen og dagen den skal ut. Innholdet styres av release-labelen i ADO.</div></div>
+      <button class="x" id="relX" title="Lukk">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="ed-body">
+        <div class="ed-row">
+          <label class="ed-field"><span>Versjon</span><input id="relVersion" type="text" placeholder="2.0.1"></label>
+          <label class="ed-field"><span>Måldato</span><input id="relTarget" type="date"></label>
+        </div>
+        <div class="ed-row">
+          <label class="ed-field"><span>Skippet (dato, når den er ute)</span><input id="relShipped" type="date"></label>
+          <label class="ed-field"><span>ADO-label (hvis ulik versjonen)</span><input id="relLabel" type="text" placeholder="f.eks. 2.0.1+ota.2"></label>
+        </div>
+        <label class="ed-field"><span>Notat</span><textarea id="relNote" rows="3" placeholder="Hva releasen skal rette eller gi"></textarea></label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="btns"><button class="danger-ghost" id="relDelete">Slett release …</button></span>
+      <span class="btns"><button class="text" id="relCancel">Avbryt</button><button class="primary" id="relSave">Lagre</button></span>
     </div>
   </div>
 </div>
@@ -1057,6 +1131,28 @@ window.__bootTimeline = function(){
       });
       axis.appendChild(layer);
     }
+    // releaser (R10): ett segment per versjon over sprintlinjalen; klikk åpner skuffen
+    const segs = releaseSegments(state, todayUnit());
+    if(segs.length){
+      const layer = el('div', 'releases');
+      segs.forEach(sg => {
+        const a = Math.max(VIEW_FROM, sg.start), b = Math.min(N_MONTHS, sg.end);
+        if(b <= a) return;
+        const r = sg.release, pr = releaseProgress(r);
+        const d = el('div', 'release' + (sg.shipped ? ' shipped' : '') + (sg.overdue ? ' overdue' : ''));
+        d.style.left = x(a) + 'px'; d.style.width = (x(b) - x(a)) + 'px';
+        d.dataset.key = r.key;
+        if(pr.fraction !== null){ const f = el('span', 'fill'); f.style.width = Math.round(pr.fraction * 100) + '%'; d.appendChild(f); }
+        const wide = (x(b) - x(a)) >= 120;
+        const t = el('span', 't');
+        t.innerHTML = (sg.shipped ? '✓ ' : '') + esc(r.version) + (wide ? ' <b>· ' + (sg.shipped ? 'skippet ' : 'mål ') + esc(fmtDate(unitToDate(sg.end))) + '</b>' : '');
+        d.appendChild(t);
+        d.title = 'Release ' + r.version + ' · ' + (sg.shipped ? 'skippet ' + fmtDate(unitToDate(sg.end)) : 'mål ' + fmtDate(unitToDate(sg.end))) + ' · ' + pr.text;
+        d.addEventListener('click', () => openRelease(r.key));
+        layer.appendChild(d);
+      });
+      axis.appendChild(layer);
+    }
     chart.appendChild(axis);
 
     // rutenett
@@ -1067,6 +1163,12 @@ window.__bootTimeline = function(){
       grid.appendChild(v);
     }
     chart.appendChild(grid);
+    segs.forEach(sg => {   // release-linjen: der featurene i releasen ender
+      if(sg.end < VIEW_FROM || sg.end > N_MONTHS) return;
+      const ln = el('div', 'release-line' + (sg.shipped ? ' shipped' : ''));
+      ln.style.left = x(sg.end) + 'px';
+      chart.appendChild(ln);
+    });
 
     // i dag
     const today = el('div', 'today');
@@ -2257,16 +2359,109 @@ window.__bootTimeline = function(){
     if(!l) return;
     if(newLaneKeys.has(epicKey)){ closeEpicEditor(); return; }   // aldri lagret: bare lukk
     const n = laneTasks(epicKey).length;
-    if(!(await confirmDialog('Slette epic', 'Slette «' + l.name + '»' + (n ? ' og ' + n + ' feature(s) under den' : '') + '?', {danger:true, confirmText:'Slett'}))) return;
+    const msg = 'Slette «' + l.name + '»?' + (n ? ' ' + n + ' feature' + (n === 1 ? '' : 's') + ' under den legges på hylla.' : '') +
+      (l.adoId ? ' Epicen slettes også i ADO (#' + l.adoId + ', kan hentes fra papirkurven), og featurene mister forelderen der.' : '');
+    if(!(await confirmDialog('Slette epic', msg, {danger:true, confirmText:'Slett'}))) return;
     const key = epicKey;
     closeEpicEditor();
-    laneTasks(key).map(t => t.id).forEach(doRemoveTaskSilent);
+    if(HOSTED && canWrite){   // serveren gjør det: frikobler i ADO, sletter epicen der, flytter featurene til hylla, logger
+      setSaveNote('sletter epicen…');
+      try{
+        const j = await adoCall('api/ado-remove-epic', { key });
+        if(j.data && !pendingSave && !drag) applyRemote(j.data, j.version);
+        setSaveNote(j.removedAdoId ? 'epic slettet, også i ADO #' + j.removedAdoId : 'epic slettet');
+        refreshHistoryBadge();
+      }catch(e){
+        if(e.message === 'ado-login') setSaveNote('ADO: logg inn på nytt – epicen er ikke slettet');
+        else { setSaveNote(''); askDialog('Slette epic', e.message, {confirmText:'OK', noCancel:true}); }
+      }
+      return;
+    }
+    laneTasks(key).forEach(t => { t.lane = BACKLOG; if(t.state === 'aktiv'){ t.state = 'klar'; delete t.committedRange; delete t.activatedAt; touch(t, 'state'); } touch(t, 'meta'); });
     state.deletedLanes[key] = (l.v || 0) + 1;
     state.lanes = state.lanes.filter(v => v.key !== key);
     state.example = false;   // eksplisitt false: en slettet nøkkel overlever flettingen på serveren
-    save(); render();
+    normalizePlan(state); save(); render();
   });
   $('addEpicBtn').addEventListener('click', addEpic);
+
+  /* ================== Releaser (R10): båndet over sprintlinjalen, skuffen og redigeringen ================== */
+  const relDrawer = $('relDrawer'), relBack = $('relBack');
+  let releaseKey = null, relEditKey = null;
+  const getRelease = key => (state.releases || []).find(r => r.key === key);
+  const relDay = d => fmtDate(unitToDate(dayToUnit(d)));
+  function releaseSubText(r){
+    const pr = releaseProgress(r);
+    return (r.shippedDate ? 'Skippet ' + relDay(r.shippedDate) + (r.shippedDate !== r.targetDate ? ' · målet var ' + relDay(r.targetDate) : '') : 'Mål ' + relDay(r.targetDate)) +
+      ' · ' + pr.text + (r.ado ? ' · lest fra ADO ' + whenText(r.ado.at) : '');
+  }
+  function openRelease(key){ releaseKey = key; renderReleaseDrawer(); relDrawer.hidden = false; }
+  function renderReleaseDrawer(){
+    const r = getRelease(releaseKey);
+    if(!r){ relDrawer.hidden = true; return; }
+    $('relTitle').textContent = 'Release ' + r.version;
+    $('relSub').textContent = releaseSubText(r);
+    $('relOpen').href = releaseQueryUrl(releaseScope(r));
+    $('relEdit').hidden = HOSTED && !canWrite;
+    $('relRefresh').hidden = !HOSTED || !canWrite;
+    const items = (r.ado && r.ado.items) || [];
+    const row = i => '<a class="rel-row' + (releaseItemDone(i) ? ' done' : '') + '" href="' + ADO_URL(i.id) + '" target="_blank" rel="noopener"><span class="id">#' + i.id + '</span><span class="ti">' + esc(i.title) + '</span><span class="st">' + esc(i.state) + '</span><span class="pt">' + (i.points ? i.points + ' SP' : '') + '</span><span class="who">' + esc(i.assignee || '') + '</span></a>';
+    const group = (name, list) => list.length ? '<h4 class="rel-h">' + name + ' <span class="cnt">' + list.length + '</span></h4>' + list.map(row).join('') : '';
+    let html = r.note ? '<p class="rel-note">' + esc(r.note) + '</p>' : '';
+    html += '<p class="rel-scope">Innholdet er det som har ADO-labelen <code>' + esc(releaseScope(r)) + '</code> på bugs og stories.' + (r.ado ? '' : ' Trykk «Oppdater fra ADO» for å lese det.') + '</p>';
+    html += group('Bugs', items.filter(i => i.type === 'Bug')) + group('Stories', items.filter(i => i.type !== 'Bug'));
+    if(r.ado && !items.length) html += '<p class="hist-empty">Ingenting i ADO har labelen ennå.</p>';
+    $('relBody').innerHTML = html;
+  }
+  $('relClose').addEventListener('click', () => { relDrawer.hidden = true; });
+  $('relEdit').addEventListener('click', () => openReleaseEditor(releaseKey));
+  $('relRefresh').addEventListener('click', async () => { await refreshFromAdo(); renderReleaseDrawer(); });
+  function openReleaseEditor(key){
+    relEditKey = key;
+    const r = key ? getRelease(key) : null;
+    $('relEdTitle').textContent = r ? 'Release ' + r.version : 'Ny release';
+    $('relVersion').value = r ? r.version : '';
+    $('relTarget').value = r ? r.targetDate : dayKey(new Date(Date.now() + 14 * 86400000));
+    $('relShipped').value = (r && r.shippedDate) || '';
+    $('relLabel').value = (r && r.label) || '';
+    $('relNote').value = (r && r.note) || '';
+    $('relDelete').hidden = !r;
+    relBack.classList.add('open');
+    setTimeout(() => $('relVersion').focus(), 0);
+  }
+  function closeReleaseEditor(){ relEditKey = null; relBack.classList.remove('open'); }
+  $('relSave').addEventListener('click', () => {
+    const version = $('relVersion').value.trim(), target = $('relTarget').value, shipped = $('relShipped').value, label = $('relLabel').value.trim(), note = $('relNote').value.trim();
+    if(!version || !target){ askDialog('Release', 'Versjon og måldato må fylles ut.', {confirmText:'OK', noCancel:true}); return; }
+    state.releases = state.releases || []; state.deletedReleases = state.deletedReleases || {};
+    let r = relEditKey ? getRelease(relEditKey) : null;
+    const lines = [];
+    if(!r){ r = { key: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4), v: 0, version, targetDate: target }; state.releases.push(r); state.example = false; }
+    else if(r.targetDate !== target){ lines.push('Release ' + r.version + ': måldato ' + relDay(r.targetDate) + ' → ' + relDay(target)); if(target > r.targetDate) pendingNote.reasonCode = 'ekstern'; }   // en release flyttes av verden utenfor
+    r.version = version; r.targetDate = target;
+    if(shipped) r.shippedDate = shipped; else delete r.shippedDate;
+    if(label && label !== version) r.label = label; else delete r.label;
+    if(note) r.note = note; else delete r.note;
+    r.v = (r.v || 0) + 1;
+    const key = r.key;
+    closeReleaseEditor();
+    if(lines.length) askReason(lines);
+    save(); render();
+    if(!relDrawer.hidden && releaseKey === key) renderReleaseDrawer();
+  });
+  $('relDelete').addEventListener('click', async () => {
+    const r = getRelease(relEditKey);
+    if(!r) return;
+    if(!(await confirmDialog('Slett release', 'Slette «' + r.version + '»? Ingenting endres i ADO; labelen på bugs og stories blir stående.', {confirmText:'Slett', danger:true}))) return;
+    state.deletedReleases = state.deletedReleases || {}; state.deletedReleases[r.key] = (r.v || 0) + 1;
+    state.releases = (state.releases || []).filter(x => x.key !== r.key);
+    closeReleaseEditor(); relDrawer.hidden = true; releaseKey = null;
+    save(); render();
+  });
+  $('relCancel').addEventListener('click', closeReleaseEditor);
+  $('relX').addEventListener('click', closeReleaseEditor);
+  relBack.addEventListener('click', e => { if(e.target === relBack) closeReleaseEditor(); });
+  $('addReleaseBtn').addEventListener('click', () => openReleaseEditor(null));
 
   /* ================== delt lagring (hostet) ================== */
   function setSaveNote(msg){ if(HOSTED) dirtyNote.textContent = msg ? '☁ ' + msg : ''; }
@@ -2377,7 +2572,7 @@ window.__bootTimeline = function(){
     saveTimer = setTimeout(pushPlan, 900);
   }
   const anyModalOpen = () => editorBack.classList.contains('open') || epicBack.classList.contains('open') || dlgBack.classList.contains('open') || reasonBack.classList.contains('open') || importBack.classList.contains('open') ||
-    $('startBack').classList.contains('open') || $('readyBack').classList.contains('open') || $('placeBack').classList.contains('open');
+    $('startBack').classList.contains('open') || $('readyBack').classList.contains('open') || $('placeBack').classList.contains('open') || $('relBack').classList.contains('open');
   /* ================== ADO-speilet: push, tilbakelesing, konflikter, sprinter ================== */
   function afterSave(fn){ afterSaveQueue.push(fn); }
   async function adoCall(path, body){
@@ -2424,7 +2619,8 @@ window.__bootTimeline = function(){
       const j = await adoCall('api/ado-refresh');
       if(j.data && !pendingSave && !drag) applyRemote(j.data, j.version);
       const r = j.read || {}, nc = (j.conflicts || []).length;
-      setSaveNote('lest fra ADO: ' + (r.features || 0) + ' features, ' + (r.stories || 0) + ' stories' + (r.levert ? ', ' + r.levert + ' levert' : '') + (nc ? ', ' + nc + ' konflikt' + (nc > 1 ? 'er' : '') : ''));
+      setSaveNote('lest fra ADO: ' + (r.features || 0) + ' features, ' + (r.stories || 0) + ' stories' + (r.levert ? ', ' + r.levert + ' levert' : '') + (r.releases ? ', ' + r.releases + ' release' + (r.releases > 1 ? 'r' : '') : '') + (nc ? ', ' + nc + ' konflikt' + (nc > 1 ? 'er' : '') : ''));
+      if(!relDrawer.hidden) renderReleaseDrawer();
       refreshHistoryBadge();
     }catch(e){
       if(e.message === 'ado-login') setSaveNote('ADO: logg inn på nytt');
@@ -2621,19 +2817,21 @@ window.__bootTimeline = function(){
     if(!raw || typeof raw !== 'object' || !Array.isArray(raw.lanes) || !Array.isArray(raw.tasks)){ askDialog('Importer (JSON)', 'Filen er ikke en eksportert plan (mangler lanes og tasks).', {confirmText:'OK', noCancel:true}); return; }
     const incoming = normalizePlan(raw);
     const strip = t => { const c = Object.assign({}, t); delete c.fv; delete c.editedAt; delete c.editedBy; delete c.v; return JSON.stringify(c); };
-    const curTasks = new Map(state.tasks.map(t => [t.id, t])), curLanes = new Map(state.lanes.map(l => [l.key, l])), curWishes = new Map((state.wishes || []).map(w => [w.id, w]));
-    const inTasks = new Set(incoming.tasks.map(t => t.id)), inLanes = new Set(incoming.lanes.map(l => l.key)), inWishes = new Set((incoming.wishes || []).map(w => w.id));
-    const removedTasks = state.tasks.filter(t => !inTasks.has(t.id)), removedLanes = state.lanes.filter(l => !inLanes.has(l.key)), removedWishes = (state.wishes || []).filter(w => !inWishes.has(w.id));
+    const curTasks = new Map(state.tasks.map(t => [t.id, t])), curLanes = new Map(state.lanes.map(l => [l.key, l])), curWishes = new Map((state.wishes || []).map(w => [w.id, w])), curRel = new Map((state.releases || []).map(r => [r.key, r]));
+    const inTasks = new Set(incoming.tasks.map(t => t.id)), inLanes = new Set(incoming.lanes.map(l => l.key)), inWishes = new Set((incoming.wishes || []).map(w => w.id)), inRel = new Set((incoming.releases || []).map(r => r.key));
+    const removedTasks = state.tasks.filter(t => !inTasks.has(t.id)), removedLanes = state.lanes.filter(l => !inLanes.has(l.key)), removedWishes = (state.wishes || []).filter(w => !inWishes.has(w.id)), removedRel = (state.releases || []).filter(r => !inRel.has(r.key));
     let added = 0, changed = 0;
     incoming.tasks.forEach(t => { const c = curTasks.get(t.id); t.fv = {}; if(!c){ added++; FV_FIELDS.forEach(g => { t.fv[g] = 1; }); return; } if(strip(c) !== strip(t)) changed++; FV_FIELDS.forEach(g => { t.fv[g] = ((c.fv && c.fv[g]) || 0) + 1; }); });
     incoming.lanes.forEach(l => { const c = curLanes.get(l.key); l.v = ((c && c.v) || 0) + 1; });
     (incoming.wishes || []).forEach(w => { const c = curWishes.get(w.id); w.v = ((c && c.v) || 0) + 1; });
+    (incoming.releases || []).forEach(r => { const c = curRel.get(r.key); r.v = ((c && c.v) || 0) + 1; });
     incoming.deleted = Object.assign({}, state.deleted, incoming.deleted || {}); removedTasks.forEach(t => { incoming.deleted[t.id] = maxFvOf(t) + 1; });
     incoming.deletedLanes = Object.assign({}, state.deletedLanes, incoming.deletedLanes || {}); removedLanes.forEach(l => { incoming.deletedLanes[l.key] = (l.v || 0) + 1; });
     incoming.deletedWishes = Object.assign({}, state.deletedWishes || {}, incoming.deletedWishes || {}); removedWishes.forEach(w => { incoming.deletedWishes[w.id] = (w.v || 0) + 1; });
+    incoming.deletedReleases = Object.assign({}, state.deletedReleases || {}, incoming.deletedReleases || {}); removedRel.forEach(r => { incoming.deletedReleases[r.key] = (r.v || 0) + 1; });
     const n = (c, one, many) => c + ' ' + (c === 1 ? one : many);
     const msg = 'Planen erstattes med «' + f.name + '»: ' + n(removedTasks.length, 'feature fjernes', 'features fjernes') + ', ' + n(added, 'kommer til', 'kommer til') + ', ' + n(changed, 'feature endres', 'features endres') +
-      (removedLanes.length ? ', ' + n(removedLanes.length, 'epic fjernes', 'epics fjernes') : '') + (removedWishes.length ? ', ' + n(removedWishes.length, 'ønske fjernes', 'ønsker fjernes') : '') + '. Alt logges i Historikk.';
+      (removedLanes.length ? ', ' + n(removedLanes.length, 'epic fjernes', 'epics fjernes') : '') + (removedWishes.length ? ', ' + n(removedWishes.length, 'ønske fjernes', 'ønsker fjernes') : '') + (removedRel.length ? ', ' + n(removedRel.length, 'release fjernes', 'releaser fjernes') : '') + '. Alt logges i Historikk.';
     if(!(await confirmDialog('Importer (JSON)', msg, {confirmText:'Erstatt planen', danger:true}))) return;
     incoming.sprints = state.sprints; incoming.example = false;   // sprintene er serverens; en innlastet fil er aldri eksempelet
     state = normalizePlan(incoming);
@@ -2677,8 +2875,10 @@ window.__bootTimeline = function(){
     else if($('placeBack').classList.contains('open')) { $('placeBack').classList.remove('open'); lifecycleId = null; }
     else if(editorBack.classList.contains('open')) closeEditor();
     else if(epicBack.classList.contains('open')) closeEpicEditor();
+    else if(relBack.classList.contains('open')) closeReleaseEditor();
     else if(cmp && !cmpList.hidden) cmpList.hidden = true;
     else if(!histDrawer.hidden) histDrawer.hidden = true;
+    else if(!relDrawer.hidden) relDrawer.hidden = true;
     else if(linkSource) cancelLink();
     else if(helpPanel.classList.contains('open')) helpPanel.classList.remove('open');
   });

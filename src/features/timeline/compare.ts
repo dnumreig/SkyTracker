@@ -6,7 +6,7 @@ import { osloDay } from "./history";
 
 export type PathChangeset = { id: string; at: string; editor: string | null; reason: string | null; reasonCode: string | null; source: string };
 export type PathEvent = PlanEvent & { at: string; editor: string | null; changeset: PathChangeset };
-export type CompareSummary = { maldatoer: number; spenn: number; byttetEpic: number; prioriteringer: number; flyttet: number; nye: number; fjernet: number; onsker: number; mangler: number };
+export type CompareSummary = { maldatoer: number; spenn: number; byttetEpic: number; prioriteringer: number; flyttet: number; nye: number; fjernet: number; onsker: number; releaser: number; mangler: number };
 type SnapshotLike = { id: string; kind: string; day: string | null; at: string | Date };
 
 const widened = (e: PlanEvent) => {
@@ -29,6 +29,7 @@ export function summarizeNet(net: PlanEvent[], path: PathEvent[]): CompareSummar
     nye: count((e) => e.code === "feature.ny" || e.code === "epic.ny"),
     fjernet: count((e) => e.code === "feature.slettet" || e.code === "epic.slettet"),
     onsker: count((e) => e.code === "onske.besluttet"),
+    releaser: count((e) => e.code.startsWith("release.") && e.code !== "release.lest"),
     mangler: new Set(path.filter((e) => e.changeset?.reasonCode === "ingen").map((e) => e.changeset.id)).size,
   };
 }
@@ -43,6 +44,7 @@ export function summaryLine(label: string, s: CompareSummary): string {
   if (s.flyttet) parts.push(n(s.flyttet, "feature flyttet senere", "features flyttet senere"));
   if (s.nye) parts.push(n(s.nye, "ny", "nye"));
   if (s.onsker) parts.push(n(s.onsker, "ønske behandlet", "ønsker behandlet"));
+  if (s.releaser) parts.push(n(s.releaser, "release endret", "releaser endret"));
   if (s.fjernet) parts.push(n(s.fjernet, "fjernet", "fjernet"));
   if (s.mangler) parts.push(n(s.mangler, "begrunnelse mangler", "begrunnelser mangler"));
   return "Siden " + label + ": " + (parts.length ? parts.join(" · ") : "ingen endringer");
@@ -68,6 +70,7 @@ const SECTIONS: [string, PlanEvent["code"][]][] = [
   ["Nye og fjernet", ["epic.ny", "epic.slettet", "feature.ny", "feature.slettet", "feature.utredning"]],
   ["ADO", ["ado.push", "ado.konflikt", "ado.lest", "feature.ado", "epic.ado"]],
   ["Sprintmål", ["plan.sprintmaal"]],
+  ["Releaser", ["release.ny", "release.slettet", "release.versjon", "release.maldato", "release.skippet", "release.notat", "release.scope", "release.lest"]],
 ];
 const SHELF_NAME = "Klar for veikart";   // the reserved lane key never leaks into a text people read
 export function exportMarkdown(title: string, strip: string, path: PathEvent[], laneName: (key: string) => string): string {

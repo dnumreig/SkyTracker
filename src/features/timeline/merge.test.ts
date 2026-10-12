@@ -170,3 +170,20 @@ describe("mergePlans - the four attributes (R9)", () => {
     expect(m.fixedEnd).toBe(true);
   });
 });
+
+describe("mergePlans - releases (R10)", () => {
+  it("unions releases by key: the higher version wins, incoming wins ties, a tombstone removes a release unless it was bumped past it", () => {
+    const stored = plan([], { releases: [
+      { key: "a", v: 2, version: "2.0.1", targetDate: "2026-10-22" }, { key: "b", v: 1, version: "2.0.2", targetDate: "2026-11-12" }, { key: "c", v: 1, version: "2.1.0", targetDate: "2026-12-01" },
+    ] });
+    const incoming = plan([], { releases: [
+      { key: "a", v: 1, version: "2.0.1", targetDate: "2026-10-29" }, { key: "b", v: 1, version: "2.0.2", targetDate: "2026-11-19" }, { key: "d", v: 1, version: "3.0", targetDate: "2027-01-15" },
+    ], deletedReleases: { c: 1 } });
+    const m = mergePlans(stored, incoming);
+    expect(m.releases!.map((r) => [r.key, r.targetDate])).toEqual([["a", "2026-10-22"], ["b", "2026-11-19"], ["d", "2027-01-15"]]);
+    expect(m.deletedReleases).toEqual({ c: 1 });
+    const revived = mergePlans(m, plan([], { releases: [{ key: "c", v: 2, version: "2.1.0", targetDate: "2026-12-01" }] }));
+    expect(revived.releases!.some((r) => r.key === "c")).toBe(true);
+    expect(mergePlans(plan([]), plan([])).releases).toEqual([]);
+  });
+});
