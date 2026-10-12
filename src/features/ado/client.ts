@@ -17,6 +17,8 @@ export type AdoClient = {
   iterations(): Promise<IterationNode>;
   /** A WIQL query on the project; the ids in ADO's order (the caller batches them). */
   wiql(query: string): Promise<number[]>;
+  /** Deletes a work item (ADO's recycle bin: restorable from the project settings). */
+  remove(id: number): Promise<void>;
   /** A file's text from a git repository, null when the path does not exist. */
   gitItem(repoId: string, path: string): Promise<string | null>;
 };
@@ -53,6 +55,7 @@ export function createAdoClient(authHeader: string, fetchImpl: typeof fetch = (.
     },
     create: async (type, patch) => (await request<AdoWorkItem>("POST", `${adoProjectUrl()}/_apis/wit/workitems/$${encodeURIComponent(type)}?${v}`, patch, "application/json-patch+json"))!,
     patch: async (id, patch) => (await request<AdoWorkItem>("PATCH", `${ADO_ORG_URL}/_apis/wit/workitems/${id}?${v}`, patch, "application/json-patch+json"))!,
+    async remove(id) { await request<unknown>("DELETE", `${ADO_ORG_URL}/_apis/wit/workitems/${id}?${v}`); },
     async wiql(query) {
       const r = await request<{ workItems?: { id: number }[] }>("POST", `${adoProjectUrl()}/_apis/wit/wiql?${v}`, { query });
       return (r?.workItems ?? []).map((w) => w.id);

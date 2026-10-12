@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { dateToUnit } from "@/features/timeline/epic-tools.js";
 import type { Plan } from "@/features/timeline/merge";
 import type { AdoClient, AdoWorkItem, JsonPatch } from "./client";
-import { pushItem, PushFailed, refreshPlan, refreshSprints } from "./push";
+import { pushItem, PushFailed, refreshPlan, refreshSprints, removeEpic } from "./push";
 import { adoValue, featureFields, planFieldWrites } from "./plan-mappers";
 
 const D = (y: number, m: number, d: number) => dateToUnit(new Date(y, m - 1, d));
@@ -36,6 +36,7 @@ function fakeAdo(seed: AdoWorkItem[] = []) {
     patch: async (id, patch) => { calls.push("patch " + id); const w = items.get(id)!; apply(w, patch); return w; },
     iterations: async () => ({ name: "Skytale", children: [{ name: "Sprint 71", attributes: { startDate: "2026-10-05T00:00:00Z", finishDate: "2026-10-16T00:00:00Z" } }] }),
     wiql: async () => [],
+    remove: async (id) => { calls.push("remove " + id); items.delete(id); },
     gitItem: async () => null,
   };
   return { items, client, calls };
@@ -229,5 +230,44 @@ describe("refreshPlan: first contact with an item that has an ADO id but was nev
     // a second refresh adopts nothing new
     const r2 = await refreshPlan(r.plan, ado.client, NOW);
     expect(r2.events.filter((e) => /koblet/i.test(e.summary)).length).toBe(0);
+  });
+});
+
+describe("removeEpic: an epic is deleted in the plan and in ADO, its features are unlinked and kept on the shelf", () => {
+  const parentRel = (id: number) => ({ rel: "System.LinkTypes.Hierarchy-Reverse", url: "https://dev.azure.com/SkytaleAS/_apis/wit/workItems/" + id });
+  const base = (): Plan => ({
+    lanes: [{ key: "chat", name: "Bedre samhandling i chats", state: "aktiv", priority: 1, v: 2, adoId: 4802, ado: { pushedAt: "x", snapshot: {} } }, { key: "x", name: "X", state: "forslag", priority: 2, v: 1 }],
+    tasks: [
+      { id: "tr", lane: "chat", label: "Tråder og svar", kind: "discovery", start: 2, end: 2.5, state: "utredes", assignee: "THM", order: 1, fv: { tid: 1 }, adoId: 4566, ado: { pushedAt: "x", snapshot: {} } },
+      { id: "fs", lane: "chat", label: "Fildeling i chat", kind: "estimate", start: 2, endLikely: 3, end: 3.5, state: "aktiv", committedRange: { likely: 4, late: 6, start: 2 }, activatedAt: "2026-10-01", order: 2, fv: { tid: 1 } },
+      { id: "o", lane: "x", label: "Annen", kind: "discovery", start: 2, end: 2.5, state: "utredes", order: 1, fv: {} },
+    ],
+  });
+  it("unlinks the children in ADO, deletes the epic there, tombstones the lane and moves the features to the shelf", async () => {
+    const ado = fakeAdo([
+      { id: 4802, fields: { "System.WorkItemType": "Epic", "System.Title": "Bedre samhandling i chats", "System.State": "Active" }, relations: [] },
+      { id: 4566, fields: { "System.WorkItemType": "Feature", "System.Title": "Tråder og svar", "System.State": "Discovery" }, relations: [parentRel(4802), { rel: "System.LinkTypes.Hierarchy-Forward", url: "https://dev.azure.com/SkytaleAS/_apis/wit/workItems/7001" }] },
+    ]);
+    const r = await removeEpic(base(), "chat", ado.client, NOW);
+    expect(r.plan.lanes.map((l) => l.key)).toEqual(["x"]);
+    expect(r.plan.deletedLanes).toEqual({ chat: 3 });
+    const tr = r.plan.tasks.find((t) => t.id === "tr")!, fs = r.plan.tasks.find((t) => t.id === "fs")!;
+    expect([tr.lane, tr.state]).toEqual(["_backlog", "utredes"]);
+    expect([fs.lane, fs.state, fs.committedRange, fs.activatedAt]).toEqual(["_backlog", "klar", undefined, undefined]);
+    expect(ado.items.has(4802)).toBe(false);
+    expect(ado.items.get(4566)!.relations!.map((x) => x.rel)).toEqual(["System.LinkTypes.Hierarchy-Forward"]);   // the parent link is gone, the story link stays
+    expect(ado.calls).toEqual(["batch 4566", "patch 4566", "remove 4802"]);
+    expect(r.removedAdoId).toBe(4802);
+    expect(r.unlinked).toEqual([4566]);
+    expect(r.events.map((e) => [e.code, e.summary])).toEqual([["ado.push", "Slettet i ADO #4802 · 1 feature frikoblet"]]);
+  });
+  it("an epic without an ADO id touches nothing in ADO; the features still move to the shelf", async () => {
+    const ado = fakeAdo();
+    const r = await removeEpic(base(), "x", ado.client, NOW);
+    expect(ado.calls).toEqual([]);
+    expect(r.plan.lanes.map((l) => l.key)).toEqual(["chat"]);
+    expect(r.plan.tasks.find((t) => t.id === "o")!.lane).toBe("_backlog");
+    expect(r.removedAdoId).toBeNull();
+    expect(r.events).toEqual([]);
   });
 });

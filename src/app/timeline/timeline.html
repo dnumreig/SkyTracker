@@ -2257,14 +2257,29 @@ window.__bootTimeline = function(){
     if(!l) return;
     if(newLaneKeys.has(epicKey)){ closeEpicEditor(); return; }   // aldri lagret: bare lukk
     const n = laneTasks(epicKey).length;
-    if(!(await confirmDialog('Slette epic', 'Slette «' + l.name + '»' + (n ? ' og ' + n + ' feature(s) under den' : '') + '?', {danger:true, confirmText:'Slett'}))) return;
+    const msg = 'Slette «' + l.name + '»?' + (n ? ' ' + n + ' feature' + (n === 1 ? '' : 's') + ' under den legges på hylla.' : '') +
+      (l.adoId ? ' Epicen slettes også i ADO (#' + l.adoId + ', kan hentes fra papirkurven), og featurene mister forelderen der.' : '');
+    if(!(await confirmDialog('Slette epic', msg, {danger:true, confirmText:'Slett'}))) return;
     const key = epicKey;
     closeEpicEditor();
-    laneTasks(key).map(t => t.id).forEach(doRemoveTaskSilent);
+    if(HOSTED && canWrite){   // serveren gjør det: frikobler i ADO, sletter epicen der, flytter featurene til hylla, logger
+      setSaveNote('sletter epicen…');
+      try{
+        const j = await adoCall('api/ado-remove-epic', { key });
+        if(j.data && !pendingSave && !drag) applyRemote(j.data, j.version);
+        setSaveNote(j.removedAdoId ? 'epic slettet, også i ADO #' + j.removedAdoId : 'epic slettet');
+        refreshHistoryBadge();
+      }catch(e){
+        if(e.message === 'ado-login') setSaveNote('ADO: logg inn på nytt – epicen er ikke slettet');
+        else { setSaveNote(''); askDialog('Slette epic', e.message, {confirmText:'OK', noCancel:true}); }
+      }
+      return;
+    }
+    laneTasks(key).forEach(t => { t.lane = BACKLOG; if(t.state === 'aktiv'){ t.state = 'klar'; delete t.committedRange; delete t.activatedAt; touch(t, 'state'); } touch(t, 'meta'); });
     state.deletedLanes[key] = (l.v || 0) + 1;
     state.lanes = state.lanes.filter(v => v.key !== key);
     state.example = false;   // eksplisitt false: en slettet nøkkel overlever flettingen på serveren
-    save(); render();
+    normalizePlan(state); save(); render();
   });
   $('addEpicBtn').addEventListener('click', addEpic);
 

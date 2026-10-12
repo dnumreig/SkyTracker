@@ -529,3 +529,15 @@ describe("R9: the four attributes from the old board", () => {
     expect(p.tasks.find((t) => t.id === "c")!.start).toBeCloseTo(S + 2);
   });
 });
+
+describe("exampleSeed over an earlier copy of its own features", () => {
+  it("bumps every field group past the copy that is still in the plan, so the example wins the merge and its features return to their epics", () => {
+    const prev = normalizePlan({ lanes: [], tasks: [{ id: "iam", lane: "_backlog", label: "IAM: brukerlivsløp", kind: "discovery", start: 2, end: 2.5, state: "utredes", deps: [], fv: { meta: 3, tid: 1 } }], deleted: {}, deletedLanes: { org: 2 } });
+    const seed = exampleSeed(prev);
+    const iam = seed.tasks.find((t) => t.id === "iam")!;
+    expect(iam.lane).toBe("org");
+    expect(iam.fv!.meta).toBeGreaterThan(3);
+    expect(iam.fv!.tid).toBeGreaterThan(1);
+    expect(seed.lanes.find((l) => l.key === "org")!.v).toBe(3);
+  });
+});
