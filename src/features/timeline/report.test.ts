@@ -50,6 +50,22 @@ describe("sprintReportMarkdown", () => {
     const md = sprintReportMarkdown({ title: "Rapport siden 5. nov", strip: "Siden 5. nov: ingen endringer", path: [], plan: plan(false, false), laneName, todayUnit: TODAY });
     expect(md).toBe("# Rapport siden 5. nov\n\nSiden 5. nov: ingen endringer\n");
   });
+  it("lists the releases the sprint works towards: target or shipped day, the progress text, the tempo and the colour", () => {
+    const p = plan();
+    p.sprints = { at: "x", items: [{ name: "Sprint 71", path: "Skytale\\Sprint 71", start: "2026-10-05", finish: "2026-10-23" }] };
+    p.releases = normalizePlan({ lanes: [], tasks: [], releases: [
+      { key: "r0", version: "2.0.0", targetDate: "2026-10-01", shippedDate: "2026-10-07" },
+      { key: "r1", version: "2.0.1", targetDate: "2026-10-22", ado: { at: "x", label: "2.0.1", items: [
+        { id: 1, type: "Bug", title: "a", state: "Closed", points: 10, assignee: null, iteration: "Sprint 71" }, { id: 2, type: "User Story", title: "b", state: "Active", points: 69, assignee: null, iteration: "Sprint 71" },
+      ], history: [{ day: "2026-10-09", pointsDone: 4, pointsTotal: 79, done: 1, total: 2 }, { day: "2026-10-12", pointsDone: 10, pointsTotal: 79, done: 1, total: 2 }] } },
+      { key: "r2", version: "2.0.2", targetDate: "2026-11-12" },
+    ] }).releases;
+    const md = sprintReportMarkdown({ title: "Sprintrapport Sprint 71", strip: STRIP, path: path(), plan: p, laneName, todayUnit: TODAY, todayDay: "2026-10-12" });
+    expect(md).toContain("## Releaser\n- 2.0.1: mål 22. okt · 1 bug, 1 story · 10/79 SP levert · 13 % levert · 43 % av tiden brukt · med dagens tempo ferdig 9. des, 34 arbeidsdager etter målet · rød\n- 2.0.2: mål 12. nov · ikke lest fra ADO\n");
+    expect(md).not.toContain("2.0.0");   // out before the period
+    const order = ["## Fremdrift per feature", "## Releaser", "## Utredninger som kom videre"].map((h) => md.indexOf(h));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
 });
 
 describe("digestText", () => {

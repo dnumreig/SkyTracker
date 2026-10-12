@@ -1,7 +1,7 @@
 // The sprint report (PROS-SPRINT-01 day 10: what was built, which discoveries moved on, spans that changed) and the
 // weekly digest for Slack, both from the same data as the compare mode: the plan now, the events since a point.
 import { dayText, exportMarkdown, type PathEvent } from "./compare";
-import { epicStatus, epicWindowText, fmtDate, goalText, progressSignal, progressText, windowLabel, type EpicStatusCode } from "./epic-tools.js";
+import { dayKey, dayToUnit, epicStatus, epicWindowText, fmtDate, goalText, progressSignal, progressText, releasePace, releaseProgress, unitToDate, windowLabel, type EpicStatusCode } from "./epic-tools.js";
 import { REASON_LABEL, type ReasonCode } from "./events";
 import type { Plan, PlanTask } from "./merge";
 
@@ -21,8 +21,17 @@ function delivered(plan: Plan, path: PathEvent[]): PlanTask[] {
 const progressLine = (t: PlanTask, s: { code: string; done: number; elapsed: number }) =>
   ((t.progress?.pointsTotal ?? 0) > 0 ? (t.progress!.pointsDone ?? 0) + " av " + t.progress!.pointsTotal + " poeng" : (t.progress?.pct ?? 0) + " %") +
   " · " + progressText(t, s) + " · " + COLOUR[s.code] + (windowLabel(t) ? " · leveres " + windowLabel(t) : "");
+const dayWords = (day: string) => fmtDate(unitToDate(dayToUnit(day)));
+/** The releases the sprint works towards (R11): not out yet, or out since the period's first event; the tempo in words when read. */
+function releaseLines(plan: Plan, path: PathEvent[], todayDay: string): string[] {
+  const since = path.length ? path.map((e) => e.at.slice(0, 10)).sort()[0] : null;
+  return (plan.releases ?? []).filter((r) => !r.shippedDate || (since !== null && r.shippedDate >= since)).map((r) => {
+    const pace = releasePace(plan, r, todayDay);
+    return "- " + r.version + ": " + (r.shippedDate ? "skippet " + dayWords(r.shippedDate) : "mål " + dayWords(r.targetDate)) + " · " + releaseProgress(r).text + (pace ? " · " + pace.text + " · " + COLOUR[pace.code] : "");
+  });
+}
 
-export type ReportArgs = { title: string; strip: string; path: PathEvent[]; plan: Plan; laneName: (key: string) => string; todayUnit: number };
+export type ReportArgs = { title: string; strip: string; path: PathEvent[]; plan: Plan; laneName: (key: string) => string; todayUnit: number; todayDay?: string };
 export function sprintReportMarkdown(a: ReportArgs): string {
   const where = (t: PlanTask) => a.laneName(t.lane) + " › " + t.label;
   const sections: string[] = [];
@@ -30,6 +39,8 @@ export function sprintReportMarkdown(a: ReportArgs): string {
   if (done.length) sections.push("\n## Levert\n" + done.map((t) => "- " + where(t) + ": levert" + (t.deliveredAt ? " " + fmtDate(new Date(t.deliveredAt)) : "")).join("\n") + "\n");
   const progress = a.plan.tasks.map((t) => ({ t, s: progressSignal(t, a.todayUnit) })).filter((x): x is { t: PlanTask; s: NonNullable<ReturnType<typeof progressSignal>> } => !!x.s);
   if (progress.length) sections.push("\n## Fremdrift per feature\n" + progress.map(({ t, s }) => "- " + where(t) + ": " + progressLine(t, s)).join("\n") + "\n");
+  const releases = releaseLines(a.plan, a.path, a.todayDay ?? dayKey(unitToDate(a.todayUnit)));
+  if (releases.length) sections.push("\n## Releaser\n" + releases.join("\n") + "\n");
   const moved = a.path.filter(isDiscoveryMove);
   if (moved.length) sections.push("\n## Utredninger som kom videre\n" + moved.map((e) => "- " + e.targetLabel + ": " + e.summary + stamp(e)).join("\n") + "\n");
   const rest = exportMarkdown(a.title, a.strip, a.path.filter((e) => !isDiscoveryMove(e)), a.laneName).split("\n").slice(3).join("\n");
