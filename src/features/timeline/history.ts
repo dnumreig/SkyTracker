@@ -8,7 +8,7 @@ import { diffPlans, needsReason, REASON_CODES, type PlanEvent } from "./events";
 import { currentSprint } from "./epic-tools.js";
 
 export type SaveNote = { reason?: string; reasonCode?: string; causes?: Record<string, string>; source?: string };
-const SOURCES = ["bruker", "seed", "import", "ado", "system"];
+const SOURCES = ["bruker", "seed", "import", "ado", "system", "fil"];   // fil = a plan JSON imported on the page
 const REASON_MAX = 500;
 
 export function parseNote(raw: unknown): SaveNote {
