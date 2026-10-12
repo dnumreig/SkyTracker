@@ -117,7 +117,7 @@ export function diffPlans(before: Plan, after: Plan, opts: DiffOptions = {}): Pl
       summary: `Eksempel-epics lastet inn (${after.lanes.length} epics, ${after.tasks.length} features)` }];
   }
   const ev: PlanEvent[] = [];
-  const dc: Cause = opts.source === "ado" || opts.source === "import" ? "ado" : "bruker";   // a sync's or an import's writes are ADO's, not the editor's
+  const dc: Cause = opts.source === "ado" || opts.source === "import" ? "ado" : opts.source === "fil" ? "system" : "bruker";   // a sync's or an ADO import's writes are ADO's; a plan file's are the system's; else the editor's
   const from = (adoId: number | undefined) => (opts.source === "import" && adoId ? "Hentet fra ADO #" + adoId + " · " : "");   // «Hent fra ADO» says where an item came from
   const bl = new Map(before.lanes.map((l) => [l.key, l]));
   const al = new Map(after.lanes.map((l) => [l.key, l]));

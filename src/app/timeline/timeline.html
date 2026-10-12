@@ -480,6 +480,8 @@
     <button id="adoImportBtn" hidden title="Epics og features som allerede ligger i ADO, inn i planen. Skriver ingenting til ADO.">Hent fra ADO</button>
     <button id="adoRefreshBtn" hidden title="Les tilbake fra ADO: stories, poeng, sprint og det som er lukket">Oppdater fra ADO</button>
     <button id="exportBtn">Eksporter (JSON)</button>
+    <button id="importBtn" hidden title="Erstatt planen med en eksportert JSON-fil: det filen mangler fjernes, det filen endrer vinner. Alt logges.">Importer (JSON)</button>
+    <input id="importFile" type="file" accept="application/json,.json" hidden>
     <button id="personBtn" title="Én rad per eier: utredninger og features i rekkefølge. Lesevisning; rediger i epic-visningen.">Per person</button>
     <button id="histBtn" title="Hva har flyttet seg, og hvorfor">Historikk<span class="count" id="histBadge" hidden></span></button>
     <button id="investorBtn" hidden title="Planen nå, gjennomføringsevne og målopnåelse – tallene investorene spør om">Investorer</button>
@@ -2294,6 +2296,7 @@ window.__bootTimeline = function(){
       $('registerBtn').hidden = !canWrite;
       $('adoRefreshBtn').hidden = !canWrite;
       $('adoImportBtn').hidden = !canWrite;
+      $('importBtn').hidden = !canWrite;
       $('investorBtn').hidden = false;   // tallene er for alle som er logget inn
       $('mixField').hidden = !canWrite;
       whoami.textContent = myName || '';
@@ -2331,6 +2334,7 @@ window.__bootTimeline = function(){
         $('baselineBtn').hidden = true;
         $('adoRefreshBtn').hidden = true;
         $('adoImportBtn').hidden = true;
+        $('importBtn').hidden = true;
         afterSaveQueue.length = 0;
         setSaveNote('kun lesetilgang – endringer forblir lokale');
         return;
@@ -2608,6 +2612,33 @@ window.__bootTimeline = function(){
     const d = new Date();
     const ymd = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     downloadFile('skytale-tidslinjen-' + ymd + '.json', JSON.stringify(state, null, 2), 'application/json');
+  });
+  /* Importer (JSON): planen erstattes med filen. Det filen mangler fjernes (tombstones), det filen har vinner (versjoner bumpes forbi de lagrede). */
+  $('importBtn').addEventListener('click', () => $('importFile').click());
+  $('importFile').addEventListener('change', async () => {
+    const f = $('importFile').files[0]; $('importFile').value = ''; if(!f) return;
+    let raw; try{ raw = JSON.parse(await f.text()); }catch(e){ askDialog('Importer (JSON)', 'Filen er ikke gyldig JSON.', {confirmText:'OK', noCancel:true}); return; }
+    if(!raw || typeof raw !== 'object' || !Array.isArray(raw.lanes) || !Array.isArray(raw.tasks)){ askDialog('Importer (JSON)', 'Filen er ikke en eksportert plan (mangler lanes og tasks).', {confirmText:'OK', noCancel:true}); return; }
+    const incoming = normalizePlan(raw);
+    const strip = t => { const c = Object.assign({}, t); delete c.fv; delete c.editedAt; delete c.editedBy; delete c.v; return JSON.stringify(c); };
+    const curTasks = new Map(state.tasks.map(t => [t.id, t])), curLanes = new Map(state.lanes.map(l => [l.key, l])), curWishes = new Map((state.wishes || []).map(w => [w.id, w]));
+    const inTasks = new Set(incoming.tasks.map(t => t.id)), inLanes = new Set(incoming.lanes.map(l => l.key)), inWishes = new Set((incoming.wishes || []).map(w => w.id));
+    const removedTasks = state.tasks.filter(t => !inTasks.has(t.id)), removedLanes = state.lanes.filter(l => !inLanes.has(l.key)), removedWishes = (state.wishes || []).filter(w => !inWishes.has(w.id));
+    let added = 0, changed = 0;
+    incoming.tasks.forEach(t => { const c = curTasks.get(t.id); t.fv = {}; if(!c){ added++; FV_FIELDS.forEach(g => { t.fv[g] = 1; }); return; } if(strip(c) !== strip(t)) changed++; FV_FIELDS.forEach(g => { t.fv[g] = ((c.fv && c.fv[g]) || 0) + 1; }); });
+    incoming.lanes.forEach(l => { const c = curLanes.get(l.key); l.v = ((c && c.v) || 0) + 1; });
+    (incoming.wishes || []).forEach(w => { const c = curWishes.get(w.id); w.v = ((c && c.v) || 0) + 1; });
+    incoming.deleted = Object.assign({}, state.deleted, incoming.deleted || {}); removedTasks.forEach(t => { incoming.deleted[t.id] = maxFvOf(t) + 1; });
+    incoming.deletedLanes = Object.assign({}, state.deletedLanes, incoming.deletedLanes || {}); removedLanes.forEach(l => { incoming.deletedLanes[l.key] = (l.v || 0) + 1; });
+    incoming.deletedWishes = Object.assign({}, state.deletedWishes || {}, incoming.deletedWishes || {}); removedWishes.forEach(w => { incoming.deletedWishes[w.id] = (w.v || 0) + 1; });
+    const n = (c, one, many) => c + ' ' + (c === 1 ? one : many);
+    const msg = 'Planen erstattes med «' + f.name + '»: ' + n(removedTasks.length, 'feature fjernes', 'features fjernes') + ', ' + n(added, 'kommer til', 'kommer til') + ', ' + n(changed, 'feature endres', 'features endres') +
+      (removedLanes.length ? ', ' + n(removedLanes.length, 'epic fjernes', 'epics fjernes') : '') + (removedWishes.length ? ', ' + n(removedWishes.length, 'ønske fjernes', 'ønsker fjernes') : '') + '. Alt logges i Historikk.';
+    if(!(await confirmDialog('Importer (JSON)', msg, {confirmText:'Erstatt planen', danger:true}))) return;
+    incoming.sprints = state.sprints; incoming.example = false;   // sprintene er serverens; en innlastet fil er aldri eksempelet
+    state = normalizePlan(incoming);
+    pendingNote.source = 'fil';
+    save(); render();
   });
   $('helpBtn').addEventListener('click', () => helpPanel.classList.toggle('open'));
   $('helpClose').addEventListener('click', () => helpPanel.classList.remove('open'));

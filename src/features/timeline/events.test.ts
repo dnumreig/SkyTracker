@@ -318,3 +318,13 @@ describe("diffPlans: the discovery's size class (R8, edited later)", () => {
     expect(diffPlans(a, one([lane("x")], [disc({ id: "d", state: "utredes", start: 2, end: 3 } as Partial<PlanTask>)]))[0].summary).toBe("Utredningsklasse: L → ingen");
   });
 });
+
+describe("diffPlans: a plan imported from a file (source «fil»)", () => {
+  it("reads as the system's, never as ADO's, even for items with an ADO id", () => {
+    const b = one([lane("x")], [disc({ id: "d", adoId: 4566 }), disc({ id: "gone", label: "Vekk" })]);
+    const a = one([lane("x")], [disc({ id: "d", adoId: 4566, label: "Tråder og svar" }), disc({ id: "ny", adoId: 4480, label: "Kart" })]);
+    const ev = diffPlans(b, a, { source: "fil" });
+    expect(ev.map((e) => [e.code, e.cause])).toEqual([["feature.navn", "system"], ["feature.ny", "system"], ["feature.slettet", "system"]]);
+    expect(ev[1].summary.startsWith("Hentet")).toBe(false);
+  });
+});
