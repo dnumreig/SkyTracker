@@ -109,6 +109,10 @@
   .chip.st-gronn{background:var(--ok-bg);color:var(--ok-fg)}
   .chip.fixed{background:var(--text);color:var(--surface)}
   .empty{padding:14px 6px;font-size:12px;color:var(--text-4)}
+  .import-list{padding:4px 0 8px}
+  .import-row{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:center;padding:7px 20px;border-bottom:1px solid var(--line-soft);font-size:13px;cursor:pointer}
+  .import-row .ttl{font-weight:600;color:var(--text)}
+  .import-row .map{font-size:11px;color:var(--warn-fg);text-align:right}
   .note{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--surface);padding:8px 14px;border-radius:6px;font-size:13px;box-shadow:var(--shadow);opacity:0;transition:opacity .2s;pointer-events:none}
   .note.show{opacity:1}
   @media (max-width:1100px){.cols{grid-template-columns:repeat(2,1fr)}}
@@ -197,6 +201,11 @@
   <div class="modal-foot"><button class="text" id="reasonSkip">Lagre uten begrunnelse</button><span class="btns"><button class="primary" id="reasonSave">Lagre</button></span></div>
 </div></div>
 
+<div class="modal-back" id="cardsBack"><div class="modal" style="width:min(680px,100%)">
+  <div class="modal-head"><div><h2>Importer kortene fra det gamle brettet</h2><div class="md">Hvert kort blir en feature på hylla: tittel, beskrivelse, type, flater, estimat og avhengigheter. Ferdige kort blir «Levert». Kort som ligner på noe som finnes, står uavkrysset.</div></div></div>
+  <div class="modal-body"><div class="import-list" id="cardsList"></div></div>
+  <div class="modal-foot"><span class="md" id="cardsCount"></span><span class="btns"><button class="text" id="cardsCancel">Avbryt</button><button class="primary" id="cardsGo" disabled>Importer</button></span></div>
+</div></div>
 <div class="modal-back" id="dlgBack"><div class="modal" style="width:min(460px,100%)">
   <div class="modal-head"><div><h2 id="dlgTitle"></h2></div></div>
   <div class="modal-body"><div class="dlg-body" style="padding:4px 20px 16px;display:grid;gap:12px;font-size:14px;color:var(--text-2)"><span id="dlgMsg"></span><input id="dlgInput" type="text" hidden></div></div>
@@ -219,7 +228,7 @@ window.__bootBoard = function(){
 
   function emptyPlan(){ return normalizePlan({ schema: SCHEMA, lanes: [], tasks: [], wishes: [], deleted: {}, deletedLanes: {}, deletedWishes: {} }); }
   function newNote(){ return { reason: null, reasonCode: null, causes: {}, lines: [] }; }
-  const anyModalOpen = () => ['startBack', 'readyBack', 'placeBack', 'editBack', 'reasonBack', 'dlgBack'].some(id => $(id).classList.contains('open'));
+  const anyModalOpen = () => ['startBack', 'readyBack', 'placeBack', 'editBack', 'reasonBack', 'dlgBack', 'cardsBack'].some(id => $(id).classList.contains('open'));
   const setNote = m => { $('dirtyNote').textContent = m ? '☁ ' + m : ''; };
   const todayUnit = () => Math.round(dateToUnit(new Date()) / WEEK) * WEEK;
   const toDateInput = u => { const d = unitToDate(u); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
@@ -530,19 +539,29 @@ window.__bootBoard = function(){
       const j = await r.json();
       const n = (j.cards || []).length;
       const b = $('importCardsBtn');
-      b.hidden = !n; b.textContent = 'Importer kortene fra det gamle brettet (' + n + ')';
-      b.onclick = async () => {
-        if(!(await confirmDialog('Importer kortene', n + ' kort fra det gamle brettet blir features på hylla: tittel, beskrivelse, type, flater, estimat og avhengigheter. Ferdige kort blir «Levert». Gjøres én gang.', {confirmText:'Importer'}))) return;
-        b.disabled = true; setNote('importerer kortene…');
-        const r2 = await fetch('api/board-import', { method:'POST', headers:{'Content-Type':'application/json'}, body: '{"import":true}' });
-        const j2 = await r2.json().catch(() => ({}));
-        if(!r2.ok){ setNote(''); toast(j2.message || 'Importen feilet.'); b.disabled = false; return; }
-        if(j2.data) applyRemote(j2.data, j2.version);
-        setNote('importerte ' + (j2.imported || []).length + ' kort'); b.hidden = true;
+      b.hidden = !n; b.disabled = false; b.textContent = 'Importer kortene fra det gamle brettet (' + n + ')';
+      b.onclick = () => {
+        $('cardsList').innerHTML = (j.cards || []).map(c => '<label class="import-row"><input type="checkbox" data-id="' + esc(c.id) + '"' + (c.similar ? '' : ' checked') + '><span class="ttl">' + esc(c.title) + '</span><span class="map">' + (c.similar ? 'ligner «' + esc(c.similar) + '» i planen' : '') + '</span></label>').join('');
+        updateCardsCount(); $('cardsBack').classList.add('open');
       };
     }catch(e){ /* the route is optional while the old tables are empty */ }
   }
 
+  function updateCardsCount(){ const n = document.querySelectorAll('#cardsList input:checked').length, all = document.querySelectorAll('#cardsList input').length; $('cardsCount').textContent = n + ' av ' + all + ' valgt'; $('cardsGo').textContent = 'Importer' + (n ? ' ' + n : ''); $('cardsGo').disabled = !n; }
+  $('cardsList').addEventListener('change', updateCardsCount);
+  $('cardsCancel').addEventListener('click', () => $('cardsBack').classList.remove('open'));
+  $('cardsGo').addEventListener('click', async () => {
+    const ids = [...document.querySelectorAll('#cardsList input:checked')].map(c => c.dataset.id);
+    if(!ids.length) return;
+    $('cardsGo').disabled = true; setNote('importerer kortene…');
+    const r2 = await fetch('api/board-import', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ import: true, ids }) });
+    const j2 = await r2.json().catch(() => ({}));
+    if(!r2.ok){ setNote(''); toast(j2.message || 'Importen feilet.'); $('cardsGo').disabled = false; return; }
+    $('cardsBack').classList.remove('open');
+    if(j2.data) applyRemote(j2.data, j2.version);
+    setNote('importerte ' + (j2.imported || []).length + ' kort');
+    checkOldCards();   // det som ble stående uavkrysset, kan hentes senere
+  });
   render();
   init();
 };

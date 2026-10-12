@@ -21,6 +21,9 @@ export type OldCard = {
 };
 export type OldDependency = { blockerCardId: string; blockedCardId: string };
 export type ImportedCard = { id: string; cardId: string; label: string };
+/** A card as the dialog lists it: `similar` names a feature in the plan with the same title (a likely duplicate). */
+export type CardCandidate = OldCard & { similar: string | null };
+const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 
 const TYPE: Record<string, PlanTask["type"] | undefined> = { FEATURE: undefined, OTHER: undefined, WORK_ITEM: "teknisk", BUG: "teknisk", MAINTENANCE: "vedlikehold" };
 const day = (v: Date | string | null): string | null => {
@@ -38,16 +41,18 @@ const applicableAreas = (tags: unknown): string[] =>
   normalizeAreas(Array.isArray(tags) ? tags.filter((t): t is { name: string; applicable: boolean } => !!t && typeof t === "object" && typeof (t as { name?: unknown }).name === "string" && (t as { applicable?: unknown }).applicable === true).map((t) => t.name) : []);
 const snapWeek = (u: number) => Math.round(u / WEEK) * WEEK;
 
-/** Every card that is not a gap and has not been imported yet (a task carries its `cardId`). */
-export function cardsToImport(plan: Plan, cards: OldCard[]): OldCard[] {
+/** Every card that is not a gap and has not been imported yet (a task carries its `cardId`), with a duplicate hint. */
+export function cardsToImport(plan: Plan, cards: OldCard[]): CardCandidate[] {
   const held = new Set(plan.tasks.map((t) => t.cardId).filter((x): x is string => typeof x === "string"));
-  return cards.filter((c) => !c.isGap && !held.has(c.id));
+  const labels = new Map(plan.tasks.map((t) => [norm(t.label), t.label]));
+  return cards.filter((c) => !c.isGap && !held.has(c.id)).map((c) => ({ ...c, similar: labels.get(norm(c.title)) ?? null }));
 }
 
 /** The cards as tasks on the shelf, in column order then position; dependencies between imported cards become deps. */
-export function importCards(plan: Plan, cards: OldCard[], deps: OldDependency[], opts: { now: Date }): { plan: Plan; imported: ImportedCard[] } {
+export function importCards(plan: Plan, cards: OldCard[], deps: OldDependency[], opts: { now: Date; ids?: string[] }): { plan: Plan; imported: ImportedCard[] } {
   const p: Plan = JSON.parse(JSON.stringify(plan));
-  const todo = cardsToImport(p, cards).sort((a, b) => (a.columnPosition ?? 0) - (b.columnPosition ?? 0) || a.position - b.position);
+  const chosen = opts.ids ? new Set(opts.ids) : null;
+  const todo = cardsToImport(p, cards).filter((c) => !chosen || chosen.has(c.id)).sort((a, b) => (a.columnPosition ?? 0) - (b.columnPosition ?? 0) || a.position - b.position);
   const start = snapWeek(dateToUnit(opts.now));
   const nowIso = opts.now.toISOString();
   const byCard = new Map<string, PlanTask>();

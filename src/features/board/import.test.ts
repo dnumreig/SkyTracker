@@ -68,3 +68,15 @@ describe("importCards", () => {
     expect(normalizePlan(JSON.parse(JSON.stringify(r.plan))).tasks.find((t) => t.cardId === "c1")!.cardId).toBe("c1");
   });
 });
+
+describe("cardsToImport with similarity hints and a chosen subset (R9, duplicates)", () => {
+  it("names the feature in the plan a card looks like, and imports only the chosen cards", () => {
+    const p = normalizePlan({ lanes: [], tasks: [{ id: "ado4492", lane: BACKLOG, label: "Fildeling i chat", kind: "estimate", start: 2, endLikely: 3, end: 3, deps: [], fv: {}, adoId: 4492 }], deleted: {} });
+    const cards = [card({ id: "c1", title: "fildeling i chat ", estimateType: "WEEKS", estimateWeeks: 2 }), card({ id: "c2", title: "Kontaktkort" })];
+    const listed = cardsToImport(p, cards);
+    expect(listed.map((c) => [c.id, c.similar])).toEqual([["c1", "Fildeling i chat"], ["c2", null]]);
+    const r = importCards(p, cards, [], { now: NOW, ids: ["c2"] });
+    expect(r.imported.map((x) => x.cardId)).toEqual(["c2"]);
+    expect(r.plan.tasks.some((t) => t.cardId === "c1")).toBe(false);
+  });
+});
