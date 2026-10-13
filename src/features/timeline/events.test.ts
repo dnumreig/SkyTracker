@@ -370,3 +370,30 @@ describe("R13 wordings", () => {
     expect(diffPlans(linkedBefore, linkedAfter).find((e) => e.code === "feature.tilstand")?.summary).toBe("Levert 7. okt");
   });
 });
+
+describe("deliveries (R16): one event per change COO would name", () => {
+  const dl = (over: Record<string, unknown> = {}) => ({ key: "d1", name: "Skytale 2.0", allCustomers: true, customers: [], promisedDate: "2026-11-30", epics: ["x"], releases: ["r1"], ...over });
+  const withDl = (deliveries: unknown[]) => normalizePlan({ lanes: [lane("x"), lane("y")], tasks: [], releases: [{ key: "r1", version: "2.0.1", targetDate: "2026-11-20" }, { key: "r2", version: "2.0.2", targetDate: "2026-12-18" }], deliveries });
+  it("new, name, promised day (asks for a reason), customers, epics and releases one by one, owner, note, deleted", () => {
+    const a = withDl([]), b = withDl([dl()]);
+    expect(diffPlans(a, b).map((e) => [e.code, e.targetType, e.targetId, e.targetLabel, e.summary])).toEqual([["leveranse.ny", "leveranse", "d1", "Leveranse Skytale 2.0", "Ny leveranse «Skytale 2.0» · lovet 30. nov · alle kunder"]]);
+    const c = withDl([dl({ name: "Skytale 2.0 i drift", promisedDate: "2026-12-11", allCustomers: undefined, customers: ["Telenor", "NSR"], epics: ["y"], releases: ["r1", "r2"], owner: "GO", note: "ryddingen" })]);
+    const ev = diffPlans(b, c);
+    expect(ev.map((e) => [e.code, e.summary])).toEqual([
+      ["leveranse.navn", "Navn: «Skytale 2.0» → «Skytale 2.0 i drift»"],
+      ["leveranse.lovet", "Lovet dato: 30. nov → 11. des"],
+      ["leveranse.kunder", "Kunder: alle kunder → Telenor, NSR"],
+      ["leveranse.epics", "Henger på epic «Epic Y»"],
+      ["leveranse.epics", "Epic «Epic X» tatt av"],
+      ["leveranse.releaser", "Henger på release 2.0.2"],
+      ["leveranse.eier", "Eier satt: GO"],
+      ["leveranse.notat", "Notat satt: ryddingen"],
+    ]);
+    expect(ev.find((e) => e.code === "leveranse.lovet")).toMatchObject({ before: { date: "2026-11-30" }, after: { date: "2026-12-11" }, laneKey: null });
+    expect(ev.filter(needsReason).map((e) => e.code)).toEqual(["leveranse.lovet"]);
+    expect(diffPlans(c, b).map((e) => e.code)).toEqual(["leveranse.navn", "leveranse.lovet", "leveranse.kunder", "leveranse.epics", "leveranse.epics", "leveranse.releaser", "leveranse.eier", "leveranse.notat"]);
+    expect(diffPlans(c, b).find((e) => e.code === "leveranse.releaser")!.summary).toBe("Release 2.0.2 tatt av");
+    expect(diffPlans(b, a).map((e) => [e.code, e.targetLabel, e.summary])).toEqual([["leveranse.slettet", "Leveranse Skytale 2.0", "Leveranse slettet: «Skytale 2.0»"]]);
+    expect(diffPlans(b, withDl([dl()]))).toEqual([]);
+  });
+});

@@ -98,3 +98,16 @@ describe("planNow, defaultWindow and the exports", () => {
     expect(investorHtml(investorData({ lanes: [], tasks: [] }, [], WINDOW))).toContain("<html");
   });
 });
+
+describe("deliveries (R16) on the investor page", () => {
+  it("one line per delivery with the five numbers; a plan without the field has none", () => {
+    const p = normalizePlan({ ...plan(), deliveries: [{ key: "d1", name: "Skytale 2.0", allCustomers: true, customers: [], promisedDate: "2026-11-30", epics: ["telenor", "pilot"], releases: [] }] }) as Plan;
+    const data = investorData(p, events(), WINDOW, "2026-10-13");
+    expect(data.deliveries.length).toBe(1);
+    const md = investorMarkdown(data);
+    expect(md).toContain("## Leveranser\n- Skytale 2.0 (alle kunder): lovet 30. nov · " + data.deliveries[0].text + " · " + data.deliveries[0].colour + " · 1 av 2 epics levert · 0 bugs igjen\n");
+    expect(md.indexOf("## Leveranser")).toBeLessThan(md.indexOf("## Gjennomføringsevne"));
+    expect(investorHtml(data)).toContain("Skytale 2.0");
+    expect(investorMarkdown(investorData({ lanes: [], tasks: [] }, [], WINDOW))).toContain("## Leveranser\n- ingen leveranser\n");
+  });
+});
