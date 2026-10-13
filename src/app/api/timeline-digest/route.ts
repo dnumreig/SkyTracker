@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dayText, snapshotForDay, summarizeNet, summaryLine, type PathEvent } from "@/features/timeline/compare";
-import { dateToUnit, isoWeek, normalizePlan } from "@/features/timeline/epic-tools.js";
+import { dateToUnit, isoWeek, normalizePlan, osloDate } from "@/features/timeline/epic-tools.js";
 import { diffPlans } from "@/features/timeline/events";
 import { osloDay } from "@/features/timeline/history";
 import type { Plan } from "@/features/timeline/merge";
@@ -37,7 +37,7 @@ async function build(days: number): Promise<{ text: string; since: string } | nu
   const path = rows as unknown as PathEvent[];
   const strip = summaryLine(dayText(since), summarizeNet(diffPlans(before, after), path));
   const base = process.env.SKYTRACKER_URL?.trim().replace(/\/$/, "");
-  return { text: digestText({ plan: after, strip, path, todayUnit: dateToUnit(now), week: isoWeek(now), url: base ? base + "/timeline" : undefined }), since };
+  return { text: digestText({ plan: after, strip, path, todayUnit: dateToUnit(osloDate(now)), week: isoWeek(osloDate(now)), url: base ? base + "/timeline" : undefined }), since };
 }
 const daysOf = (req: Request) => Math.min(31, Math.max(1, parseInt(new URL(req.url).searchParams.get("days") ?? "7", 10) || 7));
 

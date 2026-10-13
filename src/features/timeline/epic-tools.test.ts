@@ -11,6 +11,7 @@ import {
   releaseForecastText,
   BACKLOG, canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
   navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
+  osloDay, osloDate,
   DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor,
 } from "./epic-tools.js";
 import type { Delivery, Plan, PlanTask } from "./merge";
@@ -1090,5 +1091,24 @@ describe("R16: Leveranser, the COO layer", () => {
       key: "d1", name: "Skytale 2.0", customers: "alle kunder", owner: "COO", promised: "2026-11-30", computed: "2026-12-11", weeks: 1.6, colour: "rød", code: "rod",
       by: "«Epic X»", pending: false, epicsDone: 1, epicsTotal: 2, bugsLeft: 1, text: "utregnet 11. des · 1,6 uker etter lovet · dratt av «Epic X»",
     });
+  });
+});
+
+describe("minors after R16: the Oslo day and the numeric sprint order", () => {
+  it("osloDay and osloDate give the calendar day in Oslo, not UTC", () => {
+    expect(osloDay(new Date("2026-10-13T22:30:00.000Z"))).toBe("2026-10-14");   // CEST
+    expect(osloDay(new Date("2026-12-31T23:30:00.000Z"))).toBe("2027-01-01");   // CET
+    expect(osloDay(new Date("2026-10-13T10:00:00.000Z"))).toBe("2026-10-13");
+    const d = osloDate(new Date("2026-10-13T22:30:00.000Z"));
+    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()]).toEqual([2026, 9, 14, 0]);
+    expect(dayKey(osloDate(new Date("2026-12-31T23:30:00.000Z")))).toBe("2027-01-01");
+  });
+  it("releaseSprintText orders the sprints numerically («Sprint 9» before «Sprint 10»)", () => {
+    const r = { key: "r", version: "2.1", targetDate: "2027-01-15", ado: { at: "x", label: "2.1", items: [
+      { id: 1, type: "Bug", title: "a", state: "New", points: 1, assignee: null, iteration: "Sprint 10" },
+      { id: 2, type: "Bug", title: "b", state: "New", points: 1, assignee: null, iteration: "Sprint 9" },
+      { id: 3, type: "Bug", title: "c", state: "New", points: 1, assignee: null, iteration: "Sprint 9" },
+    ] } } as unknown as Parameters<typeof releaseSprintText>[0];
+    expect(releaseSprintText(r)).toBe("3 items i 2.1: 2 i Sprint 9, 1 i Sprint 10");
   });
 });

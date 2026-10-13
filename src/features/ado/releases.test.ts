@@ -144,3 +144,12 @@ describe("refreshReleases (R10 + R11)", () => {
     expect(h[h.length - 1].day).toBe("2026-12-31");
   });
 });
+
+describe("the day of a reading is the Oslo day (minor after R16)", () => {
+  it("a read at 22:30 UTC lands on the next calendar day in Oslo, on the history point and the forecast", async () => {
+    const r = await refreshReleases(plan(), fake().client, new Date("2026-10-12T22:30:00.000Z"));
+    const ado = r.plan.releases![0].ado!;
+    expect(ado.history![0].day).toBe("2026-10-13");
+    expect(ado.forecast!.day).toBe("2026-10-13");
+  });
+});

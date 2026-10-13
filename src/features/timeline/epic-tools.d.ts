@@ -12,6 +12,10 @@ export declare function elapsedWeeks(rawWeeks: number, factor: number): number;
 export declare function queueFloor(plan: Plan, taskId: string): { floor: number | null; by: string | null; kind: "dep" | "queue" | null };
 export declare function resolveQueue(plan: Plan): { id: string; by: string | null; kind: "dep" | "queue" }[];
 export declare function dayKey(d: Date): string;
+/** The calendar day in Oslo (YYYY-MM-DD), whatever the server's clock zone. */
+export declare function osloDay(d: Date): string;
+/** That Oslo day as a local Date at midnight. */
+export declare function osloDate(d: Date): Date;
 export declare function currentSprint(sprints: Sprint[] | undefined | null, date: Date): Sprint | null;
 export declare function sprintDay(sprint: Sprint, date: Date): number;
 export declare function sprintLabel(sprints: Sprint[] | undefined | null, date: Date): string;

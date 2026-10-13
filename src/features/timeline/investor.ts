@@ -2,7 +2,7 @@
 // (delivered inside the span the forum was promised) and målopnåelse (closed epics by outcome, with the reasons).
 // Pure; the route serves json, markdown or the slide; the page's «Investorer» drawer shows the same data.
 import { dayText, type PathEvent } from "./compare";
-import { dayKey, deliveryInvestor, epicStatus, epicWindowText, goalText, unitToDate, WEEK, type DeliveryInvestor } from "./epic-tools.js";
+import { dayKey, osloDay, deliveryInvestor, epicStatus, epicWindowText, goalText, unitToDate, WEEK, type DeliveryInvestor } from "./epic-tools.js";
 import { REASON_LABEL, type ReasonCode } from "./events";
 import type { Plan } from "./merge";
 
@@ -18,9 +18,10 @@ const COLOUR: Record<string, string> = { gronn: "grønn", gul: "gul", rod: "rød
 const pct = (r: number | null) => (r === null ? "–" : Math.round(r * 100) + " %");
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
-/** Two quarters back, to today. */
+/** Two quarters back, to today — the Oslo day, whatever the server's clock zone. */
 export function defaultWindow(today: Date): InvestorWindow {
-  return { since: dayKey(new Date(today.getFullYear(), today.getMonth() - 6, today.getDate())), until: dayKey(today) };
+  const [y, m, d] = osloDay(today).split("-").map(Number);
+  return { since: dayKey(new Date(y, m - 1 - 6, d)), until: osloDay(today) };
 }
 
 export function planNow(plan: Plan): PlanLine[] {
@@ -65,7 +66,7 @@ export function deliveriesNow(plan: Plan, todayDay: string): DeliveryInvestor[] 
   return (plan.deliveries ?? []).map((d) => deliveryInvestor(plan, d, todayDay));
 }
 
-export function investorData(plan: Plan, events: PathEvent[], window: InvestorWindow, todayDay: string = dayKey(new Date())): InvestorData {
+export function investorData(plan: Plan, events: PathEvent[], window: InvestorWindow, todayDay: string = osloDay(new Date())): InvestorData {
   return { window, plan: planNow(plan), deliveries: deliveriesNow(plan, todayDay), delivery: deliveryAbility(plan, window), goals: goalAttainment(plan, events), generatedAt: new Date().toISOString() };
 }
 

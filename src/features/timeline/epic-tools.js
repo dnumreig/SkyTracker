@@ -713,7 +713,7 @@ function releaseSprintText(r) {
   let none = 0;
   items.forEach((i) => { if (i.iteration) by.set(i.iteration, (by.get(i.iteration) || 0) + 1); else none++; });
   const n = (c, one, many) => c + " " + (c === 1 ? one : many);
-  const parts = [...by.entries()].sort((a, b) => a[0].localeCompare(b[0], "nb")).map(([k, c]) => c + " i " + k);
+  const parts = [...by.entries()].sort((a, b) => a[0].localeCompare(b[0], "nb", { numeric: true })).map(([k, c]) => c + " i " + k);   // «Sprint 9» before «Sprint 10»
   if (none) parts.push(none + " uten sprint");
   const extra = (r.ado.sprints || []).filter((s) => s.unlabelled > 0).map((s) => s.name + " har " + n(s.unlabelled, "item", "items") + " uten release-label");
   return n(items.length, "item", "items") + " i " + releaseScope(r) + ": " + parts.join(", ") + (extra.length ? " · " + extra.join(" · ") : "");
@@ -745,6 +745,10 @@ function sprintUnlabelledWiql(iterationPath) {
 
 /* ---------- sprints: from ADO's iterations, cached in plan.sprints ---------- */
 function dayKey(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+/** The calendar day in Oslo (YYYY-MM-DD): what «today» means for the people using the plan, whatever the server's clock zone. */
+function osloDay(d) { return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Oslo", year: "numeric", month: "2-digit", day: "2-digit" }).format(d); }
+/** That Oslo day as a local Date at midnight, for the unit and week helpers that read local date parts. */
+function osloDate(d) { const q = osloDay(d).split("-").map(Number); return new Date(q[0], q[1] - 1, q[2]); }
 function currentSprint(sprints, date) {
   const k = dayKey(date);
   return (Array.isArray(sprints) ? sprints : []).find((s) => s.start <= k && k <= s.finish) || null;
@@ -929,7 +933,7 @@ if (typeof module !== "undefined") {
     isoWeek, weekSpan, windowLabel, epicWindowText, discoveryOverdue,
     shelfTasks, epicCounts, sizeClass, sizeClassDerived, sizeClassText, bufferLabel, rawLabel, previewPlacement,
     canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
-    dayKey, currentSprint, sprintDay, sprintLabel, navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
+    dayKey, osloDay, osloDate, currentSprint, sprintDay, sprintLabel, navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
     DELIVERY_OWNER, DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor,
     dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
     workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, releaseForecastText, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,

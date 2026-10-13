@@ -76,8 +76,9 @@ describe("planNow, defaultWindow and the exports", () => {
     expect(p[0].window).toMatch(/^Leveres uke \d+–\d+$/);
     expect(p[1]).toMatchObject({ key: "samtaler", metric: "", colour: "tom", window: "" });
   });
-  it("defaultWindow spans two quarters back to today", () => {
+  it("defaultWindow spans two quarters back to today, counted in Oslo", () => {
     expect(defaultWindow(new Date(2026, 9, 9))).toEqual({ since: "2026-04-09", until: "2026-10-09" });
+    expect(defaultWindow(new Date("2026-10-13T22:30:00.000Z"))).toEqual({ since: "2026-04-14", until: "2026-10-14" });
   });
   it("the markdown has the four sections with the numbers; the slide carries them too; an empty plan still renders", () => {
     const data = investorData(plan(), events(), WINDOW);

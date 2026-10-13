@@ -1,7 +1,7 @@
 // The sprint report (PROS-SPRINT-01 day 10: what was built, which discoveries moved on, spans that changed) and the
 // weekly digest for Slack, both from the same data as the compare mode: the plan now, the events since a point.
 import { dayText, exportMarkdown, type PathEvent } from "./compare";
-import { dayKey, dayToUnit, epicStatus, epicWindowText, fmtDate, goalText, progressSignal, progressText, releaseForecastText, releasePace, releaseProgress, unitToDate, windowLabel, type EpicStatusCode } from "./epic-tools.js";
+import { dayKey, dayToUnit, epicStatus, osloDay, epicWindowText, fmtDate, goalText, progressSignal, progressText, releaseForecastText, releasePace, releaseProgress, unitToDate, windowLabel, type EpicStatusCode } from "./epic-tools.js";
 import { REASON_LABEL, type ReasonCode } from "./events";
 import type { Plan, PlanTask } from "./merge";
 
@@ -15,7 +15,7 @@ const stamp = (e: PathEvent) => " (" + (e.changeset?.editor || e.editor || "syst
 /** Features delivered in the period: a «levert» transition in the path, or a delivery day on or after the period's first event. */
 function delivered(plan: Plan, path: PathEvent[]): PlanTask[] {
   const byEvent = new Set(path.filter((e) => e.code === "feature.tilstand" && e.after === "levert").map((e) => e.targetId));
-  const since = path.length ? path.map((e) => e.at.slice(0, 10)).sort()[0] : null;
+  const since = path.length ? path.map((e) => osloDay(new Date(e.at))).sort()[0] : null;   // the period's first day, in Oslo
   return plan.tasks.filter((t) => t.state === "levert" && (byEvent.has(t.id) || (since !== null && !!t.deliveredAt && t.deliveredAt >= since)));
 }
 const progressLine = (t: PlanTask, s: { code: string; done: number; elapsed: number }) =>
@@ -24,7 +24,7 @@ const progressLine = (t: PlanTask, s: { code: string; done: number; elapsed: num
 const dayWords = (day: string) => fmtDate(unitToDate(dayToUnit(day)));
 /** The releases the sprint works towards (R11): not out yet, or out since the period's first event; the tempo in words when read, and the chance (R12). */
 function releaseLines(plan: Plan, path: PathEvent[], todayDay: string): string[] {
-  const since = path.length ? path.map((e) => e.at.slice(0, 10)).sort()[0] : null;
+  const since = path.length ? path.map((e) => osloDay(new Date(e.at))).sort()[0] : null;
   return (plan.releases ?? []).filter((r) => !r.shippedDate || (since !== null && r.shippedDate >= since)).map((r) => {
     const pace = releasePace(plan, r, todayDay);
     const fc = releaseForecastText(r, todayDay), f = r.ado?.forecast;   // R12: the chance, when Capacity gave one

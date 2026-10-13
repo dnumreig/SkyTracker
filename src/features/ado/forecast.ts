@@ -2,7 +2,7 @@
 // fast each person has been (the bugs and stories they resolved in the two last finished sprints). Read only, never
 // written to ADO. Design: docs/superpowers/specs/2026-10-12-planning-system-r12-release-forecast-design.md.
 import type { Plan, Release, ReleaseForecast, ReleaseItem, Sprint } from "@/features/timeline/merge";
-import { dayKey, releaseItemDone } from "@/features/timeline/epic-tools.js";
+import { dayKey, osloDay, releaseItemDone } from "@/features/timeline/epic-tools.js";
 import type { AdoCapacity, AdoClient, AdoWorkItem } from "./client";
 import { parseSprints } from "./sync";
 
@@ -133,7 +133,7 @@ export async function readForecast(plan: Plan, r: Release, items: ReleaseItem[],
   if (r.shippedDate) return null;
   const need = items.filter((i) => !releaseItemDone(i)).reduce((s, i) => s + (i.points || 0), 0);
   if (need <= 0 || !items.some((i) => i.points > 0)) return null;
-  const today = dayKey(now);
+  const today = osloDay(now);
   const window = forecastWindow(today, r.targetDate);
   if (!window.length) return null;
   const cached = plan.sprints?.items ?? [];

@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { diffPlans } from "@/features/timeline/events";
 import { exportMarkdown, sinceLabel, snapshotForDay, summarizeNet, summaryLine, type PathEvent } from "@/features/timeline/compare";
-import { dateToUnit, dayKey, normalizePlan } from "@/features/timeline/epic-tools.js";
+import { dateToUnit, normalizePlan, osloDate, osloDay } from "@/features/timeline/epic-tools.js";
 import type { Plan } from "@/features/timeline/merge";
 import { sprintReportMarkdown } from "@/features/timeline/report";
 
@@ -53,7 +53,7 @@ export async function GET(req: Request) {
   for (const l of [...before.lanes, ...after.lanes]) names.set(l.key, l.name);
   const laneName = (k: string) => names.get(k) ?? k;
   const exportText = report
-    ? sprintReportMarkdown({ title: baseline.kind === "sprint" ? "Sprintrapport " + (baseline.label ?? "").replace(/^Sprintstart /, "") : "Rapport siden " + label, strip, path, plan: after, laneName, todayUnit: dateToUnit(new Date()), todayDay: dayKey(new Date()) })
+    ? sprintReportMarkdown({ title: baseline.kind === "sprint" ? "Sprintrapport " + (baseline.label ?? "").replace(/^Sprintstart /, "") : "Rapport siden " + label, strip, path, plan: after, laneName, todayUnit: dateToUnit(osloDate(new Date())), todayDay: osloDay(new Date()) })
     : exportMarkdown("Siden " + label, strip, path, laneName);
   return Response.json({
     baseline: { id: baseline.id, at: baseline.at, kind: baseline.kind, day: baseline.day, label: baseline.label, data: baseline.data },
