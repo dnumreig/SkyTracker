@@ -164,7 +164,7 @@ describe("diffPlans: lifecycle", () => {
     const back = one([lane("x")], [shelf({ id: "w", label: "Disc", assignee: "THM", start: 2, endLikely: 3.25, end: 3.75, raw: { likely: 4, late: 6 }, bufferWeeks: 1 })]);
     expect(diffPlans(placed, back).map((e) => e.summary)).toEqual(["Flyttet fra «Epic X» til «Klar for veikart»", "Tilbake på hylla: klar for veikart"]);
     const delivered = one([lane("x")], [est({ id: "w", label: "Disc", assignee: "THM", start: 2, endLikely: 3.25, end: 3.75, raw: { likely: 4, late: 6 }, bufferWeeks: 1, state: "levert", deliveredAt: "2026-12-03" })]);
-    expect(diffPlans(placed, delivered).map((e) => e.summary)).toEqual(["Levert 3. des"]);
+    expect(diffPlans(placed, delivered).map((e) => e.summary)).toEqual(["Levert 3. des · uten ADO"]);   // R13: no ADO id on this one
   });
 
   it("epic states: chosen, closed with an outcome, back to proposal; closing asks for a reason", () => {
@@ -181,8 +181,8 @@ describe("diffPlans: lifecycle", () => {
 
 describe("the mirror's events", () => {
   it("a changeset from ADO carries cause ado on every diff event and never asks for a reason", () => {
-    const b = one([lane("x")], [est({ state: "aktiv" })]);
-    const a = one([lane("x")], [est({ state: "levert", deliveredAt: "2026-12-03" })]);
+    const b = one([lane("x")], [est({ state: "aktiv", adoId: 4486 })]);   // the refresh only delivers linked features
+    const a = one([lane("x")], [est({ state: "levert", deliveredAt: "2026-12-03", adoId: 4486 })]);
     const ev = diffPlans(b, a, { source: "ado" });
     expect(ev.map((e) => [e.code, e.cause, e.summary])).toEqual([["feature.tilstand", "ado", "Levert 3. des"]]);
     expect(ev.some(needsReason)).toBe(false);
@@ -350,5 +350,23 @@ describe("releases (R10): one event per change a person would name", () => {
     expect(diffPlans(c, d).map((e) => [e.code, e.summary])).toEqual([["release.skippet", "Skippet-dato fjernet"]]);
     expect(diffPlans(b, a).map((e) => [e.code, e.targetLabel, e.summary])).toEqual([["release.slettet", "Release 2.0.1", "Release slettet: 2.0.1"]]);
     expect(diffPlans(b, withRel([rel()]))).toEqual([]);   // the ADO read-back is not a diff event (the refresh logs release.lest itself)
+  });
+});
+
+describe("R13 wordings", () => {
+  const plan = (tasks: PlanTask[]): Plan => normalizePlan({ lanes: [{ key: "x", name: "X" }], tasks } as unknown as Plan);
+  it("a feature going back to discovery reads «Tilbake til utredning»", () => {
+    const before = plan([est({ id: "e", lane: "x", state: "aktiv", committedRange: { likely: 4, late: 8, start: 4 }, activatedAt: "2026-10-01" })]);
+    const after = plan([disc({ id: "e", lane: "x", start: 4, end: 5, fv: { state: 1, meta: 1, tid: 1 } })]);
+    const ev = diffPlans(before, after).find((e) => e.code === "feature.tilstand");
+    expect(ev?.summary).toMatch(/^Tilbake til utredning \(til /);
+  });
+  it("a feature delivered without ADO says so; one with an ADO id does not", () => {
+    const before = plan([est({ id: "e", lane: "x", state: "aktiv" })]);
+    const after = plan([est({ id: "e", lane: "x", state: "levert", deliveredAt: "2026-10-07", fv: { state: 1 } })]);
+    expect(diffPlans(before, after).find((e) => e.code === "feature.tilstand")?.summary).toBe("Levert 7. okt · uten ADO");
+    const linkedBefore = plan([est({ id: "e", lane: "x", state: "aktiv", adoId: 4486 })]);
+    const linkedAfter = plan([est({ id: "e", lane: "x", state: "levert", deliveredAt: "2026-10-07", adoId: 4486, fv: { state: 1 } })]);
+    expect(diffPlans(linkedBefore, linkedAfter).find((e) => e.code === "feature.tilstand")?.summary).toBe("Levert 7. okt");
   });
 });

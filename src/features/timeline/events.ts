@@ -104,10 +104,10 @@ function epicStateSummary(b: PlanLane, a: PlanLane): string {
 }
 function stateSummary(b: PlanTask, t: PlanTask): string {
   switch (t.state) {
-    case "utredes": return "Utredning startet (til " + date(t.end) + ")";
+    case "utredes": return ((b.state === "klar" || b.state === "aktiv") ? "Tilbake til utredning" : "Utredning startet") + " (til " + date(t.end) + ")";   // R13: back from an estimate
     case "klar": return (b.state === "aktiv" || b.state === "levert") ? "Tilbake på hylla: klar for veikart" : "Klar for veikart";
     case "aktiv": return "Aktiv: lagt i epicen" + (t.committedRange ? " med lovet spenn " + span(t.committedRange) + " uker" : "");
-    case "levert": return "Levert" + (t.deliveredAt ? " " + fmtDate(new Date(t.deliveredAt)) : "");
+    case "levert": return "Levert" + (t.deliveredAt ? " " + fmtDate(new Date(t.deliveredAt)) : "") + (t.adoId ? "" : " · uten ADO");   // R13: by hand or from the old board, never from ADO
     default: return "Registrert";
   }
 }
