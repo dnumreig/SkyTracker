@@ -288,6 +288,7 @@
   /* R12: the chance the release is done by its target day */
   .rel-fc{margin:8px 0 2px}
   .rel-fc .chip{font-variant-numeric:tabular-nums}
+  .rel-fc-detail{font-size:12px;color:var(--text-3);margin:4px 0 2px}
   .rel-basis{font-size:11px;color:var(--text-4);margin:2px 0 4px;line-height:1.4}
   .rel-fc-missing{font-size:12px;color:var(--text-3);margin:8px 0 2px;line-height:1.4}
   .rel-table{font-size:12px;color:var(--text-3);margin:2px 0 8px}
@@ -2476,7 +2477,7 @@ window.__bootTimeline = function(){
     if(!fc.short) return '<p class="rel-fc-missing" title="Sannsynligheten regnes fra Capacity i ADO">' + esc(fc.text) + '</p>';
     const rows = (fc.people || []).map(x => '<tr><td>' + esc(x.name) + '</td><td>' + dec(x.days) + '</td><td>' + dec(x.pace) + '</td><td>' + dec(x.expected) + ' SP</td></tr>').join('');
     return '<div class="rel-fc"><p class="rel-pace"><span class="chip" title="Andelen av 20 000 simuleringer der alt blir levert">' + esc(fc.short) + '</span><span>' + esc(fc.text.slice(fc.short.length + 1)) + '</span></p>' +
-      '<p class="rel-sprints">' + esc(fc.detail) + '</p>' +
+      '<p class="rel-fc-detail">' + esc(fc.detail) + '</p>' +
       (rows ? '<details class="rel-table"><summary>Per person</summary><table><tr><th>Person</th><th>Dager</th><th>SP per dag</th><th>Forventet</th></tr>' + rows + '</table></details>' : '') +
       '<p class="rel-basis">' + esc(fc.basis) + '</p></div>';
   }
