@@ -35,14 +35,21 @@
   body{background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
   .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 24px;background:var(--surface);border-bottom:1px solid var(--line-soft)}
   .tb-left,.tb-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
-  .topbar h1{font-size:18px;font-weight:600;letter-spacing:-.01em;color:var(--text);white-space:nowrap}
-  .topbar h1 .sub{color:var(--text-3);font-weight:400}
+  /* R14: the three pages' tabs; the active one is the page's name */
+  .tabs{display:flex;gap:2px;align-items:center}
+  .tabs .tab{font-size:14px;font-weight:500;color:var(--text-3);text-decoration:none;padding:6px 10px;border-radius:6px;white-space:nowrap}
+  .tabs .tab:hover{color:var(--text);background:var(--raised)}
+  .tabs .tab.on{color:var(--text);font-weight:600;font-size:18px;letter-spacing:-.01em;padding:4px 10px 4px 0;background:none}
+  .tabs .tab[hidden]{display:none}
   .whoami{font-size:12px;color:var(--text-3)}
   .ro-tag{font-size:12px;font-weight:500;color:var(--warn)}
   .save-note{font-size:11px;color:var(--text-4);min-width:120px;text-align:right}
   .wrap{padding:16px 24px 40px;max-width:1100px}
   .hint{font-size:12px;color:var(--text-3);max-width:90ch}
   .hint b{color:var(--text);font-weight:600}
+  p.hint{position:relative;padding-right:26px}   /* R14: the hint closes once per browser */
+  p.hint .x{position:absolute;right:0;top:-2px;border:none;background:none;padding:0 2px;font-size:14px;line-height:1;color:var(--text-4);cursor:pointer}
+  p.hint .x:hover{color:var(--text-2)}
   button,.btn{font:inherit;font-size:12px;font-weight:500;line-height:1.3;padding:5px 9px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--text-3);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;transition:color .15s ease,background-color .15s ease,border-color .15s ease}
   button:hover,.btn:hover{color:var(--text-hover);border-color:var(--text-4)}
   button:disabled{opacity:.5;cursor:default;pointer-events:none}
@@ -80,8 +87,8 @@
   .forum{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0 6px;font-size:13px}
   .forum label{font-weight:600;color:var(--text-2)}
   #forumLabel{width:260px}
-  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
-  .tabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .filters{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}   /* the status filter (renamed from .tabs: the top bar's tabs own that name now) */
+  .filters button.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .wish{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:12px 14px;border:1px solid var(--line);border-radius:6px;background:var(--surface);margin-bottom:8px}
   .wish .ttl{font-weight:600;font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .wish .meta,.wish .decision{font-size:12px;color:var(--text-3)}
@@ -98,9 +105,7 @@
 <body>
 <header class="topbar">
   <div class="tb-left">
-    <a class="btn" href="/" title="Tilbake til tavlen">← SkyTracker</a>
-    <a class="btn" href="/timeline" title="Planen: epics, features og hylla">Tidslinjen</a>
-    <h1>Inntak <span class="sub">– ønsker til produktforum</span></h1>
+    <nav class="tabs" id="navTabs" aria-label="Sider"></nav>
   </div>
   <div class="tb-right">
     <span class="save-note" id="dirtyNote"></span>
@@ -110,13 +115,13 @@
   </div>
 </header>
 <div class="wrap">
-  <p class="hint">PreSales skriver ned hvert ønske her: hva, hvem som spurte og når. I produktforum får hvert ønske én av tre beslutninger. <b>Utred nå</b> gir en utredning med eier og størrelse, <b>Senere</b> et registrert ønske, begge på hylla i Tidslinjen. <b>Nei</b> blir liggende her med begrunnelsen. Ingenting går til ADO før Tidslinjen pusher.</p>
+  <p class="hint" id="hint">PreSales skriver ned hvert ønske her: hva, hvem som spurte og når. I produktforum får hvert ønske én av tre beslutninger. <b>Utred nå</b> gir en utredning med eier og størrelse, <b>Senere</b> et registrert ønske, begge på hylla i Tidslinjen. <b>Nei</b> blir liggende her med begrunnelsen. Ingenting går til ADO før Tidslinjen pusher. <button class="x" id="hintClose" title="Lukk hintet; det kommer ikke tilbake i denne nettleseren">✕</button></p>
   <div class="forum" id="forumRow" hidden>
     <label for="forumLabel">Forum i dag</label>
     <input id="forumLabel" type="text" placeholder="Produktforum 5. nov">
     <span class="hint">Settes på hver beslutning du tar nå.</span>
   </div>
-  <div class="tabs" id="tabs"></div>
+  <div class="filters" id="tabs"></div>
   <div id="list"></div>
 </div>
 
@@ -155,6 +160,9 @@
 
 <script>
 window.__bootInntak = function(){
+  document.getElementById('navTabs').innerHTML = navTabsHtml('inntak', location.protocol !== 'file:');   // R14: the three pages share the tabs
+  try{ if(localStorage.getItem('sk.hint.inntak') === '1') document.getElementById('hint').hidden = true; }catch(e){}   // R14: the hint closes once per browser
+  document.getElementById('hintClose').addEventListener('click', () => { document.getElementById('hint').hidden = true; try{ localStorage.setItem('sk.hint.inntak', '1'); }catch(e){} });
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
