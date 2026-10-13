@@ -81,6 +81,17 @@ describe("refreshReleases (R10 + R11)", () => {
     ]);
     expect(calls.filter((c) => c.startsWith("SELECT")).length).toBe(4);   // two labels, two sprint paths (the current sprint's count is shared by both releases)
   });
+  it("R14: asked for one release, it reads that one and leaves the other untouched", async () => {
+    const { client, calls } = fake();
+    const r = await refreshReleases(plan(), client, NOW, { only: "r2" });
+    expect(r.plan.releases![0].ado).toBeUndefined();
+    expect(r.plan.releases![0].v).toBe(1);
+    expect(r.plan.releases![1].ado?.items.map((i) => i.id)).toEqual([4999]);
+    expect(calls.filter((c) => /\[Custom\.Release\] = '2\.0\.1'/.test(c))).toEqual([]);
+    expect(r.read).toEqual({ releases: 1, items: 1 });
+    expect(r.events.map((e) => e.targetId)).toEqual(["r2"]);
+  });
+
   it("R12: with Capacity the release keeps the chance it is done by its target day, and the day's point keeps the chance and the mean", async () => {
     const { client, calls } = fake([GO_FULL]);
     const r = await refreshReleases(plan(), client, NOW);

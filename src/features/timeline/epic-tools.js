@@ -750,6 +750,31 @@ function sprintLabel(sprints, date) {
   return s ? s.name + " · dag " + sprintDay(s, date) : "";
 }
 
+/* ---------- R14: the shared top bar and the status strip in words ---------- */
+const NAV_TABS = [["inntak", "Inntak", "/inntak"], ["timeline", "Tidslinjen", "/timeline"], ["board", "Brettet", "/"]];
+/** The three pages' tabs in the process order; opened from a file, only the active one shows (the others would point nowhere). */
+function navTabsHtml(active, hosted) {
+  return NAV_TABS.map(([key, name, href]) => {
+    const on = key === active;
+    return '<a class="tab' + (on ? " on" : "") + '" id="tab-' + key + '" data-tab="' + key + '" href="' + href + '"' + (on ? ' aria-current="page"' : hosted ? "" : " hidden") + ">" + name + "</a>";
+  }).join("");
+}
+/** The status strip's first part: the active epics by colour, in words; zero parts are left out. */
+function epicStatusWords(plan) {
+  if (!plan.lanes.length) return "Ingen epics ennå";
+  const active = plan.lanes.filter((l) => (l.state || "aktiv") === "aktiv");
+  const n = { gronn: 0, gul: 0, rod: 0, venter: 0 };
+  active.forEach((l) => { const c = epicStatus(plan, l.key).code; if (n[c] !== undefined) n[c]++; });
+  const parts = [active.length + (active.length === 1 ? " aktiv epic" : " aktive epics")];
+  if (n.gronn) parts.push(n.gronn + (n.gronn === 1 ? " grønn" : " grønne"));
+  if (n.gul) parts.push(n.gul + (n.gul === 1 ? " gul" : " gule"));
+  if (n.rod) parts.push(n.rod + (n.rod === 1 ? " rød" : " røde"));
+  if (n.venter) parts.push(n.venter + " venter på utredning");
+  const forslag = plan.lanes.filter((l) => l.state === "forslag").length;
+  if (forslag) parts.push(forslag + " forslag");
+  return parts.join(" · ");
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     BASE_Y, BASE_M, N_MONTHS, WEEK, SCHEMA, OWNER_DEFAULT, STATUS_LABEL,
@@ -761,7 +786,7 @@ if (typeof module !== "undefined") {
     isoWeek, weekSpan, windowLabel, epicWindowText, discoveryOverdue,
     shelfTasks, epicCounts, sizeClass, sizeClassDerived, sizeClassText, bufferLabel, rawLabel, previewPlacement,
     canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
-    dayKey, currentSprint, sprintDay, sprintLabel,
+    dayKey, currentSprint, sprintDay, sprintLabel, navTabsHtml, epicStatusWords,
     dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
     workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, releaseForecastText, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
     progressFraction, progressSignal, epicProgressSignal, progressText,

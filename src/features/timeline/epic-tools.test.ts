@@ -10,6 +10,7 @@ import {
   workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, dayKey,
   releaseForecastText,
   BACKLOG, canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
+  navTabsHtml, epicStatusWords,
 } from "./epic-tools.js";
 import type { Plan, PlanTask } from "./merge";
 
@@ -903,5 +904,39 @@ describe("R13: the transitions the lifecycle lacked", () => {
     expect(cols(est({ lane: "x", state: "aktiv" }))).toEqual(["utredes", "klar", "levert"]);
     expect(boardColumn(est({ state: "levert", deliveredAt: "2026-10-07" }))).toBe("levert");
     expect(cols(est({ state: "levert", deliveredAt: "2026-10-07" }))).toEqual([]);
+  });
+});
+
+describe("R14: the top bar's words", () => {
+  const ln = (key: string, state: string, goalDate?: number) => ({ key, name: key, owner: "GO", v: 1, state, ...(goalDate !== undefined ? { goalDate } : {}) });
+  const estT = (id: string, lane: string, endLikely: number, end: number): PlanTask => ({ id, label: id, lane, kind: "estimate", start: 0, endLikely, end, deps: [], fv: {}, state: "aktiv" });
+  const discT = (id: string, lane: string, end: number): PlanTask => ({ id, label: id, lane, kind: "discovery", start: 0, endLikely: end, end, deps: [], fv: {}, state: "utredes" });
+  const words = (lanes: ReturnType<typeof ln>[], tasks: PlanTask[]) => epicStatusWords({ lanes, tasks } as unknown as Plan);
+
+  it("navTabsHtml keeps the process order, marks the active tab and shows all three when hosted", () => {
+    const html = navTabsHtml("timeline", true);
+    expect([...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1])).toEqual(["/inntak", "/timeline", "/"]);
+    expect(html).toContain('<a class="tab on" id="tab-timeline" data-tab="timeline" href="/timeline" aria-current="page">Tidslinjen</a>');
+    expect(html).toContain('<a class="tab" id="tab-board" data-tab="board" href="/">Brettet</a>');
+    expect(html).not.toContain("hidden");
+  });
+
+  it("navTabsHtml hides the other tabs when the page is opened from a file", () => {
+    const html = navTabsHtml("board", false);
+    expect(html).toContain('id="tab-board" data-tab="board" href="/" aria-current="page">');
+    expect(html).toContain('id="tab-inntak" data-tab="inntak" href="/inntak" hidden>');
+    expect(html).toContain('id="tab-timeline" data-tab="timeline" href="/timeline" hidden>');
+  });
+
+  it("epicStatusWords counts the active epics by colour, in Norwegian words", () => {
+    const lanes = [ln("a", "aktiv", 10), ln("b", "aktiv", 5), ln("c", "aktiv", 2), ln("d", "aktiv", 8), ln("e", "forslag", 9), ln("f", "aktiv", 4)];
+    const tasks = [estT("a1", "a", 6, 8), estT("b1", "b", 3, 7), estT("c1", "c", 4, 6), discT("d1", "d", 3)];
+    expect(words(lanes, tasks)).toBe("5 aktive epics · 1 grønn · 1 gul · 1 rød · 1 venter på utredning · 1 forslag");
+  });
+
+  it("epicStatusWords uses the plural forms and leaves zero parts out", () => {
+    expect(words([ln("a", "aktiv", 10), ln("b", "aktiv", 10)], [estT("a1", "a", 6, 8), estT("b1", "b", 6, 8)])).toBe("2 aktive epics · 2 grønne");
+    expect(words([ln("a", "aktiv", 1)], [estT("a1", "a", 4, 6)])).toBe("1 aktiv epic · 1 rød");
+    expect(words([], [])).toBe("Ingen epics ennå");
   });
 });
