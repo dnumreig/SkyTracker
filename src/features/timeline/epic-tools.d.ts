@@ -1,4 +1,4 @@
-import type { Plan, PlanLane, PlanTask, Sprint, Wish, WishSource, WishStatus, Release } from "./merge";
+import type { Plan, PlanLane, PlanTask, Sprint, TaskFieldGroup, Wish, WishSource, WishStatus, Release } from "./merge";
 
 export declare function progressFraction(p: PlanTask["progress"] | undefined | null): number | null;
 export declare function progressSignal(task: PlanTask, todayUnit: number): { code: "gronn" | "gul" | "rod"; done: number; elapsed: number } | null;
@@ -43,6 +43,18 @@ export declare const AREAS: string[];
 export declare function normalizeAreas(v: unknown): string[];
 export declare function wishesByStatus(plan: Plan): Record<WishStatus, Wish[]>;
 export declare function shelfTasks(plan: Plan): PlanTask[];
+/** R13: delivery of a linked feature is ADO's; an unlinked one can be marked delivered by hand. */
+export declare function canMarkDelivered(task: PlanTask): boolean;
+/** R13: marks it delivered on `day` (YYYY-MM-DD); a discovery becomes an estimate. Returns the field groups touched. */
+export declare function markDelivered(task: PlanTask, day: string): TaskFieldGroup[];
+/** R13: an estimated feature on the shelf or in an epic can go back to discovery. */
+export declare function canRestartDiscovery(task: PlanTask): boolean;
+/** R13: the lane rule both pages share; returns the field groups touched (empty when the lane is unchanged). */
+export declare function applyLaneChange(task: PlanTask, laneKey: string, todayDay: string): TaskFieldGroup[];
+/** R13: the board's column for a feature. */
+export declare function boardColumn(task: PlanTask): "ny" | "utredes" | "klar" | "aktiv" | "levert";
+/** R13: whether the board may move the feature to that column. */
+export declare function featureTransition(task: PlanTask, to: string): boolean;
 export declare function epicCounts(plan: Plan): { forslag: number; aktiv: number; avsluttet: number };
 export declare function sizeClass(task: PlanTask): "S" | "M" | "L" | "XL" | "";
 export declare function sizeClassDerived(task: PlanTask): "S" | "M" | "L" | "XL" | "";

@@ -9,6 +9,7 @@ import {
   dayToUnit, releaseSegments, releaseProgress, releaseScope,
   workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, dayKey,
   releaseForecastText,
+  BACKLOG, canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
 } from "./epic-tools.js";
 import type { Plan, PlanTask } from "./merge";
 
@@ -832,5 +833,75 @@ describe("R12: the chance a release is done by its target day, in words and in t
     const r = rel(FC);
     const p = normalizePlan({ lanes: [], tasks: [], releases: [r] });
     expect(releaseBurndownData(p, p.releases![0], "2026-10-13")!.chances).toEqual([{ day: "2026-10-13", p: 0.44, mean: 78 }]);
+  });
+});
+
+describe("R13: the transitions the lifecycle lacked", () => {
+  const est = (over: Partial<PlanTask> = {}): PlanTask => ({ id: "e", lane: BACKLOG, label: "Est", kind: "estimate", start: 4, endLikely: 5, end: 6, deps: [], fv: {}, state: "klar", ...over });
+  const disc = (over: Partial<PlanTask> = {}): PlanTask => ({ id: "d", lane: BACKLOG, label: "Disc", kind: "discovery", start: 2, end: 3, deps: [], fv: {}, state: "utredes", ...over });
+
+  it("shelfTasks leaves delivered features out", () => {
+    const plan = normalizePlan({ lanes: [{ key: "x", name: "X" }], tasks: [est({ id: "k" }), est({ id: "l", state: "levert", deliveredAt: "2026-10-07" }), disc({ id: "d", lane: "x" })] });
+    expect(shelfTasks(plan).map((t) => t.id)).toEqual(["k"]);
+  });
+  it("canMarkDelivered: only without an ADO id and not yet delivered", () => {
+    expect(canMarkDelivered(est())).toBe(true);
+    expect(canMarkDelivered(disc({ state: "ny" }))).toBe(true);
+    expect(canMarkDelivered(est({ adoId: 4486 }))).toBe(false);
+    expect(canMarkDelivered(est({ state: "levert", deliveredAt: "2026-10-07" }))).toBe(false);
+  });
+  it("markDelivered sets the day; a discovery becomes an estimate whose end is its span", () => {
+    const e = est({ lane: "x", state: "aktiv" });
+    expect(markDelivered(e, "2026-10-07")).toEqual(["state"]);
+    expect([e.state, e.deliveredAt, e.kind]).toEqual(["levert", "2026-10-07", "estimate"]);
+    const d = disc();
+    expect(markDelivered(d, "2026-10-01")).toEqual(["state", "meta", "tid"]);
+    expect([d.state, d.deliveredAt, d.kind, d.endLikely]).toEqual(["levert", "2026-10-01", "estimate", 3]);
+  });
+  it("canRestartDiscovery: an estimated feature on the shelf or in an epic, nothing else", () => {
+    expect(canRestartDiscovery(est())).toBe(true);
+    expect(canRestartDiscovery(est({ lane: "x", state: "aktiv" }))).toBe(true);
+    expect(canRestartDiscovery(disc())).toBe(false);
+    expect(canRestartDiscovery(est({ state: "levert", deliveredAt: "2026-10-07" }))).toBe(false);
+    expect(canRestartDiscovery(disc({ state: "ny" }))).toBe(false);
+  });
+  it("applyLaneChange: an estimate from the shelf into an epic becomes aktiv with the promised span", () => {
+    const e = est();
+    expect(applyLaneChange(e, "x", "2026-10-13")).toEqual(["meta", "state"]);
+    expect([e.lane, e.state, e.activatedAt]).toEqual(["x", "aktiv", "2026-10-13"]);
+    expect(e.committedRange).toEqual({ likely: 4, late: 8, start: 4 });
+  });
+  it("applyLaneChange: back to the shelf makes it klar again and drops the span", () => {
+    const e = est({ lane: "x", state: "aktiv", committedRange: { likely: 4, late: 8, start: 4 }, activatedAt: "2026-10-13" });
+    expect(applyLaneChange(e, BACKLOG, "2026-10-14")).toEqual(["meta", "state"]);
+    expect([e.lane, e.state, e.committedRange, e.activatedAt]).toEqual([BACKLOG, "klar", undefined, undefined]);
+  });
+  it("applyLaneChange: a discovery, a delivered or a registered feature keeps its state; the same lane changes nothing", () => {
+    const d = disc();
+    expect(applyLaneChange(d, "x", "2026-10-13")).toEqual(["meta"]);
+    expect([d.lane, d.state]).toEqual(["x", "utredes"]);
+    const l = est({ state: "levert", deliveredAt: "2026-10-07" });
+    expect(applyLaneChange(l, "x", "2026-10-13")).toEqual(["meta"]);
+    expect(l.state).toBe("levert");
+    const n = disc({ state: "ny" });
+    expect(applyLaneChange(n, "x", "2026-10-13")).toEqual(["meta"]);
+    expect(n.state).toBe("ny");
+    const same = est({ lane: "x", state: "aktiv" });
+    expect(applyLaneChange(same, "x", "2026-10-13")).toEqual([]);
+  });
+  it("boardColumn and featureTransition: one step forward, back to the shelf or to discovery, delivered only without ADO", () => {
+    const cols = (t: PlanTask) => ["ny", "utredes", "klar", "aktiv", "levert"].filter((to) => featureTransition(t, to));
+    expect(boardColumn(disc({ state: "ny" }))).toBe("ny");
+    expect(cols(disc({ state: "ny" }))).toEqual(["utredes", "levert"]);
+    expect(boardColumn(disc())).toBe("utredes");
+    expect(cols(disc())).toEqual(["klar", "levert"]);
+    expect(cols(disc({ lane: "x" }))).toEqual(["aktiv", "levert"]);
+    expect(boardColumn(est())).toBe("klar");
+    expect(cols(est())).toEqual(["utredes", "aktiv", "levert"]);
+    expect(cols(est({ adoId: 4486 }))).toEqual(["utredes", "aktiv"]);
+    expect(boardColumn(est({ lane: "x", state: "aktiv" }))).toBe("aktiv");
+    expect(cols(est({ lane: "x", state: "aktiv" }))).toEqual(["utredes", "klar", "levert"]);
+    expect(boardColumn(est({ state: "levert", deliveredAt: "2026-10-07" }))).toBe("levert");
+    expect(cols(est({ state: "levert", deliveredAt: "2026-10-07" }))).toEqual([]);
   });
 });

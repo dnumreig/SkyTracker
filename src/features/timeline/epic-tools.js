@@ -199,7 +199,52 @@ function epicStatus(plan, laneKey) {
   const code = late <= goal + 1e-9 ? "gronn" : likely > goal + 1e-9 ? "rod" : "gul";
   return { code, likely, late };
 }
-function shelfTasks(plan) { return plan.tasks.filter((t) => t.lane === BACKLOG); }
+/** The shelf: features on the backlog lane that still wait for a place in an epic (delivered ones are on the board's «Levert»). */
+function shelfTasks(plan) { return plan.tasks.filter((t) => t.lane === BACKLOG && t.state !== "levert"); }
+
+/* ---------- R13: the transitions the lifecycle lacked ---------- */
+/** Delivery of a feature with an ADO id is ADO's; one without can be marked delivered by hand. */
+function canMarkDelivered(t) { return !!t && !t.adoId && t.state !== "levert"; }
+/** Marks it delivered on `day` (YYYY-MM-DD). A discovery becomes an estimate whose end is its span. Returns the field groups touched. */
+function markDelivered(t, day) {
+  const groups = ["state"];
+  if (t.kind === "discovery") { t.kind = "estimate"; t.endLikely = t.end; groups.push("meta", "tid"); }
+  t.state = "levert"; t.deliveredAt = day;
+  return groups;
+}
+/** An estimated feature on the shelf or in an epic can go back to discovery. */
+function canRestartDiscovery(t) { return !!t && t.kind === "estimate" && (t.state === "klar" || t.state === "aktiv"); }
+/** The lane rule both pages share: an estimate from the shelf into an epic becomes aktiv with the promised span, back on the
+ *  shelf it is klar again; a discovery, a registered or a delivered feature keeps its state. Returns the groups touched. */
+function applyLaneChange(t, laneKey, todayDay) {
+  if (t.lane === laneKey) return [];
+  const from = t.lane;
+  t.lane = laneKey;
+  const groups = ["meta"];
+  if (t.kind !== "estimate" || t.state === "levert" || t.state === "ny") return groups;
+  if (laneKey === BACKLOG && t.state === "aktiv") { t.state = "klar"; delete t.committedRange; delete t.activatedAt; groups.push("state"); }
+  else if (from === BACKLOG && laneKey !== BACKLOG) {
+    const r = rangeWeeks(t);
+    t.state = "aktiv";
+    if (r) t.committedRange = { likely: r.likely, late: r.late, start: t.start };
+    t.activatedAt = todayDay;
+    groups.push("state");
+  }
+  return groups;
+}
+/** The board's column: the lifecycle state, «Aktiv» meaning an estimate inside an epic. */
+function boardColumn(t) { return t.state === "levert" ? "levert" : t.state === "ny" ? "ny" : t.state === "utredes" ? "utredes" : t.lane === BACKLOG ? "klar" : "aktiv"; }
+/** Whether the board may move a feature to a column: one step forward, back to the shelf or to discovery, delivered by hand only without ADO. */
+function featureTransition(t, to) {
+  const from = boardColumn(t);
+  if (from === to || to === "ny" || from === "levert") return false;
+  if (to === "levert") return canMarkDelivered(t);
+  if (from === "ny") return to === "utredes";
+  if (from === "utredes") return to === (t.lane === BACKLOG ? "klar" : "aktiv");
+  if (from === "klar") return to === "aktiv" || to === "utredes";
+  if (from === "aktiv") return to === "klar" || to === "utredes";
+  return false;
+}
 /** The intake grouped by decision, newest registration first inside each group. */
 function wishesByStatus(plan) {
   const out = { ubehandlet: [], utred: [], senere: [], nei: [] };
@@ -715,6 +760,7 @@ if (typeof module !== "undefined") {
     rangeWeeks, rangeLabel, goalText, exampleSeed,
     isoWeek, weekSpan, windowLabel, epicWindowText, discoveryOverdue,
     shelfTasks, epicCounts, sizeClass, sizeClassDerived, sizeClassText, bufferLabel, rawLabel, previewPlacement,
+    canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
     dayKey, currentSprint, sprintDay, sprintLabel,
     dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
     workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, releaseForecastText, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
