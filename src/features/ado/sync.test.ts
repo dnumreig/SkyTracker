@@ -12,6 +12,10 @@ describe("parseSprints", () => {
     expect(s.map((x) => x.name)).toEqual(["Sprint 68", "Sprint 69", "Sprint 70", "Sprint 71"]);
     expect(s[3]).toEqual({ name: "Sprint 71", path: "Skytale\\Sprint 71", start: "2026-10-05", finish: "2026-10-16" });
   });
+  it("keeps the iteration's identifier as the sprint's id when ADO sends it (Capacity is read by it, R12)", () => {
+    const s = parseSprints({ name: "Skytale", children: [{ name: "Sprint 71", identifier: "e3e86111-5688-4555-b348-01be7b153370", attributes: { startDate: "2026-10-05T00:00:00Z", finishDate: "2026-10-23T00:00:00Z" } }] });
+    expect(s[0].id).toBe("e3e86111-5688-4555-b348-01be7b153370");
+  });
 });
 
 describe("readStories and deliveredDay", () => {

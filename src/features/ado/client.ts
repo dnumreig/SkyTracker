@@ -1,12 +1,14 @@
 // One thin REST client over fetch with the signed-in person's bearer token (token.ts). Used by the
 // timeline's push/refresh/import (push.ts, import.ts). Mirrors the endpoints and api-versions of
 // Skytale.QA's client.
-import { ADO_API_VERSION, ADO_ORG_URL, adoProjectUrl } from "./config";
+import { ADO_API_VERSION, ADO_ORG_URL, ADO_TEAM, adoProjectUrl } from "./config";
 
 export type JsonPatch = { op: "add" | "replace" | "remove"; path: string; value?: unknown };
 export type AdoRelation = { rel: string; url: string; attributes?: Record<string, unknown> };
 export type AdoWorkItem = { id: number; rev?: number; fields: Record<string, unknown>; relations?: AdoRelation[] };
-export type IterationNode = { id?: number; name: string; path?: string; attributes?: { startDate?: string; finishDate?: string }; children?: IterationNode[] };
+export type IterationNode = { id?: number; identifier?: string; name: string; path?: string; attributes?: { startDate?: string; finishDate?: string }; children?: IterationNode[] };
+/** One person's row on a sprint's Capacity tab: hours per day per activity and their days off. */
+export type AdoCapacity = { teamMember: { displayName?: string; uniqueName?: string }; activities?: { name?: string; capacityPerDay?: number }[]; daysOff?: { start: string; end: string }[] };
 export type AdoClient = {
   /** null when the work item does not exist. Relations expanded. */
   get(id: number): Promise<AdoWorkItem | null>;
@@ -19,6 +21,8 @@ export type AdoClient = {
   wiql(query: string): Promise<number[]>;
   /** Deletes a work item (ADO's recycle bin: restorable from the project settings). */
   remove(id: number): Promise<void>;
+  /** A sprint's Capacity on the team (R12): the members' rows and the team's days off. `iterationId` is the iteration's identifier. */
+  capacities(iterationId: string): Promise<{ members: AdoCapacity[]; teamDaysOff: { start: string; end: string }[] }>;
   /** A file's text from a git repository, null when the path does not exist. */
   gitItem(repoId: string, path: string): Promise<string | null>;
 };
@@ -61,6 +65,12 @@ export function createAdoClient(authHeader: string, fetchImpl: typeof fetch = (.
       return (r?.workItems ?? []).map((w) => w.id);
     },
     iterations: async () => (await request<IterationNode>("GET", `${adoProjectUrl()}/_apis/wit/classificationnodes/iterations?$depth=2&${v}`))!,
+    async capacities(iterationId) {
+      const base = `${adoProjectUrl()}/${encodeURIComponent(ADO_TEAM)}/_apis/work/teamsettings/iterations/${encodeURIComponent(iterationId)}`;
+      const c = await request<{ teamMembers?: AdoCapacity[]; value?: AdoCapacity[] }>("GET", `${base}/capacities?${v}`);
+      const off = await request<{ daysOff?: { start: string; end: string }[] }>("GET", `${base}/teamdaysoff?${v}`);
+      return { members: c?.teamMembers ?? c?.value ?? [], teamDaysOff: off?.daysOff ?? [] };   // 7.1 says teamMembers, older versions value
+    },
     async gitItem(repoId, path) {
       const r = await request<{ content?: string }>("GET", `${adoProjectUrl()}/_apis/git/repositories/${repoId}/items?path=${encodeURIComponent(path)}&includeContent=true&${v}`, undefined, undefined, true);
       return r?.content ?? null;

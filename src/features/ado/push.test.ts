@@ -31,6 +31,7 @@ function fakeAdo(seed: AdoWorkItem[] = []) {
   const calls: string[] = [];
   const client: AdoClient = {
     get: async (id) => { calls.push("get " + id); return items.get(id) ?? null; },
+    capacities: async () => ({ members: [], teamDaysOff: [] }),
     batch: async (ids) => { calls.push("batch " + ids.join(",")); return ids.map((id) => items.get(id)).filter((w): w is AdoWorkItem => !!w); },
     create: async (type, patch) => { calls.push("create " + type); const w: AdoWorkItem = { id: next++, fields: { "System.WorkItemType": type, "System.State": "New" }, relations: [] }; apply(w, patch); items.set(w.id, w); return w; },
     patch: async (id, patch) => { calls.push("patch " + id); const w = items.get(id)!; apply(w, patch); return w; },

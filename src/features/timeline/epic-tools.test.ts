@@ -8,6 +8,7 @@ import {
   resolveQueue, queueFloor, capacityFactor, elapsedWeeks, wishesByStatus, WISH_STATUS_LABEL, WISH_SOURCE_LABEL, sizeClassDerived, sizeClassText, FEATURE_TYPE_LABEL, AREAS,
   dayToUnit, releaseSegments, releaseProgress, releaseScope,
   workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, dayKey,
+  releaseForecastText,
 } from "./epic-tools.js";
 import type { Plan, PlanTask } from "./merge";
 
@@ -735,7 +736,7 @@ describe("R11: the tempo of a release", () => {
     const a = mk({ items: its, history: h });
     expect(releaseBurndownData(a.p, a.r, today)).toEqual({ startDay: "2026-10-05", axisStart: "2026-10-05", targetDay: "2026-10-22", endDay: "2026-10-22", todayDay: today, total: 79, unit: "SP",
       actual: [{ day: "2026-10-05", remaining: 79 }, { day: "2026-10-06", remaining: 79 }, { day: "2026-10-07", remaining: 75 }, { day: "2026-10-08", remaining: 75 }, { day: "2026-10-09", remaining: 69 }, { day: today, remaining: 69 }],
-      forecastDay: "2026-12-09", firstScope: { day: "2026-10-05", total: 70 } });
+      forecastDay: "2026-12-09", firstScope: { day: "2026-10-05", total: 70 }, chances: [] });
     expect(releaseBurndownData(a.p, a.r, "2026-10-30")!.endDay).toBe("2026-10-30");
     const same = mk({ items: its, history: [{ ...h[0], pointsTotal: 79 }] });
     expect(releaseBurndownData(same.p, same.r, today)!.firstScope).toBeNull();   // the scope has not moved
@@ -784,5 +785,52 @@ describe("R11: a release whose clock starts after today (items in a coming sprin
     const d = releaseBurndownData(p, p.releases![0], "2026-10-13")!;
     expect(d.axisStart).toBe("2026-10-12");
     expect(d.startDay).toBe("2026-10-26");
+  });
+});
+
+describe("R12: the chance a release is done by its target day, in words and in the plan", () => {
+  const FC = { day: "2026-10-13", need: 82, days: 7, p: 0.44, mean: 78, p10: 37, p90: 121,
+    people: [{ name: "Gjermund Østby", days: 5, pace: 8.7, expected: 43.3 }, { name: "Tor Håkon Moen", days: 7, pace: 3, expected: 20.6 }],
+    basis: ["Sprint 69", "Sprint 70"], capacity: ["Sprint 71"] };
+  const rel = (forecast: unknown, over: Record<string, unknown> = {}) => normalizePlan({ lanes: [], tasks: [], releases: [{ key: "r1", version: "2.0.1", targetDate: "2026-10-22",
+    ado: { at: "x", label: "2.0.1", items: [{ id: 1, type: "Bug", title: "a", state: "New", points: 82, assignee: null }], history: [{ day: "2026-10-13", pointsDone: 0, pointsTotal: 82, done: 0, total: 1, forecast: { p: 0.44, mean: 78 } }], forecast }, ...over }] }).releases![0];
+  it("the chance, what is expected and the range, the people and what it rests on", () => {
+    expect(releaseForecastText(rel(FC), "2026-10-13")).toEqual({
+      short: "44 % sjanse",
+      text: "44 % sjanse for at alt er levert til 22. okt",
+      detail: "Forventet 78 av 82 SP på 7 arbeidsdager · 8 av 10 utfall mellom 37 og 121 SP",
+      basis: "Tempo per person fra Sprint 69 og Sprint 70 · tilgjengelighet fra Capacity i Sprint 71 (Development-timer, 7,5 t = full dag) · ikke regnet med: hvem som kan ta hvilken oppgave",
+      people: FC.people,
+    });
+  });
+  it("never says 0 or 100 %, and says when the forecast is from an earlier day", () => {
+    expect(releaseForecastText(rel({ ...FC, p: 1 }), "2026-10-13")!.short).toBe("over 99 % sjanse");
+    expect(releaseForecastText(rel({ ...FC, p: 0 }), "2026-10-13")!.short).toBe("under 1 % sjanse");
+    expect(releaseForecastText(rel(FC), "2026-10-14")!.text).toBe("44 % sjanse for at alt er levert til 22. okt · regnet 13. okt");
+    expect(releaseForecastText(rel({ ...FC, p10: 26, p90: 26, mean: 26 }), "2026-10-13")!.detail).toBe("Forventet 26 av 82 SP på 7 arbeidsdager · 8 av 10 utfall rundt 26 SP");
+  });
+  it("tells what is missing: Capacity for a sprint, sprints up to the target, the past to measure a pace from", () => {
+    expect(releaseForecastText(rel({ day: "2026-10-13", missing: "capacity", sprints: ["Sprint 71"], unplanned: 0 }), "2026-10-13")).toEqual({ short: null, text: "Fyll inn Capacity i ADO for Sprint 71 (Development-timer per dag og fridager) for å få sannsynligheten" });
+    expect(releaseForecastText(rel({ day: "2026-10-13", missing: "capacity", sprints: ["Sprint 71", "Sprint 72"], unplanned: 3 }), "2026-10-13")!.text).toBe("Fyll inn Capacity i ADO for Sprint 71 og Sprint 72 (Development-timer per dag og fridager) og lag sprintene fram til målet (3 arbeidsdager er uten sprint) for å få sannsynligheten");
+    expect(releaseForecastText(rel({ day: "2026-10-13", missing: "capacity", sprints: [], unplanned: 13 }), "2026-10-13")!.text).toBe("Lag sprintene fram til målet i ADO og fyll inn Capacity (13 arbeidsdager er uten sprint) for å få sannsynligheten");
+    expect(releaseForecastText(rel({ day: "2026-10-13", missing: "history" }), "2026-10-13")).toEqual({ short: null, text: "Ingen leverte poeng i de to siste sprintene å regne tempo fra" });
+  });
+  it("nothing when there is no forecast or the release is shipped", () => {
+    expect(releaseForecastText(rel(undefined), "2026-10-13")).toBeNull();
+    expect(releaseForecastText(rel(FC, { shippedDate: "2026-10-22" }), "2026-10-23")).toBeNull();
+  });
+  it("normalizePlan keeps a well-formed forecast and the day's chance, and drops the rest", () => {
+    expect(rel(FC).ado!.forecast).toEqual(FC);
+    expect(rel(FC).ado!.history![0].forecast).toEqual({ p: 0.44, mean: 78 });
+    expect(rel({ day: "2026-10-13", missing: "history" }).ado!.forecast).toEqual({ day: "2026-10-13", missing: "history" });
+    expect(rel({ day: "2026-10-13", missing: "capacity", sprints: ["Sprint 71", 7], unplanned: -1 }).ado!.forecast).toEqual({ day: "2026-10-13", missing: "capacity", sprints: ["Sprint 71"], unplanned: 0 });
+    for (const bad of [{ ...FC, p: 1.5 }, { ...FC, day: "nope" }, { ...FC, mean: "x" }, { day: "2026-10-13", missing: "weather" }, "junk"]) expect(rel(bad).ado).not.toHaveProperty("forecast");
+    const odd = normalizePlan({ lanes: [], tasks: [], releases: [{ key: "r1", version: "2.0.1", targetDate: "2026-10-22", ado: { at: "x", label: "2.0.1", items: [], history: [{ day: "2026-10-13", pointsDone: 0, pointsTotal: 1, done: 0, total: 1, forecast: { p: 2, mean: 1 } }] } }] }).releases![0];
+    expect(odd.ado!.history![0]).not.toHaveProperty("forecast");
+  });
+  it("the burndown's numbers carry each reading's chance, for laying the forecast next to what happened", () => {
+    const r = rel(FC);
+    const p = normalizePlan({ lanes: [], tasks: [], releases: [r] });
+    expect(releaseBurndownData(p, p.releases![0], "2026-10-13")!.chances).toEqual([{ day: "2026-10-13", p: 0.44, mean: 78 }]);
   });
 });

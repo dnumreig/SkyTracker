@@ -23,7 +23,8 @@ export const GROUP_PROPS: Record<TaskFieldGroup, string[]> = {
   progress: ["progress"],
 };
 
-export type Sprint = { name: string; path: string; start: string; finish: string };
+/** `id` is the iteration's identifier (the team settings' iteration id), for its Capacity (R12). */
+export type Sprint = { name: string; path: string; start: string; finish: string; id?: string };
 /** The intake (R7b): a wish PreSales registered; produktforum decides it. Versioned like a lane (`v`). */
 export type WishSource = "egen-plan" | "investor" | "kunde" | "ledermote" | "annet";
 export type WishStatus = "ubehandlet" | "utred" | "senere" | "nei";
@@ -54,9 +55,15 @@ export type Wish = {
 /** A release (R10): a version with a target day, shipped once out; its scope is the release label in ADO. Versioned like a lane (`v`). */
 export type ReleaseItem = { id: number; type: "Bug" | "User Story"; title: string; state: string; points: number; assignee: string | null; iteration?: string; delivered?: string };
 /** One reading per day (R11): what the label held and how much of it was done, for the burndown and the tempo. */
-export type ReleaseHistoryPoint = { day: string; pointsDone: number; pointsTotal: number; done: number; total: number };
+export type ReleaseHistoryPoint = { day: string; pointsDone: number; pointsTotal: number; done: number; total: number; forecast?: { p: number; mean: number } };
+/** R12: the chance the release is done by its target day, from ADO's Capacity and each person's pace in the two last finished sprints. */
+export type ReleaseForecastPerson = { name: string; days: number; pace: number; expected: number };
+export type ReleaseForecast =
+  | { day: string; need: number; days: number; p: number; mean: number; p10: number; p90: number; people: ReleaseForecastPerson[]; basis: string[]; capacity: string[] }
+  | { day: string; missing: "capacity"; sprints: string[]; unplanned: number }
+  | { day: string; missing: "history" };
 /** Written by the server (refresh), never by the page: the bugs and stories carrying the label, the daily readings and the sprints' unlabelled counts. */
-export type ReleaseAdo = { at: string; label: string; items: ReleaseItem[]; history?: ReleaseHistoryPoint[]; sprints?: { name: string; unlabelled: number }[] };
+export type ReleaseAdo = { at: string; label: string; items: ReleaseItem[]; history?: ReleaseHistoryPoint[]; sprints?: { name: string; unlabelled: number }[]; forecast?: ReleaseForecast };
 export type Release = {
   key: string;
   v?: number;

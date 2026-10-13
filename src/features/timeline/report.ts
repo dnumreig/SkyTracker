@@ -1,7 +1,7 @@
 // The sprint report (PROS-SPRINT-01 day 10: what was built, which discoveries moved on, spans that changed) and the
 // weekly digest for Slack, both from the same data as the compare mode: the plan now, the events since a point.
 import { dayText, exportMarkdown, type PathEvent } from "./compare";
-import { dayKey, dayToUnit, epicStatus, epicWindowText, fmtDate, goalText, progressSignal, progressText, releasePace, releaseProgress, unitToDate, windowLabel, type EpicStatusCode } from "./epic-tools.js";
+import { dayKey, dayToUnit, epicStatus, epicWindowText, fmtDate, goalText, progressSignal, progressText, releaseForecastText, releasePace, releaseProgress, unitToDate, windowLabel, type EpicStatusCode } from "./epic-tools.js";
 import { REASON_LABEL, type ReasonCode } from "./events";
 import type { Plan, PlanTask } from "./merge";
 
@@ -22,12 +22,14 @@ const progressLine = (t: PlanTask, s: { code: string; done: number; elapsed: num
   ((t.progress?.pointsTotal ?? 0) > 0 ? (t.progress!.pointsDone ?? 0) + " av " + t.progress!.pointsTotal + " poeng" : (t.progress?.pct ?? 0) + " %") +
   " · " + progressText(t, s) + " · " + COLOUR[s.code] + (windowLabel(t) ? " · leveres " + windowLabel(t) : "");
 const dayWords = (day: string) => fmtDate(unitToDate(dayToUnit(day)));
-/** The releases the sprint works towards (R11): not out yet, or out since the period's first event; the tempo in words when read. */
+/** The releases the sprint works towards (R11): not out yet, or out since the period's first event; the tempo in words when read, and the chance (R12). */
 function releaseLines(plan: Plan, path: PathEvent[], todayDay: string): string[] {
   const since = path.length ? path.map((e) => e.at.slice(0, 10)).sort()[0] : null;
   return (plan.releases ?? []).filter((r) => !r.shippedDate || (since !== null && r.shippedDate >= since)).map((r) => {
     const pace = releasePace(plan, r, todayDay);
-    return "- " + r.version + ": " + (r.shippedDate ? "skippet " + dayWords(r.shippedDate) : "mål " + dayWords(r.targetDate)) + " · " + releaseProgress(r).text + (pace ? " · " + pace.text + " · " + COLOUR[pace.code] : "");
+    const fc = releaseForecastText(r, todayDay), f = r.ado?.forecast;   // R12: the chance, when Capacity gave one
+    const chance = fc?.short && f && "p" in f ? " · " + fc.short + " (forventet " + f.mean + " av " + f.need + " SP)" : "";
+    return "- " + r.version + ": " + (r.shippedDate ? "skippet " + dayWords(r.shippedDate) : "mål " + dayWords(r.targetDate)) + " · " + releaseProgress(r).text + (pace ? " · " + pace.text + " · " + COLOUR[pace.code] : "") + chance;
   });
 }
 

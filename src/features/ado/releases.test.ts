@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { AdoClient, AdoWorkItem } from "./client";
+import type { AdoCapacity, AdoClient, AdoWorkItem } from "./client";
+import { AdoRequestError } from "./client";
 import { historyWith, refreshReleases, releaseItemOf, releaseQueryUrl, releaseWiql, sprintUnlabelledWiql } from "./releases";
 import { normalizePlan } from "@/features/timeline/epic-tools.js";
 import type { Plan } from "@/features/timeline/merge";
@@ -27,17 +28,29 @@ const ITEMS: AdoWorkItem[] = [
   wi(4777, "Bug", "No label yet", "Active", 2, "", S71),
   wi(4700, "Bug", "Closed, no label", "Closed", 1, "", S71),
 ];
-function fake() {
+// R12: Sprint 70 finished with GO resolving 2 points every working day; Sprint 71's Capacity is whatever the test passes
+const PAST: AdoWorkItem[] = [];
+for (const c = new Date("2026-09-21T12:00:00Z"); c.toISOString() < "2026-10-03"; c.setUTCDate(c.getUTCDate() + 1)) {
+  if (c.getUTCDay() % 6) PAST.push({ id: 9000 + PAST.length, fields: { "System.WorkItemType": "Bug", "System.State": "Closed", "Microsoft.VSTS.Scheduling.StoryPoints": 2, "Microsoft.VSTS.Common.ResolvedDate": c.toISOString(), "Microsoft.VSTS.Common.ResolvedReason": "Fixed", "System.AssignedTo": { displayName: "Gjermund Østby", uniqueName: "GO@Skytale.no" } } });
+}
+const GO_FULL: AdoCapacity = { teamMember: { displayName: "Gjermund Østby", uniqueName: "GO@Skytale.no" }, activities: [{ name: "Development", capacityPerDay: 7.5 }], daysOff: [] };
+function fake(capacity: AdoCapacity[] = [], failCapacity?: Error) {
   const calls: string[] = [];
-  const client: Pick<AdoClient, "wiql" | "batch"> = {
+  const client: Pick<AdoClient, "wiql" | "batch" | "capacities" | "iterations"> = {
+    capacities: async (id) => { calls.push("capacities " + id); if (failCapacity) throw failCapacity; return { members: id === "s71" ? capacity : [], teamDaysOff: [] }; },
+    iterations: async () => { calls.push("iterations"); return { name: "Skytale", children: [
+      { name: "Sprint 70", identifier: "s70", attributes: { startDate: "2026-09-21T00:00:00Z", finishDate: "2026-10-02T00:00:00Z" } },
+      { name: "Sprint 71", identifier: "s71", attributes: { startDate: "2026-10-05T00:00:00Z", finishDate: "2026-10-23T00:00:00Z" } },
+    ] }; },
     wiql: async (q) => {
       calls.push(q);
+      if (/ResolvedDate/.test(q)) return PAST.map((w) => w.id);
       const path = /\[System\.IterationPath\] = '([^']*)'/.exec(q)?.[1];
       if (path) return ITEMS.filter((w) => w.fields["System.IterationPath"] === path && !w.fields["Custom.Release"] && ["Bug", "User Story"].includes(String(w.fields["System.WorkItemType"])) && !["Closed", "Removed"].includes(String(w.fields["System.State"]))).map((w) => w.id);
       const label = /\[Custom\.Release\] = '([^']*)'/.exec(q)?.[1];
       return ITEMS.filter((w) => w.fields["Custom.Release"] === label && w.fields["System.State"] !== "Removed").map((w) => w.id);
     },
-    batch: async (ids) => { calls.push("batch " + ids.join(",")); return ids.map((id) => ITEMS.find((w) => w.id === id)).filter((w): w is AdoWorkItem => !!w); },
+    batch: async (ids) => { calls.push("batch " + ids.join(",")); return ids.map((id) => ITEMS.find((w) => w.id === id) ?? PAST.find((w) => w.id === id)).filter((w): w is AdoWorkItem => !!w); },
   };
   return { client, calls };
 }
@@ -56,15 +69,33 @@ describe("refreshReleases (R10 + R11)", () => {
       { id: 4769, type: "Bug", title: "Group call drop", state: "Resolved", points: 5, assignee: null, iteration: "Sprint 72", delivered: "2026-10-11" },
       { id: 4804, type: "User Story", title: "Receipts", state: "New", points: 3, assignee: null, iteration: "Sprint 71" },
       { id: 4817, type: "User Story", title: "Otel", state: "Closed", points: 3, assignee: null, iteration: "Sprint 71", delivered: "2026-10-09" },   // resolved, not closed: delivered is when the work was done
-    ], history: [{ day: DAY, pointsDone: 8, pointsTotal: 19, done: 2, total: 4 }], sprints: [{ name: "Sprint 71", unlabelled: 1 }, { name: "Sprint 72", unlabelled: 0 }] });
+    ], history: [{ day: DAY, pointsDone: 8, pointsTotal: 19, done: 2, total: 4 }], sprints: [{ name: "Sprint 71", unlabelled: 1 }, { name: "Sprint 72", unlabelled: 0 }],
+      forecast: { day: DAY, missing: "capacity", sprints: ["Sprint 71"], unplanned: 0 } });   // R12: Sprint 71 has no Capacity in this fake
     expect(a.v).toBe(2);
-    expect(r.plan.releases![1].ado).toEqual({ at: NOW.toISOString(), label: "2.0.2", items: [{ id: 4999, type: "Bug", title: "Other", state: "New", points: 2, assignee: null }], history: [{ day: DAY, pointsDone: 0, pointsTotal: 2, done: 0, total: 1 }], sprints: [{ name: "Sprint 71", unlabelled: 1 }] });
+    expect(r.plan.releases![1].ado).toEqual({ at: NOW.toISOString(), label: "2.0.2", items: [{ id: 4999, type: "Bug", title: "Other", state: "New", points: 2, assignee: null }], history: [{ day: DAY, pointsDone: 0, pointsTotal: 2, done: 0, total: 1 }], sprints: [{ name: "Sprint 71", unlabelled: 1 }],
+      forecast: { day: DAY, missing: "capacity", sprints: ["Sprint 71"], unplanned: 13 } });   // 26.10–11.11 lies in no sprint
     expect(r.read).toEqual({ releases: 2, items: 5 });
     expect(r.events.map((e) => [e.code, e.targetType, e.targetId, e.targetLabel, e.cause, e.summary])).toEqual([
       ["release.lest", "release", "r1", "Release 2.0.1", "ado", "Lest fra ADO: 2 bugs, 2 stories · 8/19 SP levert"],
       ["release.lest", "release", "r2", "Release 2.0.2", "ado", "Lest fra ADO: 1 bug, 0 stories · 0/2 SP levert"],
     ]);
     expect(calls.filter((c) => c.startsWith("SELECT")).length).toBe(4);   // two labels, two sprint paths (the current sprint's count is shared by both releases)
+  });
+  it("R12: with Capacity the release keeps the chance it is done by its target day, and the day's point keeps the chance and the mean", async () => {
+    const { client, calls } = fake([GO_FULL]);
+    const r = await refreshReleases(plan(), client, NOW);
+    const a = r.plan.releases![0].ado!;   // 11 SP left; GO does 2 a day and has eight days (12.–21.10)
+    expect(a.forecast).toEqual({ day: DAY, need: 11, days: 8, p: 1, mean: 16, p10: 16, p90: 16, people: [{ name: "Gjermund Østby", days: 8, pace: 2, expected: 16 }], basis: ["Sprint 70"], capacity: ["Sprint 71"] });
+    expect(a.history).toEqual([{ day: DAY, pointsDone: 8, pointsTotal: 19, done: 2, total: 4, forecast: { p: 1, mean: 16 } }]);
+    expect(calls.filter((c) => /ResolvedDate/.test(c)).length).toBe(1);   // the past is read once for both releases
+    const again = await refreshReleases(r.plan, client, new Date("2026-10-12T15:00:00.000Z"));
+    expect(again.plan.releases![0].v).toBe(r.plan.releases![0].v);   // the same data gives the same number: nothing to bump
+  });
+  it("R12: a failing Capacity read leaves the release read intact, without a forecast; a rejected token still stops it", async () => {
+    const r = await refreshReleases(plan(), fake([GO_FULL], new AdoRequestError(403, "no access to the team")).client, NOW);
+    expect(r.plan.releases![0].ado!.items.length).toBe(4);
+    expect(r.plan.releases![0].ado!).not.toHaveProperty("forecast");
+    await expect(refreshReleases(plan(), fake([GO_FULL], new AdoRequestError(401, "token")).client, NOW)).rejects.toMatchObject({ status: 401 });
   });
   it("a second read the same day with nothing changed bumps nothing and logs nothing but moves the read time; a new day adds a point and bumps", async () => {
     const { client } = fake();

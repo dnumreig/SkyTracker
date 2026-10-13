@@ -8,7 +8,7 @@ import { relTarget } from "./plan-mappers";
 export function parseSprints(root: IterationNode): Sprint[] {
   return (root.children ?? [])
     .filter((c) => /^Sprint \d+/.test(c.name) && c.attributes?.startDate && c.attributes?.finishDate)
-    .map((c) => ({ name: c.name, path: ADO_PROJECT + "\\" + c.name, start: c.attributes!.startDate!.slice(0, 10), finish: c.attributes!.finishDate!.slice(0, 10) }))
+    .map((c) => ({ name: c.name, path: ADO_PROJECT + "\\" + c.name, start: c.attributes!.startDate!.slice(0, 10), finish: c.attributes!.finishDate!.slice(0, 10), ...(c.identifier ? { id: c.identifier } : {}) }))
     .sort((a, b) => a.start.localeCompare(b.start));
 }
 
