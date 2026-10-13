@@ -281,6 +281,7 @@
   .axis .release.pace-gul .fill{background:var(--pace-gul)}
   .axis .release.pace-rod .fill{background:var(--pace-rod)}
   .chart .release-line{position:absolute;top:76px;bottom:0;width:0;border-left:2px dashed var(--release);opacity:.55;z-index:3;pointer-events:none}
+  .chart .release-line::after{content:attr(data-v);position:absolute;bottom:2px;left:4px;font-size:10px;line-height:14px;font-weight:600;color:var(--text-3);background:var(--surface);padding:0 4px;border-radius:3px;white-space:nowrap}   /* R14: the version at the bottom too */
   .chart .release-line.shipped{border-left-style:solid;opacity:.35}
   .sw.release{width:16px;height:10px;border:1px solid var(--release);border-left-style:dashed;background:var(--release-bg)}
   .rel-h{font-size:12px;font-weight:600;color:var(--text-2);margin:14px 0 4px;text-transform:uppercase;letter-spacing:.04em}
@@ -401,6 +402,12 @@
   .ed-field[hidden]{display:none}
   .ed-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
   .ed-row .ed-field{flex:1;min-width:140px}
+  .ed-tabs{display:flex;gap:2px;border-bottom:1px solid var(--line-soft)}   /* R14: the feature editor in two tabs */
+  .ed-tabs button{border:1px solid transparent;border-bottom:2px solid transparent;border-radius:0;background:none;padding:6px 12px;margin-bottom:-1px;color:var(--text-3);font-size:13px}
+  .ed-tabs button:hover{color:var(--text);border-color:transparent;border-bottom-color:var(--line);background:none}
+  .ed-tabs button.on{color:var(--text);border-bottom-color:var(--accent);font-weight:600}
+  .ed-panel{display:grid;gap:14px}
+  .ed-panel[hidden]{display:none}
   .ed-kind{display:flex;gap:6px;flex-wrap:wrap}
   .ed-kind button{padding:6px 10px}
   .ed-kind button.on[data-c],.ed-kind button.on[data-t],.ed-kind button.on[data-a]{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -751,7 +758,7 @@
   <div class="drawer-body" id="relBody"></div>
   <div class="drawer-foot" style="gap:8px;flex-wrap:wrap">
     <button id="relEdit" title="Versjon, måldato, skippet, ADO-label og notat">Rediger…</button>
-    <button id="relRefresh" hidden title="Les bugs og stories med labelen fra ADO (leser også features og stories)">Oppdater fra ADO</button>
+    <button id="relRefresh" hidden title="Les bugs og stories med denne releasens label fra ADO; resten av planen røres ikke">Oppdater fra ADO</button>
     <a id="relOpen" class="btn-link" href="#" target="_blank" rel="noopener" title="Samme spørring i ADO">Åpne i ADO ↗</a>
   </div>
 </aside>
@@ -767,49 +774,57 @@
       <div class="ed-body">
         <label class="ed-field"><span>Navn</span><input id="edName" type="text"></label>
         <label class="ed-field"><span>Epic</span><select id="edLane"></select></label>
-        <div class="ed-field"><span>Type</span>
-          <div class="ed-kind" id="edKind">
-            <button type="button" data-k="discovery">Utredning – sluttdato</button>
-            <button type="button" data-k="estimate">Estimert – spenn i uker</button>
+        <div class="ed-tabs" id="edTabs" role="tablist">
+          <button type="button" class="on" data-tab="plan" role="tab" aria-selected="true">Plan</button>
+          <button type="button" data-tab="om" role="tab" aria-selected="false">Om featuren</button>
+        </div>
+        <div class="ed-panel" id="edTabPlan" role="tabpanel">
+          <div class="ed-field"><span>Type</span>
+            <div class="ed-kind" id="edKind">
+              <button type="button" data-k="discovery">Utredning – sluttdato</button>
+              <button type="button" data-k="estimate">Estimert – spenn i uker</button>
+            </div>
+          </div>
+          <div class="ed-row">
+            <label class="ed-field"><span>Start</span><input id="edStart" type="date"></label>
+            <div class="ed-field" id="edClassRow"><span>Utredningsklasse</span><div class="ed-kind" id="edClass"><button data-c="S">S · 1 uke</button><button data-c="M">M · 2 uker</button><button data-c="L">L · 4 uker</button><button data-c="XL">XL · 6 uker</button></div></div>
+            <label class="ed-field" id="edEndField"><span>Utredning ferdig</span><input id="edEnd" type="date"></label>
+            <label class="ed-field" id="edLikelyField"><span>Sannsynlig (uker)</span><input id="edLikely" type="number" min="1" step="1"></label>
+            <label class="ed-field" id="edLateField"><span>Senest (uker)</span><input id="edLate" type="number" min="1" step="1"></label>
+          </div>
+          <div class="ed-row">
+            <label class="ed-field"><span>Eier (initialer)</span><input id="edOwner" type="text" placeholder="THM"></label>
+            <label class="ed-field" id="edBufferField"><span>Buffer (uker)</span><input id="edBuffer" type="number" min="0" step="1"></label>
+          </div>
+          <label class="ed-check"><input type="checkbox" id="edFixed"> Fast dato – køen flytter den aldri; flyttes sluttdatoen, spørres det etter en ekstern grunn</label>
+          <label class="ed-check" id="edQueueField"><input type="checkbox" id="edQueue"> Følger køen – starter automatisk etter blokkere og eierens tidligere arbeid (av = dratt foran køen med vilje)</label>
+          <div class="ed-row" id="edPullRow"><button class="ghost" type="button" id="edPull" title="Henter likely/late fra estimate.yaml i spec-mappen (Skytale.Specs)">Hent estimat fra utredningen</button><span class="md" id="edPullNote"></span></div>
+          <div class="ed-row" id="edProgRow">
+            <label class="ed-field"><span>Fremdrift: poeng gjort</span><input id="edDone" type="number" min="0" step="1"></label>
+            <label class="ed-field"><span>poeng totalt</span><input id="edTotal" type="number" min="0" step="1"></label>
+            <label class="ed-field"><span>eller prosent</span><input id="edPct" type="number" min="0" max="100" step="1"></label>
+          </div>
+          <div class="md" id="edProgNote"></div>
+          <div class="ed-field"><span>Venter på (blokkere)</span><div class="ed-deps" id="edDeps"></div></div>
+          <div class="ed-row"><button class="ghost" type="button" id="edLink">Koble avhengighet …</button></div>
+          <div class="ed-row" id="edLifecycleRow" hidden><button class="ghost" type="button" id="edDeliver" title="Uten ADO-kobling settes leveringen her">Marker levert …</button><button class="ghost" type="button" id="edRestart" title="Utredes på nytt: spennet slippes, det rå estimatet beholdes">Tilbake til utredning …</button><span class="md" id="edLifecycleNote"></span></div>
+        </div>
+        <div class="ed-panel" id="edTabOm" role="tabpanel" hidden>
+          <label class="ed-field"><span>Beskrivelse</span><textarea id="edDesc" rows="3" placeholder="Hva featuren er, slik ADO skal vise det"></textarea></label>
+          <div class="ed-row">
+            <div class="ed-field"><span>Art</span><div class="ed-kind" id="edType"><button data-t="feature">Feature</button><button data-t="teknisk">Teknisk</button><button data-t="vedlikehold">Vedlikehold</button></div></div>
+            <div class="ed-field"><span>Flater</span><div class="ed-kind" id="edAreas"><button data-a="Backend">Backend</button><button data-a="Frontend">Frontend</button><button data-a="iOS">iOS</button><button data-a="Android">Android</button><button data-a="Desktop">Desktop</button><button data-a="Admin">Admin</button></div></div>
+          </div>
+          <div class="ed-row">
+            <label class="ed-field"><span>ADO-id (Feature)</span><input id="edAdo" type="number" min="1" step="1" placeholder="f.eks. 4742"></label>
+            <label class="ed-field"><span>Spec-mappe i Skytale.Specs</span><input id="edSpec" type="text" placeholder="f.eks. Threading"></label>
           </div>
         </div>
-        <div class="ed-row">
-          <label class="ed-field"><span>Start</span><input id="edStart" type="date"></label>
-          <div class="ed-field" id="edClassRow"><span>Utredningsklasse</span><div class="ed-kind" id="edClass"><button data-c="S">S · 1 uke</button><button data-c="M">M · 2 uker</button><button data-c="L">L · 4 uker</button><button data-c="XL">XL · 6 uker</button></div></div>
-          <label class="ed-field" id="edEndField"><span>Utredning ferdig</span><input id="edEnd" type="date"></label>
-          <label class="ed-field" id="edLikelyField"><span>Sannsynlig (uker)</span><input id="edLikely" type="number" min="1" step="1"></label>
-          <label class="ed-field" id="edLateField"><span>Senest (uker)</span><input id="edLate" type="number" min="1" step="1"></label>
-        </div>
-        <div class="ed-row">
-          <label class="ed-field"><span>ADO-id (Feature)</span><input id="edAdo" type="number" min="1" step="1" placeholder="f.eks. 4742"></label>
-          <label class="ed-field"><span>Spec-mappe i Skytale.Specs</span><input id="edSpec" type="text" placeholder="f.eks. Threading"></label>
-        </div>
-        <div class="ed-row">
-          <label class="ed-field"><span>Eier (initialer)</span><input id="edOwner" type="text" placeholder="THM"></label>
-          <label class="ed-field" id="edBufferField"><span>Buffer (uker)</span><input id="edBuffer" type="number" min="0" step="1"></label>
-        </div>
-        <label class="ed-field"><span>Beskrivelse</span><textarea id="edDesc" rows="3" placeholder="Hva featuren er, slik ADO skal vise det"></textarea></label>
-        <div class="ed-row">
-          <div class="ed-field"><span>Type</span><div class="ed-kind" id="edType"><button data-t="feature">Feature</button><button data-t="teknisk">Teknisk</button><button data-t="vedlikehold">Vedlikehold</button></div></div>
-          <div class="ed-field"><span>Flater</span><div class="ed-kind" id="edAreas"><button data-a="Backend">Backend</button><button data-a="Frontend">Frontend</button><button data-a="iOS">iOS</button><button data-a="Android">Android</button><button data-a="Desktop">Desktop</button><button data-a="Admin">Admin</button></div></div>
-        </div>
-        <label class="ed-check"><input type="checkbox" id="edFixed"> Fast dato – køen flytter den aldri; flyttes sluttdatoen, spørres det etter en ekstern grunn</label>
-        <label class="ed-check" id="edQueueField"><input type="checkbox" id="edQueue"> Følger køen – starter automatisk etter blokkere og eierens tidligere arbeid (av = dratt foran køen med vilje)</label>
-        <div class="ed-row" id="edPullRow"><button class="ghost" type="button" id="edPull" title="Henter likely/late fra estimate.yaml i spec-mappen (Skytale.Specs)">Hent estimat fra utredningen</button><span class="md" id="edPullNote"></span></div>
         <div class="ed-row" id="edPushRow" hidden>
           <button class="ghost" type="button" id="edPush" title="Lagrer, og oppretter eller oppdaterer featuren i ADO som deg">Lagre og push til ADO</button>
           <button class="text" type="button" id="edPushDry" title="Viser hva som ville blitt skrevet til ADO, uten å sende">Lagre og tørrkjør</button>
           <span class="md" id="edAdoNote"></span>
         </div>
-        <div class="ed-row" id="edProgRow">
-          <label class="ed-field"><span>Fremdrift: poeng gjort</span><input id="edDone" type="number" min="0" step="1"></label>
-          <label class="ed-field"><span>poeng totalt</span><input id="edTotal" type="number" min="0" step="1"></label>
-          <label class="ed-field"><span>eller prosent</span><input id="edPct" type="number" min="0" max="100" step="1"></label>
-        </div>
-        <div class="md" id="edProgNote"></div>
-        <div class="ed-field"><span>Venter på (blokkere)</span><div class="ed-deps" id="edDeps"></div></div>
-        <div class="ed-row"><button class="ghost" type="button" id="edLink">Koble avhengighet …</button></div>
-        <div class="ed-row" id="edLifecycleRow" hidden><button class="ghost" type="button" id="edDeliver" title="Uten ADO-kobling settes leveringen her">Marker levert …</button><button class="ghost" type="button" id="edRestart" title="Utredes på nytt: spennet slippes, det rå estimatet beholdes">Tilbake til utredning …</button><span class="md" id="edLifecycleNote"></span></div>
       </div>
     </div>
     <div class="modal-foot">
@@ -1242,6 +1257,7 @@ window.__bootTimeline = function(){
     segs.forEach(sg => {   // release-linjen: der featurene i releasen ender
       if(sg.end < VIEW_FROM || sg.end > N_MONTHS) return;
       const ln = el('div', 'release-line' + (sg.shipped ? ' shipped' : ''));
+      ln.dataset.v = sg.release.version;   // R14: the line's label at the bottom of the chart
       ln.style.left = x(sg.end) + 'px';
       chart.appendChild(ln);
     });
@@ -1526,6 +1542,7 @@ window.__bootTimeline = function(){
     const nfc = nx ? releaseForecastText(nx.release, dayKey(new Date())) : null;   // R12: and the chance
     const rel = $('stRelease');
     rel.hidden = !nx;
+    if(!nx) rel.innerHTML = '';   // a hidden part must not keep its words: the strip's text is read as a whole
     if(nx){
       rel.title = 'Neste release: hvor langt unna, andel levert, tempo-fargen og sjansen for å bli ferdig til målet';
       rel.innerHTML = (nx.code ? '<i class="st-' + nx.code + '"></i>' : '') + esc(nx.text + (nfc && nfc.short ? ' · ' + nfc.short : ''));
@@ -2172,10 +2189,16 @@ window.__bootTimeline = function(){
     $('edLikelyField').hidden = disc;
     $('edLateField').hidden = disc;
   }
+  function showEdTab(k){   // R14: Plan or Om featuren; the editor always opens on Plan
+    $('edTabs').querySelectorAll('button').forEach(b => { const on = b.dataset.tab === k; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    $('edTabPlan').hidden = k !== 'plan'; $('edTabOm').hidden = k !== 'om';
+  }
+  $('edTabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if(b) showEdTab(b.dataset.tab); });
   function openEditor(id){
     const t = getTask(id);
     if(!t) return;
     editorTaskId = id;
+    showEdTab('plan');
     $('edTitle').textContent = t.kind === 'discovery' ? 'Rediger utredning' : 'Rediger feature';
     $('edDates').textContent = rangeText(t);
     $('edName').value = t.label;
@@ -2582,7 +2605,19 @@ window.__bootTimeline = function(){
   }
   $('relClose').addEventListener('click', () => { relDrawer.hidden = true; });
   $('relEdit').addEventListener('click', () => openReleaseEditor(releaseKey));
-  $('relRefresh').addEventListener('click', async () => { await refreshFromAdo(); renderReleaseDrawer(); });
+  $('relRefresh').addEventListener('click', async () => {   // R14: only this release's label, not the whole plan
+    const r = (state.releases || []).find(x => x.key === releaseKey); if(!r) return;
+    try{
+      setSaveNote('leser fra ADO…');
+      const j = await adoCall('api/ado-releases', { release: r.key });
+      if(j.data && !pendingSave && !drag) applyRemote(j.data, j.version);
+      setSaveNote(j.unchanged ? 'lest fra ADO: release ' + r.version + ' uendret' : 'lest fra ADO: release ' + r.version + ' · ' + ((j.read && j.read.items) || 0) + ' items');
+      renderReleaseDrawer(); refreshHistoryBadge();
+    }catch(e){
+      if(e.message === 'ado-login') setSaveNote('ADO: logg inn på nytt');
+      else { setSaveNote(''); askDialog('Oppdater fra ADO', e.message, {confirmText:'OK', noCancel:true}); }
+    }
+  });
   function openReleaseEditor(key){
     relEditKey = key;
     const r = key ? getRelease(key) : null;
