@@ -135,15 +135,16 @@
   </div>
 </header>
 <div class="wrap">
-  <p class="hint">Hvert kort er en feature i Tidslinjen, og kolonnene er livssyklusen. Dra et kort til neste kolonne: <b>Utredes</b> spør etter eier og størrelse, <b>Klar for veikart</b> etter byggetiden, <b>Aktiv</b> etter epicen. <b>Levert</b> settes fra ADO. Klikk et kort for å redigere beskrivelse, type, flater, fast dato, estimatet (uker og buffer) og hva den venter på; en utredning får «Klar for veikart …» der.</p>
+  <p class="hint">Hvert kort er en feature i Tidslinjen, og kolonnene er livssyklusen. Dra et kort til neste kolonne: <b>Utredes</b> spør etter eier og størrelse, <b>Klar for veikart</b> etter byggetiden, <b>Aktiv</b> etter epicen. <b>Levert</b> settes fra ADO; et kort uten ADO-kobling dras til Levert og får dagen. Fra Klar for veikart og Aktiv kan et kort dras tilbake til <b>Utredes</b>. Klikk et kort for å redigere beskrivelse, type, flater, fast dato, epicen det ligger i, estimatet (uker og buffer) og hva den venter på; en utredning får «Klar for veikart …» der.</p>
   <div class="cols" id="cols"></div>
 </div>
 <div class="note" id="note"></div>
 
 <div class="modal-back" id="startBack"><div class="modal" style="width:min(520px,100%)">
-  <div class="modal-head"><div><h2>Start utredning</h2><div class="md" id="startSub">Én eier og en størrelse. Sluttdatoen regnes ut og kan justeres.</div></div></div>
+  <div class="modal-head"><div><h2 id="startTitle">Start utredning</h2><div class="md" id="startSub">Én eier og en størrelse. Sluttdatoen regnes ut og kan justeres.</div></div></div>
   <div class="modal-body"><div class="ed-body"><div class="ed-row">
     <label class="ed-field"><span>Eier (initialer)</span><input id="startOwner" type="text" placeholder="THM"></label>
+    <label class="ed-field"><span>Epic</span><select id="startLane"></select></label>
     <div class="ed-field"><span>Størrelse</span><div class="ed-kind" id="startClass"><button data-c="S">S · 1 uke</button><button data-c="M" class="on">M · 2 uker</button><button data-c="L">L · 4 uker</button><button data-c="XL">XL · 6 uker</button></div></div>
     <label class="ed-field"><span>Utredning ferdig</span><input id="startEnd" type="date"></label>
   </div></div></div>
@@ -171,6 +172,7 @@
     <div class="ed-row">
       <label class="ed-field"><span>Navn</span><input id="edName" type="text"></label>
       <label class="ed-field" style="max-width:160px"><span>Eier (initialer)</span><input id="edOwner" type="text" placeholder="THM"></label>
+      <label class="ed-field" style="max-width:260px"><span>Epic</span><select id="edLane"></select></label>
     </div>
     <label class="ed-field"><span>Beskrivelse</span><textarea id="edDesc" placeholder="Hva featuren er, slik ADO skal vise det"></textarea></label>
     <div class="ed-row">
@@ -242,7 +244,7 @@ window.__bootBoard = function(){
   function toast(msg){ const n = $('note'); n.textContent = msg; n.classList.add('show'); clearTimeout(noteTimer); noteTimer = setTimeout(() => n.classList.remove('show'), 2600); }
 
   /* ---------- the board ---------- */
-  const colOf = t => t.state === 'levert' ? 'levert' : t.state === 'ny' ? 'ny' : t.state === 'utredes' ? 'utredes' : t.lane === BACKLOG ? 'klar' : 'aktiv';
+  const colOf = boardColumn;   // the shared rule (epic-tools, R13)
   function cardHtml(t){
     const lane = t.lane === BACKLOG ? null : getLane(t.lane);
     const chips = [];
@@ -273,25 +275,19 @@ window.__bootBoard = function(){
   $('cols').addEventListener('dragend', () => { dragId = null; document.querySelectorAll('.col.over, .col.no').forEach(c => c.classList.remove('over', 'no')); document.querySelectorAll('.card.dragging').forEach(c => c.classList.remove('dragging')); });
   $('cols').addEventListener('dragover', e => { const col = e.target.closest('.col'); if(!col || !dragId) return; e.preventDefault(); document.querySelectorAll('.col.over, .col.no').forEach(c => c.classList.remove('over', 'no')); col.classList.add(allowed(getTask(dragId), col.dataset.col) ? 'over' : 'no'); });
   $('cols').addEventListener('drop', e => { const col = e.target.closest('.col'); if(!col) return; e.preventDefault(); const id = dragId || e.dataTransfer.getData('text/plain'); dragId = null; document.querySelectorAll('.col.over, .col.no').forEach(c => c.classList.remove('over', 'no')); const t = getTask(id); if(!t) return; dropOn(t, col.dataset.col); });
-  function allowed(t, to){
-    if(!t || !canWrite) return false;
-    const from = colOf(t);
-    if(from === to) return false;
-    if(to === 'levert') return false;
-    if(to === 'ny') return false;
-    if(from === 'ny') return to === 'utredes';
-    if(from === 'utredes') return to === (t.lane === BACKLOG ? 'klar' : 'aktiv');
-    if(from === 'klar') return to === 'aktiv';
-    if(from === 'aktiv') return to === 'klar';
-    return false;
-  }
+  function allowed(t, to){ return !!t && canWrite && featureTransition(t, to); }   // R13: one step forward, back to the shelf or to discovery, delivered by hand only without ADO
   function dropOn(t, to){
     if(!allowed(t, to)){
-      toast(to === 'levert' ? '«Levert» settes fra ADO når stories er lukket.' : to === 'ny' ? 'Et ønske går ikke tilbake til Registrert. Slett det i Tidslinjen om det var feil.'
-        : colOf(t) === 'utredes' && t.lane !== BACKLOG && to === 'klar' ? 'Utredningen ligger i en epic: dra den rett til Aktiv.' : 'Den overgangen finnes ikke: ett steg om gangen.');
+      const from = colOf(t);
+      toast(to === 'levert' ? (t.adoId ? '#' + t.adoId + ' er koblet til ADO: lukk den der, så henter «Oppdater fra ADO» leveringen.' : 'Den er alt levert.')
+        : to === 'ny' ? 'Et ønske går ikke tilbake til Registrert. Slett det i Tidslinjen om det var feil.'
+        : from === 'utredes' && t.lane !== BACKLOG && to === 'klar' ? 'Utredningen ligger i en epic: dra den rett til Aktiv.'
+        : from === 'utredes' && t.lane === BACKLOG && to === 'aktiv' ? 'Utredningen ligger på hylla: velg epic i «Rediger kort», eller gjør den klar for veikart først.'
+        : 'Den overgangen finnes ikke.');
       return;
     }
-    if(to === 'utredes') openStart(t.id);
+    if(to === 'utredes') openStart(t.id);   // from Registrert, or back from Klar for veikart / Aktiv (R13)
+    else if(to === 'levert') markDeliveredDialog(t.id);   // R13: without ADO
     else if(to === 'klar' && colOf(t) === 'utredes') openReady(t.id);
     else if(to === 'aktiv' && colOf(t) === 'utredes') openReady(t.id);   // inside an epic: the span makes it aktiv
     else if(to === 'aktiv') openPlace(t.id);
@@ -301,7 +297,17 @@ window.__bootBoard = function(){
   /* ---------- transitions, the same rules as the timeline ---------- */
   function setStartClass(c){ startClass = c; [...$('startClass').querySelectorAll('button')].forEach(b => b.classList.toggle('on', b.dataset.c === c)); $('startEnd').value = toDateInput(todayUnit() + CLASS_WEEKS[c] * WEEK); }
   $('startClass').addEventListener('click', e => { const b = e.target.closest('button[data-c]'); if(b) setStartClass(b.dataset.c); });
-  function openStart(id){ const t = getTask(id); if(!t) return; lifecycleId = id; $('startSub').textContent = '«' + t.label + '»: én eier og en størrelse. Sluttdatoen regnes ut og kan justeres.'; $('startOwner').value = t.assignee || ''; setStartClass('M'); $('startBack').classList.add('open'); setTimeout(() => $('startOwner').focus(), 0); }
+  function openStart(id){   // also «Tilbake til utredning» (R13): an estimated feature goes back to discovery, in its epic if it had one
+    const t = getTask(id); if(!t) return; lifecycleId = id;
+    const restart = canRestartDiscovery(t);
+    $('startTitle').textContent = restart ? 'Tilbake til utredning' : 'Start utredning';
+    $('startSub').textContent = restart ? '«' + t.label + '»: spennet slippes og featuren utredes på nytt. Det rå estimatet beholdes til neste «Klar for veikart».' : '«' + t.label + '»: én eier og en størrelse. Sluttdatoen regnes ut og kan justeres.';
+    $('startOwner').value = t.assignee || '';
+    $('startLane').innerHTML = '<option value="_backlog"' + (t.lane === BACKLOG ? ' selected' : '') + '>Hylla (ingen epic)</option>' +
+      state.lanes.filter(l => l.state !== 'avsluttet' || l.key === t.lane).map(l => '<option value="' + esc(l.key) + '"' + (l.key === t.lane ? ' selected' : '') + '>' + esc(l.name) + '</option>').join('');
+    setStartClass(t.sizeClass || 'M');
+    $('startBack').classList.add('open'); setTimeout(() => $('startOwner').focus(), 0);
+  }
   $('startCancel').addEventListener('click', () => { $('startBack').classList.remove('open'); lifecycleId = null; });
   $('startSave').addEventListener('click', () => {
     const t = getTask(lifecycleId); if(!t){ $('startBack').classList.remove('open'); return; }
@@ -312,6 +318,7 @@ window.__bootBoard = function(){
     if(owner) t.assignee = owner; else delete t.assignee;
     touch(t, 'tid'); touch(t, 'meta'); touch(t, 'state');
     $('startBack').classList.remove('open'); lifecycleId = null;
+    if(setLane(t, $('startLane').value)) askReason([t.label + ': lagt i «' + laneName(t.lane) + '»']);   // R13: the discovery can start inside an epic
     commit();
   });
   const mixWord = () => MIX_LABEL[(state.capacity && state.capacity.mode) || 'transition'];
@@ -354,9 +361,7 @@ window.__bootBoard = function(){
     const key = $('placeLane').value, t = getTask(lifecycleId), lane = getLane(key);
     if(!key || !t || !lane){ $('placeLane').focus(); return; }
     $('placeBack').classList.remove('open'); lifecycleId = null;
-    t.lane = key; t.order = Math.max(0, ...laneTasks(key).map(v => v.order || 0)) + 1; touch(t, 'meta');
-    const r = rangeWeeks(t);
-    if(t.kind === 'estimate' && r){ t.state = 'aktiv'; t.committedRange = { likely: r.likely, late: r.late, start: t.start }; t.activatedAt = new Date().toISOString().slice(0, 10); touch(t, 'state'); }
+    if(!setLane(t, key)) return;
     pendingNote.reasonCode = 'prioritering';
     askReason([t.label + ': lagt i «' + lane.name + '»']);
     commit();
@@ -364,9 +369,32 @@ window.__bootBoard = function(){
   async function backToShelf(t){
     const lane = getLane(t.lane);
     if(!(await confirmDialog('Tilbake til hylla', 'Ta «' + t.label + '» ut av «' + (lane ? lane.name : t.lane) + '»? Den blir klar for veikart igjen, og det logges.', {confirmText:'Ta ut'}))) return;
-    t.lane = BACKLOG; t.state = 'klar'; delete t.committedRange; delete t.activatedAt; touch(t, 'meta'); touch(t, 'state');
+    setLane(t, BACKLOG);
     askReason([t.label + ': tatt ut av «' + (lane ? lane.name : t.lane) + '»']);
     commit();
+  }
+  const laneName = key => key === BACKLOG ? 'hylla' : (getLane(key) || {name: key}).name;
+  function setLane(t, key){   // R13: the same rule as Tidslinjen (applyLaneChange); the epic or the shelf, the state follows; true when it moved
+    if(!key || key === t.lane || !(getLane(key) || key === BACKLOG) || t.state === 'ny') return false;
+    const from = t.lane;
+    applyLaneChange(t, key, new Date().toISOString().slice(0, 10)).forEach(g => touch(t, g));
+    t.order = Math.max(0, ...state.tasks.filter(v => v.lane === key && v.id !== t.id).map(v => v.order || 0)) + 1;
+    if(from === BACKLOG && key !== BACKLOG) pendingNote.reasonCode = 'prioritering';   // forumet plasserer
+    return true;
+  }
+  async function markDeliveredDialog(id){   // R13: delivery by hand, only for a feature without an ADO id («Levert» is ADO's otherwise)
+    const t = getTask(id); if(!t || !canMarkDelivered(t)) return;
+    const today = dayKey(new Date());
+    let msg = 'Når ble «' + t.label + '» levert? Uten ADO-kobling settes leveringen her, og dagen logges.';
+    for(;;){
+      const v = await askDialog('Marker levert', msg, {input:'date', value: today, confirmText:'Marker levert'});
+      if(typeof v !== 'string' || !v) return;
+      if(v > today){ msg = 'Leveringsdagen kan ikke være frem i tid. Når ble «' + t.label + '» levert?'; continue; }
+      markDelivered(t, v).forEach(g => touch(t, g));
+      askReason([t.label + ': markert levert ' + fmtDate(new Date(v)) + ' uten ADO']);
+      commit();
+      return;
+    }
   }
 
   /* ---------- the card editor: the four attributes, name and owner ---------- */
@@ -392,6 +420,9 @@ window.__bootBoard = function(){
     const lane = t.lane === BACKLOG ? null : getLane(t.lane);
     $('edSub').textContent = (lane ? 'I «' + lane.name + '»' : 'På hylla') + ' · ' + (STATE_LABEL[t.state] || t.state) + (t.adoId ? ' · ADO #' + t.adoId : '');
     $('edName').value = t.label; $('edOwner').value = t.assignee || ''; $('edDesc').value = t.description || '';
+    $('edLane').innerHTML = '<option value="_backlog"' + (t.lane === BACKLOG ? ' selected' : '') + '>Hylla (ingen epic)</option>' +   // R13: the same rule as Tidslinjen's editor
+      state.lanes.filter(l => l.state !== 'avsluttet' || l.key === t.lane).map(l => '<option value="' + esc(l.key) + '"' + (l.key === t.lane ? ' selected' : '') + '>' + esc(l.name) + '</option>').join('');
+    $('edLane').disabled = !canWrite || t.state === 'ny' || t.state === 'levert';
     edType = t.type || 'feature'; edAreas = new Set(t.areas || []); paintEdAttrs(); $('edFixed').checked = !!t.fixedEnd;
     const est = t.kind === 'estimate' && t.state !== 'levert';
     $('edReadyRow').hidden = !(canWrite && t.kind === 'discovery' && t.state === 'utredes');
@@ -431,6 +462,7 @@ window.__bootBoard = function(){
       if(r2 && (r2.late > r0.late || r2.likely > r0.likely)) lines.push(t.label + ': spenn ' + spanText(r0) + ' → ' + spanText(r2) + ' uker');   // utvidet spenn spør etter grunn, som i Tidslinjen
       if(t.fixedEnd && r2 && r2.late > r0.late) pendingNote.reasonCode = 'ekstern';
     }
+    if(setLane(t, $('edLane').value)) lines.push(t.label + ': flyttet til «' + laneName(t.lane) + '»');   // R13
     const depsNow = edDeps.filter(d => d !== t.id && getTask(d));
     if(JSON.stringify(depsNow) !== JSON.stringify(t.deps || [])){ t.deps = depsNow; touch(t, 'deps'); }
     $('editBack').classList.remove('open'); editId = null;
@@ -471,7 +503,7 @@ window.__bootBoard = function(){
     return new Promise(res => {
       dlgResolve = res;
       $('dlgTitle').textContent = title; $('dlgMsg').textContent = msg;
-      const inp = $('dlgInput'); inp.hidden = !opts.input; inp.value = ''; inp.placeholder = opts.placeholder || '';
+      const inp = $('dlgInput'); inp.hidden = !opts.input; inp.type = opts.input === 'date' ? 'date' : 'text'; inp.value = opts.value || ''; inp.placeholder = opts.placeholder || '';
       $('dlgYes').textContent = opts.confirmText || 'OK'; $('dlgYes').classList.toggle('danger', !!opts.danger);
       $('dlgBack').classList.add('open');
       if(opts.input) setTimeout(() => inp.focus(), 0);
