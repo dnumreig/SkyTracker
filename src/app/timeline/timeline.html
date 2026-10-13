@@ -285,6 +285,12 @@
   .burn .now{stroke:var(--today);stroke-width:1}
   .burn text{font-size:10px;fill:var(--text-3);font-variant-numeric:tabular-nums}
   .burn .ttl{font-size:11px;fill:var(--text-2);font-weight:600}
+  /* R12: the chance the release is done by its target day */
+  .rel-fc{margin:8px 0 2px}
+  .rel-fc .chip{font-variant-numeric:tabular-nums}
+  .rel-fc-detail{font-size:12px;color:var(--text-3);margin:4px 0 2px}
+  .rel-basis{font-size:11px;color:var(--text-4);margin:2px 0 4px;line-height:1.4}
+  .rel-fc-missing{font-size:12px;color:var(--text-3);margin:8px 0 2px;line-height:1.4}
   .rel-table{font-size:12px;color:var(--text-3);margin:2px 0 8px}
   .rel-table summary{cursor:pointer}
   .rel-table table{border-collapse:collapse;margin-top:4px;font-variant-numeric:tabular-nums}
@@ -608,8 +614,13 @@
         (feltet «Release» på bugs og stories, satt av utviklingsleder i sprintplanleggingen): «Oppdater fra ADO» leser dem inn, fyllingen
         i segmentet er poeng levert, og skuffen lister alt. En feilrettingsrelease er bare et segment; en feature-release er segmentet pluss
         featurene som ender på linjen under sine egne epics. Bugs blir aldri features. Sett «Skippet» når den er ute. <b>Fargen i segmentet er tempoet</b>:
-        grønn når dagens tempo (poeng levert per arbeidsdag siden start) rekker måldatoen, gul inntil tre arbeidsdager etter, rød senere; før to lesinger
-        på ulike dager gjelder den rette linjen fra start til mål. Skuffen viser burndown per dag, itemene per tilstand og sprint mot release. For skrivere
+        grønn når dagens tempo (poeng levert per arbeidsdag siden start) rekker måldatoen, gul inntil tre arbeidsdager etter, rød senere; før noe
+        er levert etter start gjelder den rette linjen fra start til mål, med én arbeidsdags slakk. Klokka starter ved den eldste sprinten blant itemene,
+        men aldri før første lesing som fant labelen: innholdet fantes ikke før det. Skuffen viser burndown for hver arbeidsdag (fra dagen ADO sier
+        hvert item ble løst, så en dag uten lesing gir ikke hull), itemene per tilstand og sprint mot release. <b>Sjansen</b> («44 % sjanse»)
+        regnes fra Capacity i ADO (Development-timer per dag og fridager for hver person, 7,5 t = full dag) og hver persons poeng per
+        arbeidsdag i de to siste avsluttede sprintene: 20 000 simuleringer av dagene fram til målet, der hver dag er en ekte dag fra før.
+        Hver lesing lagrer dagens sjanse, så tabellen under burndownen viser prognosen ved siden av det som skjedde. For skrivere
         leses labelene på nytt ved innlasting når siste lesing er eldre enn seks timer.</p></div>
       <div class="help-card"><h4>Fremdrift og sprintrapport</h4>
         <p><b>Fremdrift</b> skrives inn i redigeringen på dag 10 (poeng gjort av totalt, eller prosent) og tegnes som en fylling i den mørke
@@ -1175,7 +1186,8 @@ window.__bootTimeline = function(){
         const t = el('span', 't');
         t.innerHTML = (sg.shipped ? '✓ ' : '') + esc(r.version) + (wide ? ' <b>· ' + (sg.shipped ? 'skippet ' : 'mål ') + esc(fmtDate(unitToDate(sg.end))) + '</b>' : '');
         d.appendChild(t);
-        d.title = 'Release ' + r.version + ' · ' + (sg.shipped ? 'skippet ' + fmtDate(unitToDate(sg.end)) : 'mål ' + fmtDate(unitToDate(sg.end))) + ' · ' + pr.text + (pace ? '\n' + pace.text : '');
+        const fcs = sg.shipped ? null : releaseForecastText(r, dayKey(new Date()));   // R12: the chance in the tooltip
+        d.title = 'Release ' + r.version + ' · ' + (sg.shipped ? 'skippet ' + fmtDate(unitToDate(sg.end)) : 'mål ' + fmtDate(unitToDate(sg.end))) + ' · ' + pr.text + (pace ? '\n' + pace.text : '') + (fcs && fcs.short ? '\n' + fcs.text : '');
         d.addEventListener('click', () => openRelease(r.key));
         layer.appendChild(d);
       });
@@ -1477,7 +1489,8 @@ window.__bootTimeline = function(){
     state.lanes.forEach(l => { const c = epicStatus(state, l.key).code; if(n[c] !== undefined) n[c]++; else n.other++; });
     const c = epicCounts(state);   // et antall, aldri en grense: kapasitet er planleggernes vurdering
     const nx = nextReleaseText(state, dayKey(new Date()));   // R11: the next release's distance, share delivered and tempo colour
-    const relPart = nx ? '<span title="Neste release: hvor langt unna, andel levert og tempo-fargen">' + (nx.code ? '<i class="st-' + nx.code + '"></i>' : '') + esc(nx.text) + '</span>' : '';
+    const nfc = nx ? releaseForecastText(nx.release, dayKey(new Date())) : null;   // R12: and the chance
+    const relPart = nx ? '<span title="Neste release: hvor langt unna, andel levert, tempo-fargen og sjansen for å bli ferdig til målet">' + (nx.code ? '<i class="st-' + nx.code + '"></i>' : '') + esc(nx.text + (nfc && nfc.short ? ' · ' + nfc.short : '')) + '</span>' : '';
     tlSummary.innerHTML = (state.lanes.length
       ? '<span><i class="st-gronn"></i>' + n.gronn + '</span><span><i class="st-gul"></i>' + n.gul + '</span>' +
         '<span><i class="st-rod"></i>' + n.rod + '</span><span><i></i>' + (n.venter + n.other) + ' venter</span>' +
@@ -2426,7 +2439,7 @@ window.__bootTimeline = function(){
       ' · ' + pr.text + (r.ado ? ' · lest fra ADO ' + whenText(r.ado.at) : '');
   }
   const PACE_LABEL = { gronn: 'Grønn', gul: 'Gul', rod: 'Rød' };
-  function burndownSvg(d){   // R11: remaining units per reading day, the ideal line start → target, the tempo's projection, today
+  function burndownSvg(d){   // R11: today's scope left per working day, the ideal line start → target, the tempo's projection, today
     const W = 480, H = 160, L = 34, R = 14, T = 16, B = 26;
     const span = Math.max(1, calendarDays(d.axisStart, d.endDay));
     const maxY = Math.max(1, d.total, ...d.actual.map(p => p.remaining));
@@ -2451,8 +2464,22 @@ window.__bootTimeline = function(){
     if(d.endDay !== d.targetDay) s += '<text x="' + (W - R) + '" y="' + (H - 8) + '" text-anchor="end">' + esc(relDay(d.endDay)) + '</text>';
     return s + '</svg>';
   }
-  function burndownTable(d){   // the chart's table twin: every number without hovering
-    return '<details class="rel-table"><summary>Tall per dag</summary><table><tr><th>Dag</th><th>Igjen</th></tr>' + d.actual.map(p => '<tr><td>' + esc(relDay(p.day)) + '</td><td>' + p.remaining + ' ' + d.unit + '</td></tr>').join('') + '</table></details>';
+  function burndownTable(d){   // the chart's table twin: every number without hovering; R12: the chance that day, next to what happened
+    const ch = new Map((d.chances || []).map(c => [c.day, c]));
+    const head = ch.size ? '<th>Sjanse</th><th>Forventet</th>' : '';
+    const cells = day => { if(!ch.size) return ''; const c = ch.get(day); return c ? '<td>' + Math.round(c.p * 100) + ' %</td><td>' + c.mean + ' ' + d.unit + '</td>' : '<td></td><td></td>'; };
+    return '<details class="rel-table"><summary>Tall per dag</summary><table><tr><th>Dag</th><th>Igjen</th>' + head + '</tr>' + d.actual.map(p => '<tr><td>' + esc(relDay(p.day)) + '</td><td>' + p.remaining + ' ' + d.unit + '</td>' + cells(p.day) + '</tr>').join('') + '</table></details>';
+  }
+  const dec = n => String(n).replace('.', ',');
+  function forecastBlock(r, todayDay){   // R12: the chance in words, each person's days, pace and expected points, and what it rests on
+    const fc = releaseForecastText(r, todayDay);
+    if(!fc) return '';
+    if(!fc.short) return '<p class="rel-fc-missing" title="Sannsynligheten regnes fra Capacity i ADO">' + esc(fc.text) + '</p>';
+    const rows = (fc.people || []).map(x => '<tr><td>' + esc(x.name) + '</td><td>' + dec(x.days) + '</td><td>' + dec(x.pace) + '</td><td>' + dec(x.expected) + ' SP</td></tr>').join('');
+    return '<div class="rel-fc"><p class="rel-pace"><span class="chip" title="Andelen av 20 000 simuleringer der alt blir levert">' + esc(fc.short) + '</span><span>' + esc(fc.text.slice(fc.short.length + 1)) + '</span></p>' +
+      '<p class="rel-fc-detail">' + esc(fc.detail) + '</p>' +
+      (rows ? '<details class="rel-table"><summary>Per person</summary><table><tr><th>Person</th><th>Dager</th><th>SP per dag</th><th>Forventet</th></tr>' + rows + '</table></details>' : '') +
+      '<p class="rel-basis">' + esc(fc.basis) + '</p></div>';
   }
   function openRelease(key){ releaseKey = key; renderReleaseDrawer(); relDrawer.hidden = false; }
   function renderReleaseDrawer(){
@@ -2470,11 +2497,13 @@ window.__bootTimeline = function(){
     html += '<p class="rel-scope">Innholdet er det som har ADO-labelen <code>' + esc(releaseScope(r)) + '</code> på bugs og stories.' + (r.ado ? '' : ' Trykk «Oppdater fra ADO» for å lese det.') + '</p>';
     const todayDay = dayKey(new Date()), pace = releasePace(state, r, todayDay);   // R11: tempo, states, sprint against release, burndown
     if(pace) html += '<p class="rel-pace"><span class="chip st-' + pace.code + '">' + PACE_LABEL[pace.code] + '</span><span>' + esc(pace.text) + '</span></p>';
+    html += forecastBlock(r, todayDay);   // R12: the chance, from ADO's Capacity and each person's pace
     const states = releaseStateCounts(r);
     if(states.length) html += '<div class="rel-states" title="Itemene etter tilstand i ADO">' + states.map(s => '<span class="chip' + (releaseItemDone(s) ? ' st-gronn' : '') + '">' + esc(s.state) + ' ' + s.count + '</span>').join('') + '</div>';
     const spt = releaseSprintText(r);
     if(spt) html += '<p class="rel-sprints">' + esc(spt) + '</p>';
     const bd = releaseBurndownData(state, r, todayDay);
+    if(bd && bd.firstScope) html += '<p class="rel-sprints" title="Innholdet har endret seg siden første lesing">Innhold nå ' + bd.total + ' ' + bd.unit + ' · ' + bd.firstScope.total + ' ' + bd.unit + ' ved første lesing ' + esc(relDay(bd.firstScope.day)) + '</p>';
     if(bd && bd.actual.length) html += burndownSvg(bd) + burndownTable(bd);
     html += group('Bugs', items.filter(i => i.type === 'Bug')) + group('Stories', items.filter(i => i.type !== 'Bug'));
     if(r.ado && !items.length) html += '<p class="hist-empty">Ingenting i ADO har labelen ennå.</p>';

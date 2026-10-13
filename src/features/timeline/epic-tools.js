@@ -90,13 +90,16 @@ function normalizePlan(plan) {
     const label = text(r.label, 60); if (label && label !== out.version) out.label = label;
     if (r.ado && typeof r.ado === "object" && typeof r.ado.at === "string" && Array.isArray(r.ado.items)) {
       out.ado = { at: r.ado.at, label: typeof r.ado.label === "string" && r.ado.label ? r.ado.label : out.label || out.version, items: r.ado.items.filter((i) => i && typeof i === "object" && typeof i.id === "number").map((i) => ({
-        id: i.id, type: i.type === "Bug" ? "Bug" : "User Story", title: typeof i.title === "string" ? i.title.slice(0, 200) : "", state: typeof i.state === "string" && i.state ? i.state : "New", points: Math.max(0, num(i.points, 0)), assignee: typeof i.assignee === "string" && i.assignee ? i.assignee : null, ...(typeof i.iteration === "string" && i.iteration ? { iteration: i.iteration } : {}),
+        id: i.id, type: i.type === "Bug" ? "Bug" : "User Story", title: typeof i.title === "string" ? i.title.slice(0, 200) : "", state: typeof i.state === "string" && i.state ? i.state : "New", points: Math.max(0, num(i.points, 0)), assignee: typeof i.assignee === "string" && i.assignee ? i.assignee : null, ...(typeof i.iteration === "string" && i.iteration ? { iteration: i.iteration } : {}), ...(validDay(i.delivered) ? { delivered: i.delivered } : {}),
       })) };
       const hist = new Map();   // R11: one reading per day, the day's last wins, the latest kept
-      (Array.isArray(r.ado.history) ? r.ado.history : []).forEach((h) => { if (h && typeof h === "object" && validDay(h.day)) hist.set(h.day, { day: h.day, pointsDone: Math.max(0, num(h.pointsDone, 0)), pointsTotal: Math.max(0, num(h.pointsTotal, 0)), done: Math.max(0, num(h.done, 0)), total: Math.max(0, num(h.total, 0)) }); });
+      const chance = (f) => (f && typeof f === "object" && Number.isFinite(f.p) && f.p >= 0 && f.p <= 1 && Number.isFinite(f.mean) && f.mean >= 0 ? { forecast: { p: f.p, mean: f.mean } } : {});   // R12: the day's chance
+      (Array.isArray(r.ado.history) ? r.ado.history : []).forEach((h) => { if (h && typeof h === "object" && validDay(h.day)) hist.set(h.day, { day: h.day, pointsDone: Math.max(0, num(h.pointsDone, 0)), pointsTotal: Math.max(0, num(h.pointsTotal, 0)), done: Math.max(0, num(h.done, 0)), total: Math.max(0, num(h.total, 0)), ...chance(h.forecast) }); });
       if (hist.size) out.ado.history = [...hist.values()].sort((x, y) => (x.day < y.day ? -1 : 1)).slice(-RELEASE_HISTORY_MAX);
       const sprints = (Array.isArray(r.ado.sprints) ? r.ado.sprints : []).filter((s) => s && typeof s === "object" && typeof s.name === "string" && s.name).map((s) => ({ name: s.name, unlabelled: Math.max(0, num(s.unlabelled, 0)) }));
       if (sprints.length) out.ado.sprints = sprints;
+      const fc = forecastOf(r.ado.forecast, validDay);
+      if (fc) out.ado.forecast = fc;
     }
     return out;
   }).sort((a, b) => releaseEnd(a) - releaseEnd(b) || a.version.localeCompare(b.version));
@@ -524,6 +527,38 @@ function releaseProgress(r) {
   return { fraction, text, bugs, stories, done, total, pointsDone, pointsTotal };
 }
 
+/* ---------- R12: the chance a release is done by its target day (computed by the server from ADO's Capacity) ---------- */
+/** A stored forecast as the normaliser keeps it, or null: the computed kind with its numbers, or what is missing. */
+function forecastOf(f, validDay) {
+  if (!f || typeof f !== "object" || !validDay(f.day)) return null;
+  const strs = (a) => (Array.isArray(a) ? a.filter((x) => typeof x === "string" && x) : []);
+  if (f.missing === "history") return { day: f.day, missing: "history" };
+  if (f.missing === "capacity") return { day: f.day, missing: "capacity", sprints: strs(f.sprints), unplanned: Math.max(0, num(f.unplanned, 0)) };
+  if (f.missing !== undefined || !["need", "days", "p", "mean", "p10", "p90"].every((k) => Number.isFinite(f[k]) && f[k] >= 0) || f.p > 1) return null;
+  const people = (Array.isArray(f.people) ? f.people : []).filter((x) => x && typeof x === "object" && typeof x.name === "string" && x.name && ["days", "pace", "expected"].every((k) => Number.isFinite(x[k]))).map((x) => ({ name: x.name, days: x.days, pace: x.pace, expected: x.expected }));
+  return { day: f.day, need: f.need, days: f.days, p: f.p, mean: f.mean, p10: f.p10, p90: f.p90, people, basis: strs(f.basis), capacity: strs(f.capacity) };
+}
+const andList = (xs) => (xs.length <= 1 ? xs.join("") : xs.slice(0, -1).join(", ") + " og " + xs[xs.length - 1]);
+/** The forecast in words for the drawer, the tooltip, the strip and the report; null without one or once shipped. */
+function releaseForecastText(r, todayDay) {
+  const f = r && !r.shippedDate && r.ado && r.ado.forecast;
+  if (!f) return null;
+  if (f.missing === "history") return { short: null, text: "Ingen leverte poeng i de to siste sprintene å regne tempo fra" };
+  if (f.missing === "capacity") {
+    const off = f.unplanned + " arbeidsdag" + (f.unplanned === 1 ? "" : "er") + " er uten sprint";
+    if (!f.sprints.length) return { short: null, text: "Lag sprintene fram til målet i ADO og fyll inn Capacity (" + off + ") for å få sannsynligheten" };
+    return { short: null, text: "Fyll inn Capacity i ADO for " + andList(f.sprints) + " (Development-timer per dag og fridager)" + (f.unplanned ? " og lag sprintene fram til målet (" + off + ")" : "") + " for å få sannsynligheten" };
+  }
+  const short = (f.p >= 0.995 ? "over 99 %" : f.p < 0.005 ? "under 1 %" : Math.round(f.p * 100) + " %") + " sjanse";   // a simulation never knows for certain
+  return {
+    short,
+    text: short + " for at alt er levert til " + fmtDate(dayOf(r.targetDate)) + (f.day < todayDay ? " · regnet " + fmtDate(dayOf(f.day)) : ""),
+    detail: "Forventet " + f.mean + " av " + f.need + " SP på " + f.days + " arbeidsdag" + (f.days === 1 ? "" : "er") + " · 8 av 10 utfall " + (f.p10 === f.p90 ? "rundt " + f.p10 : "mellom " + f.p10 + " og " + f.p90) + " SP",
+    basis: "Tempo per person fra " + andList(f.basis) + " · tilgjengelighet fra Capacity i " + andList(f.capacity) + " (Development-timer, 7,5 t = full dag) · ikke regnet med: hvem som kan ta hvilken oppgave",
+    people: f.people,
+  };
+}
+
 /* ---------- R11: progress towards a release: working days, tempo, history, sprint vs release ---------- */
 const RELEASE_HISTORY_MAX = 120;              // one point per day: four months of readings
 const RELEASE_MAX_AGE_MS = 6 * 3600 * 1000;   // the page re-reads the labels on load when the last read is older (writers)
@@ -549,13 +584,21 @@ function addWorkDays(day, n) {
 }
 /** Calendar days from a to b, negative when b is before a. */
 function calendarDays(a, b) { const A = dayOf(a), B = dayOf(b); return Math.round((Date.UTC(B.getFullYear(), B.getMonth(), B.getDate()) - Date.UTC(A.getFullYear(), A.getMonth(), A.getDate())) / 86400000); }
-/** Where the release's clock starts: the sprint start of the oldest iteration among its items, else the segment's start. */
+/** Where the release's clock starts: the sprint start of the oldest iteration among its items, else the segment's start;
+ *  never before the first reading that found anything carrying the label (the scope did not exist before it: 2.0.1 was
+ *  stamped a week into Sprint 71). */
 function releaseStartDay(plan, r) {
   const sprints = (plan && plan.sprints && plan.sprints.items) || [];
   const starts = ((r.ado && r.ado.items) || []).map((i) => { const s = i.iteration && sprints.find((sp) => sp.name === i.iteration); return s ? s.start : null; }).filter(Boolean).sort();
-  if (starts.length) return starts[0];
-  const seg = releaseSegments(plan).find((s) => s.release.key === r.key);
-  return dayKey(unitToDate(seg ? seg.start : releaseEnd(r) - 2 * WEEK));
+  let start;
+  if (starts.length) start = starts[0];
+  else { const seg = releaseSegments(plan).find((s) => s.release.key === r.key); start = dayKey(unitToDate(seg ? seg.start : releaseEnd(r) - 2 * WEEK)); }
+  const scoped = ((r.ado && r.ado.history) || []).find((h) => h.total > 0);
+  return scoped && scoped.day > start ? scoped.day : start;
+}
+/** The units (points, or items when nothing has points) delivered on or before `day`; a done item without a delivered day counts from the start. */
+function releaseDoneBy(r, day, usePoints) {
+  return ((r.ado && r.ado.items) || []).filter((i) => releaseItemDone(i) && (!i.delivered || i.delivered <= day)).reduce((s, i) => s + (usePoints ? i.points || 0 : 1), 0);
 }
 const PACE_WORDS = ["null", "én", "to", "tre", "fire", "fem", "seks", "sju", "åtte", "ni", "ti", "elleve", "tolv"];
 const daysWords = (n) => (n <= 12 ? PACE_WORDS[n] : String(n)) + " arbeidsdag" + (n === 1 ? "" : "er");
@@ -572,18 +615,22 @@ function releasePace(plan, r, todayDay) {
   const elapsed = totalDays > 0 ? Math.max(0, Math.min(1, elapsedDays / totalDays)) : todayDay >= r.targetDate ? 1 : 0;
   const done = pr.fraction;
   const readings = new Set((r.ado.history || []).map((h) => h.day)).size;
-  const tempo = readings >= 2 && elapsedDays > 0 && units.done > 0 ? units.done / elapsedDays : null;
+  const usePoints = pr.pointsTotal > 0;
+  const dayBefore = dayOf(startDay); dayBefore.setDate(dayBefore.getDate() - 1);
+  const since = units.done - releaseDoneBy(r, dayKey(dayBefore), usePoints);   // delivered after the clock started
+  const tempo = elapsedDays > 0 && since > 0 ? since / elapsedDays : null;
   const forecastDay = tempo !== null && done < 1 ? addWorkDays(todayDay, Math.ceil((units.total - units.done) / tempo)) : null;
   const deltaDays = forecastDay ? (forecastDay > r.targetDate ? workDaysBetween(r.targetDate, forecastDay) : -workDaysBetween(forecastDay, r.targetDate)) : null;
   const past = todayDay > r.targetDate;
   let code;
   if (done >= 1) code = "gronn";
   else if (deltaDays !== null) code = deltaDays <= 0 ? "gronn" : deltaDays <= PACE_LATE_DAYS ? "gul" : "rod";
-  else code = past ? "rod" : done + PACE_SLACK >= elapsed ? "gronn" : "gul";
+  else code = past ? "rod" : done + Math.max(PACE_SLACK, totalDays > 0 ? 1 / totalDays : 0) >= elapsed ? "gronn" : "gul";   // the straight line allows a working day, at least 10 %
   const head = pct(done) + " levert · " + pct(elapsed) + " av tiden brukt";
   const tail = done >= 1 ? "alt levert · sett «Skippet» når den er ute"
     : forecastDay ? "med dagens tempo ferdig " + dayWords(forecastDay) + (deltaDays === 0 ? ", på målet" : deltaDays > 0 ? ", " + daysWords(deltaDays) + " etter målet" : ", " + daysWords(-deltaDays) + " før målet")
-    : readings < 2 ? "tempo etter neste lesing" : units.done === 0 ? "ingenting levert ennå" : "tempo regnes fra " + dayWords(startDay);   // the clock has not started: the items sit in a coming sprint
+    : startDay > todayDay ? "tempo regnes fra " + dayWords(startDay)   // the clock has not started: the items sit in a coming sprint
+    : units.done === 0 ? "ingenting levert ennå" : "ingenting levert siden " + dayWords(startDay);
   return { code, text: head + " · " + tail, done, elapsed, startDay, elapsedDays, totalDays, tempo, forecastDay, deltaDays, readings };
 }
 /** The legend's status strip: the next release not yet out, how far away it is, the share delivered and the tempo colour in words. */
@@ -616,18 +663,25 @@ function releaseSprintText(r) {
   const extra = (r.ado.sprints || []).filter((s) => s.unlabelled > 0).map((s) => s.name + " har " + n(s.unlabelled, "item", "items") + " uten release-label");
   return n(items.length, "item", "items") + " i " + releaseScope(r) + ": " + parts.join(", ") + (extra.length ? " · " + extra.join(" · ") : "");
 }
-/** The burndown's numbers: remaining units per reading day, the ideal line's ends and the day the tempo points at. */
+/** The burndown's numbers: today's scope left on every working day from the axis start to today (or the shipped day), from
+ *  each item's delivered day, so a day nobody opened the page leaves no hole; the ideal line's ends, the day the tempo
+ *  points at, and the scope the first reading found when it differs from today's. */
 function releaseBurndownData(plan, r, todayDay) {
   const a = r && r.ado;
   if (!a || !Array.isArray(a.items) || !a.items.length) return null;
   const pr = releaseProgress(r);
-  const unit = pr.pointsTotal > 0 ? "SP" : "items";
-  const actual = (a.history || []).map((h) => ({ day: h.day, remaining: h.pointsTotal > 0 ? h.pointsTotal - h.pointsDone : h.total - h.done }));
+  const usePoints = pr.pointsTotal > 0, unit = usePoints ? "SP" : "items", total = usePoints ? pr.pointsTotal : pr.total;
+  const history = a.history || [];
   const pace = releasePace(plan, r, todayDay);
-  const endDay = [r.targetDate, r.shippedDate || todayDay, ...actual.map((p) => p.day)].sort().pop();
   const startDay = pace ? pace.startDay : releaseStartDay(plan, r);
-  const axisStart = actual.length && actual[0].day < startDay ? actual[0].day : startDay;   // readings before the clock's start (items moved to a later sprint) stay on the chart
-  return { startDay, axisStart, targetDay: r.targetDate, endDay, todayDay, total: unit === "SP" ? pr.pointsTotal : pr.total, unit, actual, forecastDay: pace ? pace.forecastDay : null };
+  const axisStart = history.length && history[0].day < startDay ? history[0].day : startDay;   // readings before the clock's start (items moved to a later sprint) stay on the chart
+  const lastDay = r.shippedDate && r.shippedDate < todayDay ? r.shippedDate : todayDay;
+  const actual = [];
+  for (const c = dayOf(axisStart); dayKey(c) <= lastDay; c.setDate(c.getDate() + 1)) if (isWorkDay(c)) actual.push({ day: dayKey(c), remaining: total - releaseDoneBy(r, dayKey(c), usePoints) });
+  const endDay = [r.targetDate, r.shippedDate || todayDay, ...history.map((h) => h.day)].sort().pop();
+  const first = history.find((h) => h.total > 0), firstTotal = first ? (usePoints ? first.pointsTotal : first.total) : null;
+  const chances = history.filter((h) => h.forecast).map((h) => ({ day: h.day, p: h.forecast.p, mean: h.forecast.mean }));   // R12: each reading's chance, next to what happened
+  return { startDay, axisStart, targetDay: r.targetDate, endDay, todayDay, total, unit, actual, forecastDay: pace ? pace.forecastDay : null, firstScope: first && firstTotal !== total ? { day: first.day, total: firstTotal } : null, chances };
 }
 /** The sprint's open bugs and stories that carry no release label at all: what sprint planning still has to stamp. */
 function sprintUnlabelledWiql(iterationPath) {
@@ -663,7 +717,7 @@ if (typeof module !== "undefined") {
     shelfTasks, epicCounts, sizeClass, sizeClassDerived, sizeClassText, bufferLabel, rawLabel, previewPlacement,
     dayKey, currentSprint, sprintDay, sprintLabel,
     dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
-    workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
+    workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, releaseForecastText, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
     progressFraction, progressSignal, epicProgressSignal, progressText,
     MIX, MIX_LABEL, capacityFactor, elapsedWeeks, queueFloor, resolveQueue,
   };

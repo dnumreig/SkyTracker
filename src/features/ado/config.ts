@@ -2,6 +2,8 @@
 export const ADO_ORG_URL = "https://dev.azure.com/SkytaleAS";
 export const ADO_PROJECT = "Skytale";
 export const ADO_API_VERSION = "7.1";
+/** The team whose sprints and Capacity the timeline reads (R12). */
+export const ADO_TEAM = "Dev Team";
 export const ADO_RESOURCE = "499b84ac-1321-427f-aa17-267ca6975798";
 export const ADO_SCOPE = `${ADO_RESOURCE}/user_impersonation`;
 /** Skytale.Specs: `spec/<Feature>/spec.md` + `estimate.yaml` (decision 3). */

@@ -42,6 +42,17 @@ describe("createAdoClient", () => {
     expect(String(f.mock.calls[0][0])).toBe("https://dev.azure.com/SkytaleAS/Skytale/_apis/git/repositories/repo1/items?path=%2Fspec%2FX%2Festimate.yaml&includeContent=true&api-version=7.1");
     expect(await c.gitItem("repo1", "/spec/X/estimate.yaml")).toBeNull();
   });
+  it("reads a sprint's Capacity and the team's days off on Dev Team (R12), with either response shape", async () => {
+    const row = { teamMember: { displayName: "Gjermund Østby", uniqueName: "GO@Skytale.no" }, activities: [{ name: "Development", capacityPerDay: 7.5 }], daysOff: [] };
+    const f = vi.fn()
+      .mockResolvedValueOnce(res(200, { teamMembers: [row], totalCapacityPerDay: 7.5, totalDaysOff: 0 })).mockResolvedValueOnce(res(200, { daysOff: [{ start: "2026-10-23T00:00:00Z", end: "2026-10-23T00:00:00Z" }] }))
+      .mockResolvedValueOnce(res(200, { value: [row] })).mockResolvedValueOnce(res(200, {}));
+    const c = client(f);
+    expect(await c.capacities("e3e86111-5688-4555-b348-01be7b153370")).toEqual({ members: [row], teamDaysOff: [{ start: "2026-10-23T00:00:00Z", end: "2026-10-23T00:00:00Z" }] });
+    expect(String(f.mock.calls[0][0])).toBe("https://dev.azure.com/SkytaleAS/Skytale/Dev%20Team/_apis/work/teamsettings/iterations/e3e86111-5688-4555-b348-01be7b153370/capacities?api-version=7.1");
+    expect(String(f.mock.calls[1][0])).toBe("https://dev.azure.com/SkytaleAS/Skytale/Dev%20Team/_apis/work/teamsettings/iterations/e3e86111-5688-4555-b348-01be7b153370/teamdaysoff?api-version=7.1");
+    expect(await c.capacities("x")).toEqual({ members: [row], teamDaysOff: [] });
+  });
   it("turns a sign-in page or a 401 into AdoRequestError 401 and other failures into their status", async () => {
     const f = vi.fn().mockResolvedValueOnce(res(200, null, "<!DOCTYPE html><html>sign in</html>")).mockResolvedValueOnce(res(401, { message: "no" })).mockResolvedValueOnce(res(400, { message: "bad field" }));
     const c = client(f);

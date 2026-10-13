@@ -7,19 +7,29 @@ release is the unit. There is no bar per bug on the timeline and no sprint burnd
 ## What R11 adds
 
 1. **A tempo colour on the release segment, computed the way the epics are.** Tempo = points delivered per working day
-   since the release's start. Expected finish = today + remaining / tempo, in working days. Green when the expected
-   finish is on or before the target day; yellow up to three working days after it; red later. The tempo needs two
-   readings on different days (see 2); until then the straight line from start to target decides: expected share
-   delivered = share of the time used (10 % slack, as the feature signal), red once the target day is past. The
+   since the release's start, counting only points delivered on or after the start (each item's delivered day, see 2).
+   Expected finish = today + remaining / tempo, in working days. Green when the expected finish is on or before the
+   target day; yellow up to three working days after it; red later. Until something is delivered after the start the
+   straight line from start to target decides: expected share delivered = share of the time used, with a slack of one
+   working day and at least 10 % (so day one of a short release is not yellow), red once the target day is past. The
    tooltip and the drawer say it in words: «31 % levert · 55 % av tiden brukt · med dagens tempo ferdig 27. okt, tre
    arbeidsdager etter målet».
    - Start = the sprint start of the oldest iteration among the release's items (the item's `System.IterationPath`
-     matched against the cached sprint list), else the segment's start.
+     matched against the cached sprint list), else the segment's start — **never before the first reading that found
+     anything carrying the label** (amended 12.10: 2.0.1 was stamped a week into Sprint 71, and a clock from the
+     sprint start showed it yellow on its first day and halved its tempo).
    - A shipped release has no tempo; a release with nothing read, or nothing carrying the label, has none either.
 2. **One point per day.** Every read stores `{ day, pointsDone, pointsTotal, done, total }` on the release
    (`ado.history`), one entry per day (the day's last read wins), at most 120 kept. The drawer draws a burndown
-   (remaining points per day) as inline SVG: the ideal line from the start to the target day, the actual line through
-   the points, a dashed projection to the expected finish, today as a hairline, and a table with the same numbers.
+   as inline SVG: the ideal line from the start to the target day, the actual line, a dashed projection to the
+   expected finish, today as a hairline, and a table with the same numbers.
+   - **The actual line comes from ADO's dates, not from the readings** (amended 12.10): every item carries the day it
+     was delivered (`delivered`: the resolved day, else the closed day for an item closed without resolving; QA
+     closing it later is not delivery), and the line has one point per working day from the axis start to today (or
+     the shipped day) with today's scope left. A day nobody opened the page leaves no hole. A done item read before
+     this change has no day and counts as done from the axis start until the next read fills it in.
+   - The readings still give the scope over time: when the first reading's total differs from today's, the drawer
+     says «Innhold nå 82 SP · 79 SP ved første lesing 12. okt».
    - **Auto-read.** A light route `POST /api/ado-releases` (writers) runs only `refreshReleases` and commits. The page
      calls it on load when any release lacks a read or its last read is older than six hours (like the sprint cache).
      Readers draw from the cache. No cron (no service principal, no PAT).
@@ -40,6 +50,7 @@ release is the unit. There is no bar per bug on the timeline and no sprint burnd
 
 ```
 ReleaseItem  += iteration?: string                       // «Sprint 71», only when ADO has one
+ReleaseItem  += delivered?: string                       // the day it was resolved (else closed), only while Resolved/Closed
 Release.ado  += history?: { day, pointsDone, pointsTotal, done, total }[]   // one per day, sorted, max 120
 Release.ado  += sprints?: { name: string; unlabelled: number }[]            // the items' sprints + the current one
 ```
@@ -54,14 +65,14 @@ the latest 120), keeps `sprints` entries with a name, and keeps `iteration` only
   days after `day`.
 - `releaseStartDay(plan, r)`: the rule in 1.
 - `releasePace(plan, r, todayDay)` → `{ code, text, done, elapsed, startDay, elapsedDays, totalDays, tempo,
-  forecastDay, deltaDays, readings } | null`. `tempo` = delivered units / elapsed working days, only with two or more
-  history days and something delivered; `forecastDay` = `addWorkDays(todayDay, ceil(remaining / tempo))`; `deltaDays` =
+  forecastDay, deltaDays, readings } | null`. `tempo` = units delivered on or after the start / elapsed working days,
+  only when something was; `forecastDay` = `addWorkDays(todayDay, ceil(remaining / tempo))`; `deltaDays` =
   working days after (+) or before (−) the target. `code`: with a tempo, 0 → `gronn`, 1–3 → `gul`, else `rod`; without,
-  `done + 0.1 >= elapsed` → `gronn` else `gul`, and `rod` when the target day is past. Everything delivered → `gronn`.
+  `done + max(0.1, 1 / totalDays) >= elapsed` → `gronn` else `gul`, and `rod` when the target day is past. Everything delivered → `gronn`.
 - `nextReleaseText(plan, todayDay)` → the first unshipped release by target day: «Neste release 2.0.1 om 10 dager · 31 %»
   (calendar days; «i dag»; «3 dager på overtid»; «ikke lest fra ADO» without a read) with the pace code, or null.
 - `releaseStateCounts(r)`, `releaseSprintText(r)` (the line in 3), `releaseBurndownData(plan, r, todayDay)` (the
-  numbers the SVG draws: start, target, end, today, total, unit, the actual points, the forecast day).
+  numbers the SVG draws: start, target, end, today, total, unit, the actual points per working day, the forecast day, and `firstScope` = the first reading's day and total when it differs from today's).
 - `sprintUnlabelledWiql(iterationPath)`: `[System.IterationPath] = '<path>' AND [Custom.Release] = '' AND
   [System.WorkItemType] IN ('Bug', 'User Story') AND [System.State] NOT IN ('Closed', 'Removed')`.
 - `RELEASE_HISTORY_MAX = 120`, `RELEASE_MAX_AGE_MS = 6 h`.
