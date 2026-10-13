@@ -837,8 +837,8 @@ describe("R12: the chance a release is done by its target day, in words and in t
 });
 
 describe("R13: the transitions the lifecycle lacked", () => {
-  const est = (over: Record<string, unknown> = {}) => ({ id: "e", lane: BACKLOG, label: "Est", kind: "estimate", start: 4, endLikely: 5, end: 6, deps: [], fv: {}, state: "klar", ...over });
-  const disc = (over: Record<string, unknown> = {}) => ({ id: "d", lane: BACKLOG, label: "Disc", kind: "discovery", start: 2, end: 3, deps: [], fv: {}, state: "utredes", ...over });
+  const est = (over: Partial<PlanTask> = {}): PlanTask => ({ id: "e", lane: BACKLOG, label: "Est", kind: "estimate", start: 4, endLikely: 5, end: 6, deps: [], fv: {}, state: "klar", ...over });
+  const disc = (over: Partial<PlanTask> = {}): PlanTask => ({ id: "d", lane: BACKLOG, label: "Disc", kind: "discovery", start: 2, end: 3, deps: [], fv: {}, state: "utredes", ...over });
 
   it("shelfTasks leaves delivered features out", () => {
     const plan = normalizePlan({ lanes: [{ key: "x", name: "X" }], tasks: [est({ id: "k" }), est({ id: "l", state: "levert", deliveredAt: "2026-10-07" }), disc({ id: "d", lane: "x" })] });
@@ -890,7 +890,7 @@ describe("R13: the transitions the lifecycle lacked", () => {
     expect(applyLaneChange(same, "x", "2026-10-13")).toEqual([]);
   });
   it("boardColumn and featureTransition: one step forward, back to the shelf or to discovery, delivered only without ADO", () => {
-    const cols = (t: unknown) => ["ny", "utredes", "klar", "aktiv", "levert"].filter((to) => featureTransition(t, to));
+    const cols = (t: PlanTask) => ["ny", "utredes", "klar", "aktiv", "levert"].filter((to) => featureTransition(t, to));
     expect(boardColumn(disc({ state: "ny" }))).toBe("ny");
     expect(cols(disc({ state: "ny" }))).toEqual(["utredes", "levert"]);
     expect(boardColumn(disc())).toBe("utredes");
