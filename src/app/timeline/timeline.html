@@ -779,10 +779,11 @@
         <div class="md" id="edProgNote"></div>
         <div class="ed-field"><span>Venter på (blokkere)</span><div class="ed-deps" id="edDeps"></div></div>
         <div class="ed-row"><button class="ghost" type="button" id="edLink">Koble avhengighet …</button></div>
+        <div class="ed-row" id="edLifecycleRow" hidden><button class="ghost" type="button" id="edDeliver" title="Uten ADO-kobling settes leveringen her">Marker levert …</button><button class="ghost" type="button" id="edRestart" title="Utredes på nytt: spennet slippes, det rå estimatet beholdes">Tilbake til utredning …</button><span class="md" id="edLifecycleNote"></span></div>
       </div>
     </div>
     <div class="modal-foot">
-      <span class="btns"><button class="danger-ghost" id="edDelete">Slett feature …</button><button class="text" id="edHistory">Historikk</button><button class="ghost" id="edDeliver" hidden title="Uten ADO-kobling settes leveringen her">Marker levert …</button><button class="ghost" id="edRestart" hidden title="Utredes på nytt: spennet slippes, det rå estimatet beholdes">Tilbake til utredning …</button></span>
+      <span class="btns"><button class="danger-ghost" id="edDelete">Slett feature …</button><button class="text" id="edHistory">Historikk</button></span>
       <span class="btns"><button class="text" id="edCancel">Avbryt</button><button class="primary" id="edSave">Lagre</button></span>
     </div>
   </div>
@@ -2169,8 +2170,10 @@ window.__bootTimeline = function(){
     $('edPullNote').textContent = '';
     edPulled = null;
     $('edPushRow').hidden = !HOSTED || !canWrite || t.lane === BACKLOG;
-    $('edDeliver').hidden = !(canWrite && canMarkDelivered(t));   // R13
+    $('edDeliver').hidden = !(canWrite && canMarkDelivered(t));   // R13: the lifecycle row
     $('edRestart').hidden = !(canWrite && canRestartDiscovery(t));
+    $('edLifecycleNote').textContent = t.state === 'levert' ? '' : t.adoId ? '«Levert» settes fra ADO #' + t.adoId + '.' : 'Uten ADO-kobling settes leveringen her.';
+    $('edLifecycleRow').hidden = $('edDeliver').hidden && $('edRestart').hidden && !$('edLifecycleNote').textContent;
     $('edAdoNote').textContent = t.ado
       ? 'Sist pushet ' + whenText(t.ado.pushedAt) + (t.ado.storyId ? ' · discovery-story #' + t.ado.storyId : '') +
         (t.ado.stories ? ' · ' + t.ado.stories.count + ' stories, ' + t.ado.stories.pointsDone + '/' + t.ado.stories.pointsTotal + ' poeng' + (t.ado.stories.iteration ? ' · ' + t.ado.stories.iteration : '') : '') +
