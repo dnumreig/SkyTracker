@@ -48,7 +48,7 @@ export type ReleaseRefreshResult = { plan: Plan; events: PlanEvent[]; read: { re
 
 /** One query per release (plus one per sprint the items sit in); the release keeps the items (bugs first, then by id), the day's
  *  point and the sprint counts; `at` is always the last read, `v` bumps when the data changed, `release.lest` is logged when the items did. */
-export async function refreshReleases(plan: Plan, client: Pick<AdoClient, "wiql" | "batch" | "capacities" | "iterations">, now: Date): Promise<ReleaseRefreshResult> {
+export async function refreshReleases(plan: Plan, client: Pick<AdoClient, "wiql" | "batch" | "capacities" | "iterations">, now: Date, opts: { only?: string } = {}): Promise<ReleaseRefreshResult> {
   const p: Plan = JSON.parse(JSON.stringify(plan));
   const events: PlanEvent[] = [];
   let items = 0;
@@ -60,7 +60,8 @@ export async function refreshReleases(plan: Plan, client: Pick<AdoClient, "wiql"
   };
   const current = currentSprint(p.sprints?.items, now);
   const memo: ForecastMemo = {};   // Capacity and the past, read once for every release
-  for (const r of p.releases ?? []) {
+  const wanted = (p.releases ?? []).filter((r) => !opts.only || r.key === opts.only);   // R14: the release drawer reads only its own release
+  for (const r of wanted) {
     const label = releaseScope(r);
     const ids = await client.wiql(releaseWiql(label));
     const found: AdoWorkItem[] = [];
@@ -88,5 +89,5 @@ export async function refreshReleases(plan: Plan, client: Pick<AdoClient, "wiql"
     if (changed) r.v = (r.v ?? 0) + 1;              // new items, a new day's point or new sprint counts: the read must win over an older copy of the release
     if (itemsChanged) events.push({ targetType: "release", targetId: r.key, targetLabel: "Release " + r.version, laneKey: null, code: "release.lest", cause: "ado", summary: "Lest fra ADO: " + pr.text, after: { label, items: list.length } });
   }
-  return { plan: p, events, read: { releases: (p.releases ?? []).length, items } };
+  return { plan: p, events, read: { releases: wanted.length, items } };
 }
