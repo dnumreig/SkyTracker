@@ -229,6 +229,9 @@
   .chip.sig{outline:1px dashed currentColor;outline-offset:-1px}
   .chip.pinned{background:var(--text);color:var(--surface)}
   #personBtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  /* R15: the forum view: the development lead's tools go, the compare bar goes on top (a class on body, never the hidden attribute: the role rules stay) */
+  #forumBtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  body.forum #adoMenu,body.forum #adoStatus,body.forum #personBtn,body.forum #exportBtn,body.forum #importBtn,body.forum #mixField{display:none}
   .lane-label.virtual .ln{cursor:default}
   .task-label .chip.queue{background:transparent;border:1px dashed var(--text-3);color:var(--text-2)}
   .inv-list{margin:0 0 14px;padding-left:18px;font-size:12px}.inv-list li{margin:3px 0}.inv-list ul{padding-left:16px;margin:2px 0}
@@ -581,12 +584,14 @@
         <button id="helpBtn">Hjelp</button>
       </div>
     </details>
+    <button id="forumBtn" aria-pressed="false" title="Skjermen på veggen i produktforum: hylla ved siden av diagrammet, «Siden sist» øverst, uten ADO og JSON. Valget huskes i nettleseren.">Forum</button>
     <button id="addReleaseBtn" title="En versjon med måldato. Det som har release-labelen i ADO (bugs og stories), er innholdet.">＋ Release</button>
     <button class="primary" id="addEpicBtn">＋ Epic</button>
   </div>
 </header>
 
 <main class="wrap">
+  <div class="cmp-bar forum-note" id="forumNote" hidden></div>
   <div class="status" id="statusStrip" title="Planen nå, i ord">
     <span id="stEpics">Ingen epics ennå</span>
     <span id="stRelease" hidden></span>
@@ -635,7 +640,8 @@
         sluttdato. <b>Klar for veikart</b> setter byggetiden fra utredningen. <b>Legg i epic</b> viser prisen først: fargen epicen får.
         Da blir featuren aktiv med et lovet spenn. Epics er <b>forslag</b> til forumet velger dem, og kan <b>avsluttes</b> med et utfall.
         En utredning kan <b>legges i en epic</b> med én gang, en estimert feature kan gå <b>tilbake til utredning</b>, og en feature uten
-        ADO-kobling <b>markeres levert</b> for hånd («Levert» kommer ellers fra ADO). Leverte features ligger på Brettet, ikke på hylla.</p></div>
+        ADO-kobling <b>markeres levert</b> for hånd («Levert» kommer ellers fra ADO). Leverte features ligger på Brettet, ikke på hylla.
+        <b>Forum</b> øverst gjør siden til skjermen på veggen: hylla ved siden av diagrammet, «Siden sist» øverst, uten ADO og JSON. Valget huskes i nettleseren; for lesere er det standard.</p></div>
       <div class="help-card"><h4>Buffer og rått estimat</h4>
         <p>Spennet på linjen er det planlagte: utredningens tall pluss forumets <b>buffer</b> («4–6 uker + 1 uke buffer»). Det
         rå estimatet står urørt, så gjennomføringsevnen måles mot det som ble lovet. Antall aktive epics er et tall, ikke en grense:
@@ -1192,6 +1198,7 @@ window.__bootTimeline = function(){
     barRefs = {}; rowRefs = {}; rangeRefs = {}; labelDateRefs = {};
     updateTlSummary();
     renderAdoBar();
+    renderForumNote();
     if(!state.lanes.length){ renderShelf(); return; }
 
     const corner = el('div', 'corner', 'Epic / feature');
@@ -1893,6 +1900,7 @@ window.__bootTimeline = function(){
   /* ================== baseline og sammenligning ================== */
   const cmpBar = $('cmpBar'), cmpStrip = $('cmpStrip'), cmpList = $('cmpList'), cmpSelect = $('cmpSelect'), cmpDate = $('cmpDate');
   let cmp = null;   // { id, label, at, lanes, tasks, strip, path, exportText } når sammenligning er på
+  let snapshots = [], snapshotsLoaded = false;   // R15: the list, kept for the forum view's baseline
   $('baselineBtn').hidden = !HOSTED; cmpSelect.hidden = !HOSTED;
   function defaultBaselineLabel(){ const d = new Date(); return 'Produktforum ' + d.getDate() + '. ' + MND_S[d.getMonth()]; }
   async function loadSnapshots(){
@@ -1900,7 +1908,8 @@ window.__bootTimeline = function(){
     try{
       const r = await fetch('api/timeline-snapshots', {cache:'no-store'});
       if(!r.ok) return;
-      const list = (await r.json()).snapshots.filter(s => s.kind === 'baseline' || s.kind === 'sprint');   // sprintstart-baselinene (etappe 4) kan også sammenlignes med
+      snapshots = (await r.json()).snapshots; snapshotsLoaded = true;
+      const list = snapshots.filter(s => s.kind === 'baseline' || s.kind === 'sprint');   // sprintstart-baselinene (etappe 4) kan også sammenlignes med
       const cur = cmp ? cmp.id : '';
       cmpSelect.innerHTML = '<option value="">Sammenlign med …</option>' +
         list.map(s => '<option value="' + esc(s.id) + '">' + esc(s.label) + ' · ' + esc(fmtDate(new Date(s.at))) + '</option>').join('') +
@@ -1999,6 +2008,41 @@ window.__bootTimeline = function(){
       setSaveNote('«Siden sist» lastet ned som tekst');
     }
   });
+
+  /* ================== forum-visningen (R15): skjermen på veggen ================== */
+  const FORUM_KEY = 'sk.forum';
+  let forumMode = false, forumStartedCompare = false;
+  function readForumPref(){ try{ return localStorage.getItem(FORUM_KEY); }catch(e){ return null; } }
+  function placeCompareBar(){   // on top in the forum view, under the help panel otherwise
+    if(forumMode) $('statusStrip').before(cmpBar, cmpList); else $('linkBanner').after(cmpBar, cmpList);
+  }
+  function renderForumNote(){   // only when no forum has marked a baseline yet
+    const note = $('forumNote');
+    note.hidden = !(forumMode && HOSTED && snapshotsLoaded && !cmp && !forumBaseline(snapshots));
+    note.textContent = 'Ingen baseline fra et produktforum ennå.' + (canWrite ? ' Merk én under Mer › Merk baseline… når forumet er ferdig; neste gang viser denne stripen hva som har flyttet seg.' : '');
+  }
+  async function ensureForumCompare(){   // «Siden sist» on top: the last forum's baseline, unless a compare is already running
+    if(!HOSTED || cmp) return;
+    if(!snapshotsLoaded) await loadSnapshots();
+    const b = forumBaseline(snapshots);
+    if(!b || cmp || !forumMode){ renderForumNote(); return; }
+    forumStartedCompare = true;
+    await startCompare(b.id);
+    cmpSelect.value = b.id; cmpDate.hidden = true;
+    renderForumNote();
+  }
+  function setForum(on, remember){
+    forumMode = !!on;
+    document.body.classList.toggle('forum', forumMode);
+    const b = $('forumBtn'); b.classList.toggle('on', forumMode); b.setAttribute('aria-pressed', forumMode ? 'true' : 'false');
+    if(remember){ try{ localStorage.setItem(FORUM_KEY, forumMode ? '1' : '0'); }catch(e){} }
+    if(forumMode && personMode){ personMode = false; $('personBtn').classList.remove('on'); }   // a read view the forum does not use
+    placeCompareBar();
+    if(forumMode) ensureForumCompare();
+    else if(forumStartedCompare){ forumStartedCompare = false; if(cmp) endCompare(); }
+    render();
+  }
+  $('forumBtn').addEventListener('click', () => setForum(!forumMode, true));
 
   /* ================== hylla: klar for veikart ================== */
   const shelf = $('shelf'), shelfList = $('shelfList'), shelfCount = $('shelfCount');
@@ -2700,6 +2744,7 @@ window.__bootTimeline = function(){
       whoami.textContent = myName || '';
       refreshHistoryBadge();
       loadSnapshots();
+      if(!forumMode && forumDefault(readForumPref(), canWrite)) setForum(true, false);   // R15: readers land in the forum view unless they chose otherwise
       if(j.plan){
         applyRemote(j.plan.data, j.plan.version);
         setSaveNote('delt plan lastet' + (canWrite ? '' : ' – kun lesetilgang'));
@@ -3106,6 +3151,7 @@ window.__bootTimeline = function(){
   /* ================== start ================== */
   pushQueue();
   render();
+  if(readForumPref() === '1') setForum(true, false);   // R15: the stored choice, before the plan arrives
   initServerPlan();
   if(HOSTED) setInterval(pollTick, POLL_MS);
 };
