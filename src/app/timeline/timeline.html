@@ -88,15 +88,34 @@
     padding:12px 24px;background:var(--surface);border-bottom:1px solid var(--line-soft);
   }
   .tb-left,.tb-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
-  .topbar h1{font-size:18px;font-weight:600;letter-spacing:-.01em;color:var(--text);white-space:nowrap}
-  .topbar h1 .sub{color:var(--text-3);font-weight:400}
+  /* R14: the three pages' tabs; the active one is the page's name */
+  .tabs{display:flex;gap:2px;align-items:center}
+  .tabs .tab{font-size:14px;font-weight:500;color:var(--text-3);text-decoration:none;padding:6px 10px;border-radius:6px;white-space:nowrap}
+  .tabs .tab:hover{color:var(--text);background:var(--raised)}
+  .tabs .tab.on{color:var(--text);font-weight:600;font-size:18px;letter-spacing:-.01em;padding:4px 10px 4px 0;background:none}
+  .tabs .tab[hidden]{display:none}
+  /* R14: the ADO and Mer menus */
+  .menu{position:relative}
+  .menu > summary{list-style:none;cursor:pointer;font-size:13px;padding:6px 12px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--text-2);white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+  .menu > summary::-webkit-details-marker{display:none}
+  .menu > summary:hover{color:var(--text-hover);border-color:var(--text-4)}
+  .menu[open] > summary{color:var(--text);border-color:var(--text-4)}
+  .menu .dot{width:7px;height:7px;border-radius:50%;background:var(--warn-dot);display:inline-block}
+  .menu .dot[hidden]{display:none}
+  .menu-list{position:absolute;right:0;top:calc(100% + 4px);z-index:70;min-width:230px;display:flex;flex-direction:column;gap:2px;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow)}
+  .menu-list button,.menu-list .menu-field{text-align:left;border:1px solid transparent;background:transparent;width:100%;display:flex;gap:8px;align-items:center;justify-content:space-between;font-size:13px;padding:6px 10px;border-radius:4px;color:var(--text);cursor:pointer}
+  .menu-list button:hover,.menu-list .menu-field:hover{background:var(--raised);border-color:transparent;color:var(--text)}
+  .menu-list button[hidden],.menu-list .menu-field[hidden]{display:none}
+  .menu-list .menu-field{flex-direction:column;align-items:flex-start;gap:4px;cursor:default}
+  .menu-list .menu-field select{font-size:12px;padding:3px 6px;width:100%}
   .whoami{font-size:12px;color:var(--text-3)}
   .ro-tag{font-size:12px;font-weight:500;color:var(--warn)}
   .badge{font-size:10px;font-weight:500;line-height:1.5;padding:2px 6px;border-radius:4px;background:var(--badge-bg);color:var(--badge-fg);white-space:nowrap}
   .badge.warn{background:var(--warn-bg);color:var(--warn-fg)}
   .save-note{font-size:11px;color:var(--text-4);min-width:120px;text-align:right}
   .wrap{padding:16px 24px 40px}
-  .hint{font-size:12px;color:var(--text-3);max-width:90ch}
+  .hint{font-size:12px;color:var(--text-3);max-width:90ch;position:relative;padding-right:26px;margin-top:8px}
+  .hint .x{position:absolute;right:0;top:-2px}
   .hint b{color:var(--text);font-weight:600}
 
   /* ---------- knapper ---------- */
@@ -162,11 +181,17 @@
   .sw.today{width:2px;height:16px;background:var(--today)}
   .sw.depsw{width:26px;height:0;border-top:1.5px solid var(--dep);position:relative}
   .sw.depsw::after{content:"";position:absolute;right:-1px;top:-4px;border:4px solid transparent;border-left-color:var(--dep)}
-  .tl-summary{font-size:11px;color:var(--text-3);display:inline-flex;gap:12px;align-items:center;margin-left:auto}
-  .tl-summary i{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px;background:var(--neutral)}
-  .tl-summary i.st-gronn{background:var(--ok)}
-  .tl-summary i.st-gul{background:var(--warn-dot)}
-  .tl-summary i.st-rod{background:var(--bad)}
+  /* R14: the status strip in words, under the top bar */
+  .status{display:flex;flex-wrap:wrap;gap:4px 0;margin:12px 0 0;font-size:12px;color:var(--text-2);align-items:center}
+  .status > *{padding:0 12px;border-left:1px solid var(--line-soft);display:inline-flex;align-items:center;gap:6px;min-width:0}
+  .status > *:first-child{padding-left:0;border-left:none}
+  .status > [hidden]{display:none}
+  .status i{width:9px;height:9px;border-radius:50%;display:inline-block;background:var(--neutral);flex:none}
+  .status i.st-gronn{background:var(--ok)}
+  .status i.st-gul{background:var(--warn-dot)}
+  .status i.st-rod{background:var(--bad)}
+  .status .ado-link{color:var(--warn-fg);font-weight:500;text-decoration:none}
+  .status .ado-link:hover{text-decoration:underline}
 
   /* ---------- tom plan ---------- */
   .empty{
@@ -209,8 +234,6 @@
   .inv-list{margin:0 0 14px;padding-left:18px;font-size:12px}.inv-list li{margin:3px 0}.inv-list ul{padding-left:16px;margin:2px 0}
   .inv-big{font-size:34px;font-weight:700;margin:4px 0;color:var(--text)}
   #invBody h3{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin:14px 0 6px}
-  .legend .mix label{display:inline-flex;gap:6px;align-items:center;font-size:11px;color:var(--text-3)}
-  .legend .mix select{font-size:11px;padding:1px 4px}
   .lane-label .add-feature{
     position:absolute;right:10px;top:50%;transform:translateY(-50%);
     width:22px;height:22px;padding:0;font-size:14px;line-height:1;
@@ -448,14 +471,12 @@
   .cmp-bar[hidden]{display:none}
   .cmp-bar b{font-weight:600}
   .cmp-bar .sp{flex:1}
-  .ado-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0 0;padding:8px 12px;border:1px solid var(--warn-dot);border-radius:6px;background:var(--warn-bg);color:var(--warn-fg);font-size:12px}
-  .ado-bar .sp{flex:1}
-  .ado-list{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;background:var(--surface)}
+  .ado-list{margin-top:8px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
   .ado-list .ado-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 12px;font-size:12px;border-bottom:1px solid var(--line-soft)}
   .ado-list .ado-row:last-child{border-bottom:none}
   .ado-list .ado-row .where{font-weight:600}
   .ado-list .ado-row .what{flex:1;min-width:200px;color:var(--text-2)}
-  .sprint-goal{font-size:11px;color:var(--text-3);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
+  .sprint-goal{cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
   .sprint-goal:hover{text-decoration:underline}
   #dlgMsg.pre{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;text-align:left;max-height:50vh;overflow:auto}
   .cmp-list{margin:8px 0 0;border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:10px 14px;font-size:13px}
@@ -522,45 +543,57 @@
 <body>
 <header class="topbar">
   <div class="tb-left">
-    <a class="btn" id="backLink" href="/" title="Tilbake til tavlen">← SkyTracker</a>
-    <a class="btn" id="intakeLink" href="/inntak" title="Ønskene PreSales har registrert, og forumets beslutninger">Inntak</a>
-    <h1>Tidslinjen <span class="sub">– epics</span></h1>
+    <nav class="tabs" id="navTabs" aria-label="Sider"></nav>
     <span class="badge warn" id="exampleBadge" hidden>Eksempel, ikke en plan</span>
   </div>
   <div class="tb-right">
     <span class="save-note" id="dirtyNote"></span>
     <span class="whoami" id="whoami"></span>
     <span class="ro-tag" id="roTag" hidden>Lesetilgang</span>
-    <button id="baselineBtn" title="Lagre planen slik den er nå, som et punkt å sammenligne med">Merk baseline…</button>
     <select id="cmpSelect" title="Sammenlign planen med et tidligere punkt"><option value="">Sammenlign med …</option></select>
     <input id="cmpDate" type="date" hidden title="Planen slik den var om morgenen denne dagen">
-    <button id="adoImportBtn" hidden title="Epics og features som allerede ligger i ADO, inn i planen. Skriver ingenting til ADO.">Hent fra ADO</button>
-    <button id="adoRefreshBtn" hidden title="Les tilbake fra ADO: stories, poeng, sprint og det som er lukket">Oppdater fra ADO</button>
-    <button id="exportBtn">Eksporter (JSON)</button>
-    <button id="importBtn" hidden title="Erstatt planen med en eksportert JSON-fil: det filen mangler fjernes, det filen endrer vinner. Alt logges.">Importer (JSON)</button>
-    <input id="importFile" type="file" accept="application/json,.json" hidden>
-    <button id="personBtn" title="Én rad per eier: utredninger og features i rekkefølge. Lesevisning; rediger i epic-visningen.">Per person</button>
     <button id="histBtn" title="Hva har flyttet seg, og hvorfor">Historikk<span class="count" id="histBadge" hidden></span></button>
-    <button id="investorBtn" hidden title="Planen nå, gjennomføringsevne og målopnåelse – tallene investorene spør om">Investorer</button>
-    <button id="helpBtn">Hjelp</button>
+    <details class="menu" id="adoMenu" hidden>
+      <summary title="Alt som leser fra eller skriver til Azure DevOps">ADO ▾<i class="dot" id="adoDot" hidden></i></summary>
+      <div class="menu-list">
+        <button id="adoImportBtn" hidden title="Epics og features som allerede ligger i ADO, inn i planen. Skriver ingenting til ADO.">Hent fra ADO</button>
+        <button id="adoRefreshBtn" hidden title="Les tilbake fra ADO: stories, poeng, sprint og det som er lukket">Oppdater fra ADO</button>
+        <button id="adoConflictsBtn" title="Endret i ADO etter siste push. Ingenting overskrives uten at du ber om det.">Konflikter (0)</button>
+      </div>
+    </details>
+    <details class="menu" id="moreMenu">
+      <summary>Mer ▾</summary>
+      <div class="menu-list">
+        <button id="personBtn" title="Én rad per eier: utredninger og features i rekkefølge. Lesevisning; rediger i epic-visningen.">Per person</button>
+        <button id="baselineBtn" title="Lagre planen slik den er nå, som et punkt å sammenligne med">Merk baseline…</button>
+        <button id="exportBtn">Eksporter (JSON)</button>
+        <button id="importBtn" hidden title="Erstatt planen med en eksportert JSON-fil: det filen mangler fjernes, det filen endrer vinner. Alt logges.">Importer (JSON)</button>
+        <input id="importFile" type="file" accept="application/json,.json" hidden>
+        <label class="menu-field" id="mixField" hidden title="Hvor stor del av en sprint som går til planlagte features: faktoren fra rå uker til uker på tidslinjen">Sprintmiks <select id="mixSelect"><option value="transition">overgang (55 % til features)</option><option value="normal">normal (60 %)</option></select></label>
+        <button id="investorBtn" hidden title="Planen nå, gjennomføringsevne og målopnåelse – tallene investorene spør om">Investorer</button>
+        <button id="helpBtn">Hjelp</button>
+      </div>
+    </details>
     <button id="addReleaseBtn" title="En versjon med måldato. Det som har release-labelen i ADO (bugs og stories), er innholdet.">＋ Release</button>
     <button class="primary" id="addEpicBtn">＋ Epic</button>
   </div>
 </header>
 
 <main class="wrap">
-  <p class="hint">
+  <div class="status" id="statusStrip" title="Planen nå, i ord">
+    <span id="stEpics">Ingen epics ennå</span>
+    <span id="stRelease" hidden></span>
+    <span class="sprint-goal" id="sprintGoal" hidden></span>
+    <a class="ado-link" id="adoStatus" hidden href="#"></a>
+  </div>
+  <p class="hint" id="hint">
     Én rad per epic. Utredning er stripet med en sluttdato, estimater er et spenn: mørk del = sannsynlig,
-    lys del = usikker. Statusen regnes ut fra spennet mot måldatoen. Trykk <b>Hjelp</b> for bruk.
+    lys del = usikker. Statusen regnes ut fra spennet mot måldatoen. Trykk <b>Mer › Hjelp</b> for bruk.
+    <button class="x" id="hintClose" title="Lukk hintet; det kommer ikke tilbake i denne nettleseren">✕</button>
   </p>
 
   <div class="ro-banner" id="roBanner" hidden><b>👁 Lesetilgang</b> – endringer du gjør deles ikke og forsvinner når siden lastes på nytt.</div>
 
-  <div class="ado-bar" id="adoBar" hidden>
-    <span id="adoText"></span><span class="sp"></span>
-    <a class="btn" id="adoLogin" hidden href="/login?callbackUrl=/timeline">Logg inn på nytt</a>
-    <button class="text" id="adoBarClose">Skjul</button>
-  </div>
   <div class="ado-list" id="adoList" hidden></div>
 
   <div class="help" id="helpPanel">
@@ -661,9 +694,6 @@
     <span><i class="sw today"></i>I dag</span>
     <span><i class="sw release"></i>Release</span>
     <span><i class="sw depsw"></i>Avhengighet</span>
-    <span class="mix" id="mixField" hidden title="Hvor stor del av en sprint som går til planlagte features: faktoren fra rå uker til uker på tidslinjen"><label>Sprintmiks <select id="mixSelect"><option value="transition">overgang (55 % til features)</option><option value="normal">normal (60 %)</option></select></label></span>
-    <span class="sprint-goal" id="sprintGoal" hidden></span>
-    <span class="tl-summary" id="tlSummary" title="Status per epic"></span>
   </div>
 
   <div class="empty" id="emptyState" hidden>
@@ -939,7 +969,7 @@ window.__bootTimeline = function(){
   /* Hvilke endringer som spør etter begrunnelse. Speiler needsReason() i events.ts; GO justerer her. */
   const ASK_REASON_FOR = { goalChanged: true, startLaterWeeks: 1, rangeWidened: true, discoveryEndLater: true, movedToOtherEpic: true, epicReordered: true, estimateDeleted: true };
   /* ADO-speilet (etappe 4): tilstand for konfliktlinjen, push etter lagring, estimat hentet fra Skytale.Specs */
-  let adoLoginNeeded = false, adoBarDismissed = '', edPulled = null;
+  let adoLoginNeeded = false, edPulled = null;
   const afterSaveQueue = [];
   const FIELD_LABEL = { title:'Tittel', description:'Beskrivelse', state:'Tilstand', targetDate:'Måldato', startDate:'Startdato' };
   const ACTION_TEXT = { create:'opprettes', update:'oppdateres', none:'uendret' };
@@ -987,10 +1017,17 @@ window.__bootTimeline = function(){
   /* ================== DOM ================== */
   const labels = $('labels'), chart = $('chart'), chartScroll = $('chartScroll'), gantt = $('gantt'), tip = $('dragTip');
   const emptyState = $('emptyState'), seedBtn = $('seedBtn'), emptyNote = $('emptyNote'), exampleBadge = $('exampleBadge');
-  const roBanner = $('roBanner'), dirtyNote = $('dirtyNote'), tlSummary = $('tlSummary');
+  const roBanner = $('roBanner'), dirtyNote = $('dirtyNote');
   const whoami = $('whoami'), roTag = $('roTag');
-  $('backLink').hidden = !HOSTED;   // åpnet fra disk: ingen tavle å gå tilbake til
-  $('intakeLink').hidden = !HOSTED;
+  $('navTabs').innerHTML = navTabsHtml('timeline', HOSTED);   // R14: the three pages share the tabs; opened from disk only this one shows
+  const HINT_KEY = 'sk.hint.timeline';   // R14: the hint closes once per browser
+  try{ if(localStorage.getItem(HINT_KEY) === '1') $('hint').hidden = true; }catch(e){}
+  $('hintClose').addEventListener('click', () => { $('hint').hidden = true; try{ localStorage.setItem(HINT_KEY, '1'); }catch(e){} });
+  document.querySelectorAll('details.menu').forEach(m => {   // R14: a click on an item, outside the menu, or Escape closes it
+    m.querySelector('.menu-list').addEventListener('click', e => { if(e.target.closest('button')) m.open = false; });
+  });
+  document.addEventListener('click', e => { document.querySelectorAll('details.menu[open]').forEach(m => { if(!m.contains(e.target)) m.open = false; }); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') document.querySelectorAll('details.menu[open]').forEach(m => { m.open = false; }); });
   const editorBack = $('editorBack'), epicBack = $('epicBack'), dlgBack = $('dlgBack');
   const helpPanel = $('helpPanel'), linkText = $('linkText');
 
@@ -1483,18 +1520,16 @@ window.__bootTimeline = function(){
     });
   }
 
-  function updateTlSummary(){
-    const n = { gronn:0, gul:0, rod:0, venter:0, other:0 };
-    state.lanes.forEach(l => { const c = epicStatus(state, l.key).code; if(n[c] !== undefined) n[c]++; else n.other++; });
-    const c = epicCounts(state);   // et antall, aldri en grense: kapasitet er planleggernes vurdering
+  function updateTlSummary(){   // R14: the status strip in words: the active epics by colour (a count, never a limit), the next release, the sprint
+    $('stEpics').textContent = epicStatusWords(state);
     const nx = nextReleaseText(state, dayKey(new Date()));   // R11: the next release's distance, share delivered and tempo colour
     const nfc = nx ? releaseForecastText(nx.release, dayKey(new Date())) : null;   // R12: and the chance
-    const relPart = nx ? '<span title="Neste release: hvor langt unna, andel levert, tempo-fargen og sjansen for å bli ferdig til målet">' + (nx.code ? '<i class="st-' + nx.code + '"></i>' : '') + esc(nx.text + (nfc && nfc.short ? ' · ' + nfc.short : '')) + '</span>' : '';
-    tlSummary.innerHTML = (state.lanes.length
-      ? '<span><i class="st-gronn"></i>' + n.gronn + '</span><span><i class="st-gul"></i>' + n.gul + '</span>' +
-        '<span><i class="st-rod"></i>' + n.rod + '</span><span><i></i>' + (n.venter + n.other) + ' venter</span>' +
-        '<span title="Epics etter tilstand">' + c.aktiv + ' aktive · ' + c.forslag + ' forslag · ' + c.avsluttet + ' avsluttet</span>'
-      : '') + relPart;
+    const rel = $('stRelease');
+    rel.hidden = !nx;
+    if(nx){
+      rel.title = 'Neste release: hvor langt unna, andel levert, tempo-fargen og sjansen for å bli ferdig til målet';
+      rel.innerHTML = (nx.code ? '<i class="st-' + nx.code + '"></i>' : '') + esc(nx.text + (nfc && nfc.short ? ' · ' + nfc.short : ''));
+    }
     $('mixSelect').value = (state.capacity && state.capacity.mode) || 'transition';
     renderSprintGoal();
   }
@@ -2623,6 +2658,7 @@ window.__bootTimeline = function(){
       $('registerBtn').hidden = !canWrite;
       $('adoRefreshBtn').hidden = !canWrite;
       $('adoImportBtn').hidden = !canWrite;
+      $('adoMenu').hidden = !canWrite;   // R14: everything ADO in one menu, for writers
       $('importBtn').hidden = !canWrite;
       $('investorBtn').hidden = false;   // tallene er for alle som er logget inn
       $('mixField').hidden = !canWrite;
@@ -2661,6 +2697,7 @@ window.__bootTimeline = function(){
         $('baselineBtn').hidden = true;
         $('adoRefreshBtn').hidden = true;
         $('adoImportBtn').hidden = true;
+        $('adoMenu').hidden = true;
         $('importBtn').hidden = true;
         afterSaveQueue.length = 0;
         setSaveNote('kun lesetilgang – endringer forblir lokale');
@@ -2783,22 +2820,29 @@ window.__bootTimeline = function(){
     state.tasks.forEach(t => ((t.ado && t.ado.conflicts) || []).forEach(c => { const l = getLane(t.lane); rows.push({ kind:'feature', id:t.id, where:(l ? l.name + ' › ' : '') + t.label, adoId:t.adoId, c }); }));
     return rows;
   }
-  const adoBarKey = rows => JSON.stringify(rows.map(r => [r.id, r.c.field, r.c.theirs])) + (adoLoginNeeded ? '|login' : '');
-  function renderAdoBar(){
-    const bar = $('adoBar'), list = $('adoList');
+  function renderAdoBar(){   // R14: a link in the status strip and a dot on the ADO menu, never a yellow row; the list opens on a click
+    const link = $('adoStatus'), list = $('adoList');
     const rows = HOSTED ? adoConflictRows() : [];
-    if((!rows.length && !adoLoginNeeded) || adoBarDismissed === adoBarKey(rows)){ bar.hidden = true; list.hidden = true; return; }
-    bar.hidden = false;
-    $('adoLogin').hidden = !adoLoginNeeded;
-    $('adoText').textContent = (adoLoginNeeded ? 'Logg inn på nytt for å koble til ADO. ' : '') +
-      (rows.length ? 'ADO-konflikter: ' + rows.length + ' – endret i ADO etter siste push. Ingenting er overskrevet.' : '');
-    list.hidden = !rows.length;
+    $('adoConflictsBtn').textContent = 'Konflikter (' + rows.length + ')';
+    $('adoDot').hidden = !(rows.length || adoLoginNeeded);
+    if(!canWrite || (!rows.length && !adoLoginNeeded)){ link.hidden = true; list.hidden = true; return; }
+    link.hidden = false;
+    if(adoLoginNeeded){
+      link.textContent = 'ADO: logg inn på nytt'; link.href = '/login?callbackUrl=/timeline';
+      link.title = 'Tilgangen til ADO er utløpt: logg inn på nytt for å lese og skrive dit';
+    } else {
+      link.textContent = 'ADO: ' + rows.length + (rows.length === 1 ? ' konflikt' : ' konflikter'); link.href = '#';
+      link.title = 'Endret i ADO etter siste push. Klikk for listen; ingenting overskrives uten at du ber om det.';
+    }
+    if(!rows.length) list.hidden = true;
     list.innerHTML = rows.map(r =>
       '<div class="ado-row"><span class="where">' + esc(r.where) + '</span><span class="what">' + esc((FIELD_LABEL[r.c.field] || r.c.field) + ' er «' + (r.c.theirs || '') + '» i ADO, «' + (r.c.ours || '') + '» her') + '</span>' +
       (r.adoId ? '<a class="btn" target="_blank" rel="noopener" href="' + ADO_URL(r.adoId) + '">Åpne i ADO</a>' : '') +
       (canWrite ? '<button class="text force" data-kind="' + r.kind + '" data-id="' + esc(r.id) + '" title="Skriver Tidslinjens verdi over ADO">Push på nytt (overskriv)</button>' : '') + '</div>').join('');
   }
-  $('adoBarClose').addEventListener('click', () => { adoBarDismissed = adoBarKey(adoConflictRows()); renderAdoBar(); });
+  const toggleAdoList = () => { const l = $('adoList'); l.hidden = !l.hidden || !adoConflictRows().length; };
+  $('adoStatus').addEventListener('click', e => { if(adoLoginNeeded) return; e.preventDefault(); toggleAdoList(); });
+  $('adoConflictsBtn').addEventListener('click', toggleAdoList);
   $('adoList').addEventListener('click', async e => {
     const b = e.target.closest('.force'); if(!b) return;
     const kind = b.dataset.kind, id = b.dataset.id;
