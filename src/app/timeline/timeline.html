@@ -531,6 +531,17 @@
   .import-row .map{font-size:11px;color:var(--text-2);text-align:right;white-space:nowrap}
   .shelf-group{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);padding:8px 8px 2px}
   .shelf-empty{padding:0 14px 12px;font-size:12px;color:var(--text-4)}
+  /* R15: in the forum view the shelf stands beside the chart, sticky, with the rows on two lines and the actions always shown */
+  .shelf-tip{display:none;padding:4px 14px 12px;font-size:12px;color:var(--text-4)}
+  body.forum .stage.with-shelf{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start}
+  body.forum .stage.with-shelf .shelf{margin-top:0;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+  body.forum .stage.with-shelf .shelf-head{position:sticky;top:0;background:var(--surface);z-index:1}
+  body.forum .stage.with-shelf .shelf-row{flex-wrap:wrap;gap:3px 8px;padding:6px 8px 8px 12px}
+  body.forum .stage.with-shelf .shelf-row .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body.forum .stage.with-shelf .shelf-row .st{flex-basis:100%;white-space:normal;padding-left:22px}
+  body.forum .stage.with-shelf .shelf-row .acts{opacity:1;flex-basis:100%;flex-wrap:wrap;padding-left:22px}
+  body.forum .stage.with-shelf .shelf-row .acts button{font-size:11px;padding:3px 7px}
+  body.forum .shelf-tip:not([hidden]){display:block}
   .preview{font-size:13px;padding:10px 12px;border-radius:6px;background:var(--bg);border:1px solid var(--line-soft);margin:0 20px 16px}
   .preview b.st-gronn{color:var(--ok-fg)} .preview b.st-gul{color:var(--warn-fg)} .preview b.st-rod{color:var(--bad-fg)}
   .lane-label .chip.preview-chip{background:var(--accent);color:#fff}
@@ -715,6 +726,7 @@
     <span class="note" id="emptyNote"></span>
   </div>
 
+  <div class="stage" id="stage">
   <div class="gantt" id="gantt">
     <div class="labels" id="labels"></div>
     <div class="chart-scroll" id="chartScroll">
@@ -726,7 +738,9 @@
   <section class="shelf" id="shelf" hidden>
     <div class="shelf-head" id="shelfToggle"><h3>Klar for veikart <span class="cnt" id="shelfCount"></span></h3><button id="registerBtn" title="Registrer et ønske produktforum har sagt ja til">＋ Registrer ønske</button></div>
     <div class="shelf-body" id="shelfList"></div>
+    <div class="shelf-tip" id="shelfTip" hidden>Dra inn i en epic. Prisen vises først.</div>
   </section>
+  </div>
 
   <footer>
     <span>Skytale AS · Tidslinjen for utviklingsavdelingen</span>
@@ -2054,6 +2068,8 @@ window.__bootTimeline = function(){
   function renderShelf(){
     const items = shelfTasks(state);
     shelf.hidden = !items.length && !(HOSTED && canWrite);
+    $('stage').classList.toggle('with-shelf', !shelf.hidden);   // R15: the forum view's second column only when the shelf shows
+    $('shelfTip').hidden = !(forumMode && canWrite && items.length);
     shelfCount.textContent = items.length ? '(' + items.length + ')' : '';
     $('registerBtn').hidden = !(HOSTED && canWrite);
     shelfList.innerHTML = items.length ? '' : '<div class="shelf-empty">Ingen features venter på plass i en epic. Registrer et ønske produktforum har sagt ja til.</div>';
