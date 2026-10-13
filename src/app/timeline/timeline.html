@@ -289,6 +289,7 @@
   .axis .delivery{position:absolute;left:0;right:0;height:18px}
   .axis .delivery .seg{position:absolute;top:1px;height:15px;box-sizing:border-box;font-size:10px;line-height:13px;padding:0 5px;border:1px solid var(--neutral);border-radius:3px;background:var(--badge-bg);color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:auto;cursor:pointer}
   .axis .delivery .seg:hover{filter:brightness(.96)}
+  .axis .delivery .seg .t{position:relative;z-index:2;background:inherit;padding:0 2px;margin:0 -2px;border-radius:2px}   /* the text sits above the promise marker */
   .axis .delivery .seg b{font-weight:600;color:var(--text)}
   .axis .delivery .seg.st-gronn{border-color:var(--ok);background:var(--ok-bg)}
   .axis .delivery .seg.st-gul{border-color:var(--warn-dot);background:var(--warn-bg)}
@@ -299,6 +300,7 @@
   .chart .release-line{position:absolute;top:var(--axis-h);bottom:0;width:0;border-left:2px dashed var(--release);opacity:.55;z-index:3;pointer-events:none}
   .chart .release-line::after{content:attr(data-v);position:absolute;bottom:2px;left:4px;font-size:10px;line-height:14px;font-weight:600;color:var(--text-3);background:var(--surface);padding:0 4px;border-radius:3px;white-space:nowrap}   /* R14: the version at the bottom too */
   .chart .release-line.shipped{border-left-style:solid;opacity:.35}
+  .chart .release-line.edge::after{left:auto;right:4px}   /* a release at the axis end: the label hangs to the left of its line */
   .sw.release{width:16px;height:10px;border:1px solid var(--release);border-left-style:dashed;background:var(--release-bg)}
   .rel-h{font-size:12px;font-weight:600;color:var(--text-2);margin:14px 0 4px;text-transform:uppercase;letter-spacing:.04em}
   .rel-h .cnt{font-weight:400;color:var(--text-4)}
@@ -555,6 +557,10 @@
   body.forum .stage.with-shelf .shelf-row .acts{opacity:1;flex-basis:100%;flex-wrap:wrap;padding-left:22px}
   body.forum .stage.with-shelf .shelf-row .acts button{font-size:11px;padding:3px 7px}
   body.forum .shelf-tip:not([hidden]){display:block}
+  @media (max-width:1200px){   /* a laptop, not the wall: the panel goes under the chart, still with its rows and tip */
+    body.forum .stage.with-shelf{display:block}
+    body.forum .stage.with-shelf .shelf{position:static;max-height:none;margin-top:14px}
+  }
   .preview{font-size:13px;padding:10px 12px;border-radius:6px;background:var(--bg);border:1px solid var(--line-soft);margin:0 20px 16px}
   .preview b.st-gronn{color:var(--ok-fg)} .preview b.st-gul{color:var(--warn-fg)} .preview b.st-rod{color:var(--bad-fg)}
   .lane-label .chip.preview-chip{background:var(--accent);color:#fff}
@@ -1297,7 +1303,7 @@ window.__bootTimeline = function(){
           seg.dataset.key = d.key;
           seg.style.left = x(a) + 'px'; seg.style.width = (x(b) - x(a)) + 'px';
           const wide = (x(b) - x(a)) >= 260;
-          seg.innerHTML = '<b>' + esc(d.name) + '</b> · ' + esc(deliveryCustomersText(d)) + (wide && st.computed ? ' · ' + esc((st.pending ? 'minst ' : 'utregnet ') + fmtDate(unitToDate(dayToUnit(st.computed)))) : '');
+          seg.innerHTML = '<span class="t"><b>' + esc(d.name) + '</b> · ' + esc(deliveryCustomersText(d)) + (wide && st.computed ? ' · ' + esc((st.pending ? 'minst ' : 'utregnet ') + fmtDate(unitToDate(dayToUnit(st.computed)))) : '') + '</span>';
           seg.title = 'Leveranse ' + d.name + ' · ' + deliveryCustomersText(d) + ' · lovet ' + fmtDate(unitToDate(sg.promised)) + '\n' + st.text + (HOSTED ? '\nKlikk for fanen Kunder' : '');
           if(HOSTED) seg.addEventListener('click', () => { location.href = '/kunder#' + encodeURIComponent(d.key); });
           row.appendChild(seg);
@@ -1319,7 +1325,7 @@ window.__bootTimeline = function(){
     chart.appendChild(grid);
     segs.forEach(sg => {   // release-linjen: der featurene i releasen ender
       if(sg.end < VIEW_FROM || sg.end > N_MONTHS) return;
-      const ln = el('div', 'release-line' + (sg.shipped ? ' shipped' : ''));
+      const ln = el('div', 'release-line' + (sg.shipped ? ' shipped' : '') + (x(sg.end) > CHART_W - 60 ? ' edge' : ''));
       ln.dataset.v = sg.release.version;   // R14: the line's label at the bottom of the chart
       ln.style.left = x(sg.end) + 'px';
       chart.appendChild(ln);
@@ -1884,6 +1890,12 @@ window.__bootTimeline = function(){
       const r = await fetch('api/timeline-changes?limit=1', {cache:'no-store'});
       if(r.ok) setBadge((await r.json()).missing14d);
     }catch(e){}
+  }
+  function openFromHash(){   // #historikk=<id> opens the history of one target (a delivery from Kunder, or anything with an id)
+    const m = /^#historikk=(.+)$/.exec(location.hash || '');
+    if(!m) return;
+    let target = m[1]; try{ target = decodeURIComponent(target); }catch(e){}
+    openHistory({ target });
   }
   function openHistory(opts){
     opts = opts || {};
@@ -2808,6 +2820,7 @@ window.__bootTimeline = function(){
       if(j.plan){
         applyRemote(j.plan.data, j.plan.version);
         setSaveNote('delt plan lastet' + (canWrite ? '' : ' – kun lesetilgang'));
+        openFromHash();   // «Historikk» on the Kunder page: /timeline#historikk=<key>
       } else {
         state = emptyPlan();
         render();
