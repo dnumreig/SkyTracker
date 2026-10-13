@@ -111,3 +111,7 @@ export declare function releaseBurndownData(plan: Plan, r: Release, todayDay: st
 /* R12: the chance a release is done by its target day */
 export declare function releaseForecastText(r: Release, todayDay: string): { short: string | null; text: string; detail?: string; basis?: string; people?: { name: string; days: number; pace: number; expected: number }[] } | null;
 export declare function sprintUnlabelledWiql(iterationPath: string): string;
+
+/* R14: the shared top bar and the status strip in words */
+export declare function navTabsHtml(active: "inntak" | "timeline" | "board", hosted: boolean): string;
+export declare function epicStatusWords(plan: Plan): string;
