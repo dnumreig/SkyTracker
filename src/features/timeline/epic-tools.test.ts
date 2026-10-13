@@ -11,8 +11,9 @@ import {
   releaseForecastText,
   BACKLOG, canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
   navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
+  DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor,
 } from "./epic-tools.js";
-import type { Plan, PlanTask } from "./merge";
+import type { Delivery, Plan, PlanTask } from "./merge";
 
 const est = (over: Partial<PlanTask>): PlanTask =>
   ({ id: "e", lane: "x", label: "Est", kind: "estimate", start: 4, endLikely: 5, end: 6, deps: [], fv: {}, ...over });
@@ -913,9 +914,9 @@ describe("R14: the top bar's words", () => {
   const discT = (id: string, lane: string, end: number): PlanTask => ({ id, label: id, lane, kind: "discovery", start: 0, endLikely: end, end, deps: [], fv: {}, state: "utredes" });
   const words = (lanes: ReturnType<typeof ln>[], tasks: PlanTask[]) => epicStatusWords({ lanes, tasks } as unknown as Plan);
 
-  it("navTabsHtml keeps the process order, marks the active tab and shows all three when hosted", () => {
+  it("navTabsHtml keeps the process order, marks the active tab and shows all four when hosted", () => {
     const html = navTabsHtml("timeline", true);
-    expect([...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1])).toEqual(["/inntak", "/timeline", "/"]);
+    expect([...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1])).toEqual(["/inntak", "/timeline", "/", "/kunder"]);
     expect(html).toContain('<a class="tab on" id="tab-timeline" data-tab="timeline" href="/timeline" aria-current="page">Tidslinjen</a>');
     expect(html).toContain('<a class="tab" id="tab-board" data-tab="board" href="/">Brettet</a>');
     expect(html).not.toContain("hidden");
@@ -926,6 +927,7 @@ describe("R14: the top bar's words", () => {
     expect(html).toContain('id="tab-board" data-tab="board" href="/" aria-current="page">');
     expect(html).toContain('id="tab-inntak" data-tab="inntak" href="/inntak" hidden>');
     expect(html).toContain('id="tab-timeline" data-tab="timeline" href="/timeline" hidden>');
+    expect(html).toContain('id="tab-kunder" data-tab="kunder" href="/kunder" hidden>');
   });
 
   it("epicStatusWords counts the active epics by colour, in Norwegian words", () => {
@@ -958,5 +960,135 @@ describe("R15: the forum view", () => {
     expect(forumDefault(null, false)).toBe(true);
     expect(forumDefault(null, true)).toBe(false);
     expect(forumDefault(undefined, true)).toBe(false);
+  });
+});
+
+describe("R16: Leveranser, the COO layer", () => {
+  const D = (y: number, m: number, d: number) => dateToUnit(new Date(y, m - 1, d));
+  const TODAY = "2026-10-13";
+  const del = (over: Record<string, unknown> = {}): Delivery => ({ key: "d1", name: "Skytale 2.0", customers: [], allCustomers: true, promisedDate: "2026-11-30", epics: ["x"], releases: ["r1"], ...over }) as unknown as Delivery;
+  const base = (over: Record<string, unknown> = {}) => normalizePlan({
+    lanes: [{ key: "x", name: "Epic X", priority: 1 }, { key: "y", name: "Epic Y", state: "avsluttet", outcome: "nådd", priority: 2 }, { key: "z", name: "Epic Z", priority: 3 }],
+    tasks: [
+      { id: "x1", lane: "x", label: "X1", kind: "estimate", start: D(2026, 11, 2), endLikely: D(2026, 12, 4), end: D(2026, 12, 11), deps: [], fv: {}, state: "aktiv" },
+      { id: "y1", lane: "y", label: "Y1", kind: "estimate", start: D(2026, 9, 1), endLikely: D(2026, 9, 20), end: D(2026, 9, 30), deps: [], fv: {}, state: "levert", deliveredAt: "2026-09-30" },
+    ],
+    releases: [{ key: "r1", version: "2.0.1", targetDate: "2026-11-20", ado: { at: "2026-10-13T08:00:00.000Z", label: "2.0.1", items: [
+      { id: 1, type: "Bug", title: "a", state: "New", points: 3, assignee: null }, { id: 2, type: "Bug", title: "b", state: "Closed", points: 2, assignee: null }, { id: 3, type: "User Story", title: "c", state: "New", points: 5, assignee: null },
+    ], sprints: [{ name: "Sprint 71", unlabelled: 3 }] } }, { key: "r0", version: "2.0.0", targetDate: "2026-10-07", shippedDate: "2026-10-07" }],
+    deliveries: [del()],
+    ...over,
+  });
+
+  it("the normaliser keeps a delivery with key, name and a valid promised day, cleans customers and keys, sorts by promised day", () => {
+    const p = normalizePlan({ lanes: [], tasks: [], deliveries: [
+      del({ key: "b", name: "  B ", promisedDate: "2026-12-01", allCustomers: false, customers: [" Telenor ", "NSR", "Telenor", "", 7], epics: ["x", "x", ""], releases: 5, owner: " COO ", note: " n " }),
+      del({ key: "a", promisedDate: "2026-11-01", epics: [], releases: [] }),
+      del({ key: "", promisedDate: "2026-11-01" }), del({ key: "c", name: "" }), del({ key: "e", promisedDate: "2026-02-30" }), null,
+    ], deletedDeliveries: { gone: 1 } });
+    expect(p.deliveries!.map((d) => d.key)).toEqual(["a", "b"]);
+    expect(p.deliveries![0]).toEqual({ key: "a", v: 0, name: "Skytale 2.0", customers: [], allCustomers: true, promisedDate: "2026-11-01", epics: [], releases: [] });
+    expect(p.deliveries![1]).toEqual({ key: "b", v: 0, name: "B", customers: ["Telenor", "NSR"], promisedDate: "2026-12-01", epics: ["x"], releases: [], owner: "COO", note: "n" });
+    expect(p.deletedDeliveries).toEqual({ gone: 1 });
+    expect(normalizePlan({ lanes: [], tasks: [] }).deliveries).toEqual([]);
+  });
+
+  it("words: owner, customers", () => {
+    expect(deliveryOwner(del())).toBe("COO");
+    expect(deliveryOwner(del({ owner: "GO" }))).toBe("GO");
+    expect(deliveryCustomersText(del())).toBe("alle kunder");
+    expect(deliveryCustomersText(del({ allCustomers: undefined, customers: ["Telenor", "NSR"] }))).toBe("Telenor, NSR");
+    expect(deliveryCustomersText(del({ allCustomers: undefined, customers: [] }))).toBe("ingen kunder");
+  });
+
+  it("the parts are the existing epics and releases; an unknown key is ignored", () => {
+    const p = base({ deliveries: [del({ epics: ["x", "gone"], releases: ["r1", "nope"] })] });
+    const parts = deliveryParts(p, p.deliveries![0]);
+    expect(parts.epics.map((l) => l.key)).toEqual(["x"]);
+    expect(parts.releases.map((r) => r.key)).toEqual(["r1"]);
+  });
+
+  it("the computed date is the latest of the open epic's late end and the release's expected finish, with who gives it", () => {
+    const p = base();
+    const c = deliveryComputed(p, p.deliveries![0], TODAY);
+    expect(c).toEqual({ day: "2026-12-11", by: { kind: "epic", key: "x", name: "Epic X" }, pending: false, open: 2, parts: 2 });
+    const s = deliveryStatus(p, p.deliveries![0], TODAY);
+    expect(s.code).toBe("rod");
+    expect(s.deltaDays).toBe(9);
+    expect(s.weeks).toBe(1.6);
+    expect(s.text).toBe("utregnet 11. des · 1,6 uker etter lovet · dratt av «Epic X»");
+    expect(deliveryStatus(p, { ...p.deliveries![0], promisedDate: "2026-12-11" }, TODAY)).toMatchObject({ code: "gronn", deltaDays: 0, text: "utregnet 11. des · på lovet dato · dratt av «Epic X»" });
+    expect(deliveryStatus(p, { ...p.deliveries![0], promisedDate: "2026-12-09" }, TODAY)).toMatchObject({ code: "gul", deltaDays: 2, text: "utregnet 11. des · to arbeidsdager etter lovet · dratt av «Epic X»" });
+    expect(deliveryStatus(p, { ...p.deliveries![0], promisedDate: "2026-12-18" }, TODAY)).toMatchObject({ code: "gronn", deltaDays: -5, text: "utregnet 11. des · 1 uke før lovet · dratt av «Epic X»" });
+  });
+
+  it("a release without a tempo gives its target day; a shipped release and a closed epic give nothing; nothing open is «alt levert»; no parts is «ingen»", () => {
+    const p = base();
+    const onlyRel = deliveryStatus(p, { ...p.deliveries![0], epics: [] }, TODAY);
+    expect(onlyRel).toMatchObject({ code: "gronn", computed: "2026-11-20", text: "utregnet 20. nov · 1,4 uker før lovet · dratt av release 2.0.1" });
+    expect(deliveryStatus(p, { ...p.deliveries![0], epics: ["y"], releases: ["r0"] }, TODAY)).toMatchObject({ code: "gronn", computed: null, text: "alt levert" });
+    expect(deliveryStatus(p, { ...p.deliveries![0], epics: [], releases: [] }, TODAY)).toMatchObject({ code: "ingen", computed: null, text: "henger ikke på noe ennå" });
+    expect(DELIVERY_WORD).toEqual({ gronn: "grønn", gul: "gul", rod: "rød", ingen: "uten dato" });
+  });
+
+  it("a discovery makes the date a floor («minst … · venter på utredning»); an end in the past is floored at today", () => {
+    const p = base({ tasks: [
+      { id: "x1", lane: "x", label: "X1", kind: "discovery", start: D(2026, 10, 5), end: D(2026, 10, 26), deps: [], fv: {}, state: "utredes" },
+      { id: "z1", lane: "z", label: "Z1", kind: "estimate", start: D(2026, 8, 3), endLikely: D(2026, 9, 1), end: D(2026, 9, 15), deps: [], fv: {}, state: "aktiv" },
+    ], deliveries: [del({ releases: [] }), del({ key: "d2", name: "Z", epics: ["z"], releases: [] })] });
+    expect(deliveryStatus(p, p.deliveries![0], TODAY)).toMatchObject({ pending: true, computed: "2026-10-26", code: "gronn", text: "minst 26. okt · 5 uker før lovet · venter på utredning · dratt av «Epic X»" });
+    expect(deliveryStatus(p, p.deliveries![1], TODAY)).toMatchObject({ computed: TODAY, by: { kind: "epic", key: "z" } });
+  });
+
+  it("bugs left, items without a label, the parts text and the lines", () => {
+    const p = base();
+    const d = p.deliveries![0];
+    expect(deliveryBugsLeft(p, d)).toBe(1);
+    expect(deliveryUnlabelled(p, d)).toBe(3);
+    expect(deliveryPartsText(p, d)).toBe("Release 2.0.1 · Epic X · 3 uten release-label");
+    expect(deliveryPartsText(p, { ...d, epics: [], releases: [] })).toBe("ingenting ennå");
+    const lines = deliveryLines(p, TODAY);
+    expect(lines.map((l) => [l.key, l.customer, l.all, l.none])).toEqual([["d1", "Alle kunder", true, false]]);
+    expect(lines[0].status.code).toBe("rod");
+    const named = deliveryLines(base({ deliveries: [del({ allCustomers: undefined, customers: ["Telenor", "NSR"] }), del({ key: "d2", name: "Tom", allCustomers: undefined, customers: [] })] }), TODAY);
+    expect(named.map((l) => [l.key, l.customer, l.none])).toEqual([["d1", "Telenor", false], ["d1", "NSR", false], ["d2", "Ingen kunder", true]]);
+  });
+
+  it("customers per epic: all wins, names are distinct, the weight follows the count", () => {
+    const p = base({ deliveries: [
+      del({ key: "d1", allCustomers: true, epics: ["x"] }),
+      del({ key: "d2", name: "Video", allCustomers: undefined, customers: ["Kunde B", "Kunde C"], epics: ["z"], releases: [] }),
+      del({ key: "d3", name: "Proxy i drift", allCustomers: undefined, customers: ["Kunde B"], epics: ["z", "y"], releases: [] }),
+    ] });
+    const x = epicCustomers(p, "x"), z = epicCustomers(p, "z"), y = epicCustomers(p, "y"), none = epicCustomers(p, "nope");
+    expect([x.all, x.names, x.deliveries.map((d) => d.key)]).toEqual([true, [], ["d1"]]);
+    expect([z.all, z.names, z.count]).toEqual([false, ["Kunde B", "Kunde C"], 2]);
+    expect([epicCustomersText(x), epicCustomersText(z), epicCustomersText(y), epicCustomersText(none)]).toEqual(["alle kunder", "2 kunder", "1 kunde", ""]);
+    expect([epicWeight(x), epicWeight(z), epicWeight(y), epicWeight(none)]).toEqual([
+      { code: "tyngst", label: "Tyngst" }, { code: "flere", label: "Flere interessenter" }, { code: "lett", label: "Lett å prioritere" }, { code: "ingen", label: "Ingen kunder venter" },
+    ]);
+  });
+
+  it("segments: from the earliest feature start (else the release's segment, else today) to the computed day, the promise as a unit", () => {
+    const p = base();
+    const sg = deliverySegments(p, TODAY);
+    expect(sg.length).toBe(1);
+    expect(sg[0].start).toBeCloseTo(D(2026, 11, 2), 5);
+    expect(sg[0].end).toBeCloseTo(D(2026, 12, 11), 5);
+    expect(sg[0].promised).toBeCloseTo(D(2026, 11, 30), 5);
+    expect(sg[0].status.code).toBe("rod");
+    const rel = deliverySegments(base({ deliveries: [del({ epics: [] })] }), TODAY)[0];
+    expect(rel.start).toBeCloseTo(D(2026, 10, 7), 5);   // r1's segment starts where the shipped 2.0.0's ends
+    const bare = deliverySegments(base({ deliveries: [del({ epics: [], releases: [] })] }), TODAY)[0];
+    expect(bare.start).toBeCloseTo(D(2026, 10, 13), 5);
+    expect(bare.end).toBeCloseTo(D(2026, 11, 30), 5);
+  });
+
+  it("the investor numbers per delivery", () => {
+    const p = base({ deliveries: [del({ epics: ["x", "y"] })] });
+    expect(deliveryInvestor(p, p.deliveries![0], TODAY)).toEqual({
+      key: "d1", name: "Skytale 2.0", customers: "alle kunder", owner: "COO", promised: "2026-11-30", computed: "2026-12-11", weeks: 1.6, colour: "rød", code: "rod",
+      by: "«Epic X»", pending: false, epicsDone: 1, epicsTotal: 2, bugsLeft: 1, text: "utregnet 11. des · 1,6 uker etter lovet · dratt av «Epic X»",
+    });
   });
 });

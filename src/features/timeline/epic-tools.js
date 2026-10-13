@@ -103,6 +103,16 @@ function normalizePlan(plan) {
     }
     return out;
   }).sort((a, b) => releaseEnd(a) - releaseEnd(b) || a.version.localeCompare(b.version));
+  // deliveries (R16): COO's promise to customers, hanging on epics and releases; a key of a since-deleted part stays and is ignored when read
+  p.deletedDeliveries = p.deletedDeliveries && typeof p.deletedDeliveries === "object" ? p.deletedDeliveries : {};
+  const strList = (v, max, n) => { const out = []; (Array.isArray(v) ? v : []).forEach((s) => { const t = text(s, max); if (t && !out.includes(t) && out.length < n) out.push(t); }); return out; };
+  p.deliveries = (Array.isArray(p.deliveries) ? p.deliveries : []).filter((d) => d && typeof d === "object" && typeof d.key === "string" && d.key && text(d.name, 120) && validDay(d.promisedDate)).map((d) => {
+    const out = { key: d.key, v: num(d.v, 0), name: text(d.name, 120), customers: d.allCustomers ? [] : strList(d.customers, 60, 50), promisedDate: d.promisedDate, epics: strList(d.epics, 80, 200), releases: strList(d.releases, 80, 200) };
+    if (d.allCustomers) out.allCustomers = true;
+    const owner = text(d.owner, 60); if (owner) out.owner = owner;
+    const note = text(d.note, 2000); if (note) out.note = note;
+    return out;
+  }).sort((a, b) => (a.promisedDate < b.promisedDate ? -1 : a.promisedDate > b.promisedDate ? 1 : a.name.localeCompare(b.name, "nb")));
   p.lanes.forEach((l) => {
     if (typeof l.owner !== "string" || !l.owner) l.owner = OWNER_DEFAULT;
     if (num(l.goalDate, null) === null) delete l.goalDate;
@@ -751,8 +761,8 @@ function sprintLabel(sprints, date) {
 }
 
 /* ---------- R14: the shared top bar and the status strip in words ---------- */
-const NAV_TABS = [["inntak", "Inntak", "/inntak"], ["timeline", "Tidslinjen", "/timeline"], ["board", "Brettet", "/"]];
-/** The three pages' tabs in the process order; opened from a file, only the active one shows (the others would point nowhere). */
+const NAV_TABS = [["inntak", "Inntak", "/inntak"], ["timeline", "Tidslinjen", "/timeline"], ["board", "Brettet", "/"], ["kunder", "Kunder", "/kunder"]];
+/** The pages' tabs in the process order (R16 added «Kunder»); opened from a file, only the active one shows (the others would point nowhere). */
 function navTabsHtml(active, hosted) {
   return NAV_TABS.map(([key, name, href]) => {
     const on = key === active;
@@ -787,6 +797,127 @@ function forumDefault(stored, canWrite) {   // a stored choice wins; without one
   return !canWrite;
 }
 
+/* ---------- R16: Leveranser, the COO layer over epics and releases ---------- */
+const DELIVERY_OWNER = "COO";
+const DELIVERY_LATE_DAYS = 3;   // the release rule: working days after the promise that still count as yellow
+const DELIVERY_WORD = { gronn: "grønn", gul: "gul", rod: "rød", ingen: "uten dato" };
+function deliveryOwner(d) { return (d && d.owner) || DELIVERY_OWNER; }
+/** «alle kunder», the names, or «ingen kunder». */
+function deliveryCustomersText(d) { return d.allCustomers ? "alle kunder" : d.customers && d.customers.length ? d.customers.join(", ") : "ingen kunder"; }
+/** The epics and releases a delivery hangs on, existing ones only, in the plan's order. */
+function deliveryParts(plan, d) {
+  const e = new Set(d.epics || []), r = new Set(d.releases || []);
+  return { epics: (plan.lanes || []).filter((l) => e.has(l.key)), releases: (plan.releases || []).filter((x) => r.has(x.key)) };
+}
+const partName = (p) => (p.kind === "epic" ? "«" + p.name + "»" : "release " + p.name);
+const laterDay = (a, b) => (a > b ? a : b);
+/** The computed date: the latest of the open epics' late ends and the open releases' expected finish (never before today); who gives it; whether a discovery still runs. */
+function deliveryComputed(plan, d, todayDay) {
+  const parts = deliveryParts(plan, d);
+  let day = null, by = null, pending = false, open = 0;
+  const take = (cand, who) => { if (cand && (day === null || cand > day)) { day = cand; by = who; } };
+  parts.epics.forEach((l) => {
+    if (l.state === "avsluttet") return;
+    const tasks = plan.tasks.filter((t) => t.lane === l.key && t.state !== "levert");
+    if (!tasks.length) return;
+    open++;
+    if (tasks.some((t) => t.kind === "discovery")) pending = true;
+    take(laterDay(dayKey(unitToDate(Math.max(...tasks.map((t) => t.end)))), todayDay), { kind: "epic", key: l.key, name: l.name });
+  });
+  parts.releases.forEach((r) => {
+    if (r.shippedDate) return;
+    open++;
+    const pace = releasePace(plan, r, todayDay);
+    take(laterDay((pace && pace.forecastDay) || r.targetDate, todayDay), { kind: "release", key: r.key, name: r.version });
+  });
+  return { day, by, pending, open, parts: parts.epics.length + parts.releases.length };
+}
+const dec = (n) => String(n).replace(".", ",");
+const weeksWords = (w) => (w === 1 ? "1 uke" : dec(w) + " uker");
+/** The status against the promise: the colour, the working days and weeks after (+) or before (−) it, the sentence that says what pulls the date. */
+function deliveryStatus(plan, d, todayDay) {
+  const c = deliveryComputed(plan, d, todayDay);
+  if (!c.parts) return { code: "ingen", computed: null, by: null, pending: false, deltaDays: null, weeks: null, deviation: "", text: "henger ikke på noe ennå" };
+  if (!c.open) return { code: "gronn", computed: null, by: null, pending: false, deltaDays: 0, weeks: 0, deviation: "", text: "alt levert" };
+  const deltaDays = c.day > d.promisedDate ? workDaysBetween(d.promisedDate, c.day) : c.day < d.promisedDate ? -workDaysBetween(c.day, d.promisedDate) : 0;
+  const weeks = Math.round((calendarDays(d.promisedDate, c.day) / 7) * 10) / 10;
+  const code = deltaDays <= 0 ? "gronn" : deltaDays <= DELIVERY_LATE_DAYS ? "gul" : "rod";
+  const side = deltaDays > 0 ? " etter lovet" : " før lovet";
+  const deviation = deltaDays === 0 ? "på lovet dato" : (Math.abs(weeks) < 1 ? daysWords(Math.abs(deltaDays)) : weeksWords(Math.abs(weeks))) + side;
+  const text = (c.pending ? "minst " : "utregnet ") + dayWords(c.day) + " · " + deviation + (c.pending ? " · venter på utredning" : "") + " · dratt av " + partName(c.by);
+  return { code, computed: c.day, by: c.by, pending: c.pending, deltaDays, weeks, deviation, text };
+}
+/** The open bugs and stories without a release label in the sprints of the delivery's releases (the highest count any release reports per sprint). */
+function deliveryUnlabelled(plan, d) {
+  const per = new Map();
+  deliveryParts(plan, d).releases.forEach((r) => ((r.ado && r.ado.sprints) || []).forEach((s) => per.set(s.name, Math.max(per.get(s.name) || 0, s.unlabelled || 0))));
+  let n = 0; per.forEach((v) => { n += v; }); return n;
+}
+/** Distinct open bugs across the delivery's releases. */
+function deliveryBugsLeft(plan, d) {
+  const ids = new Set();
+  deliveryParts(plan, d).releases.forEach((r) => ((r.ado && r.ado.items) || []).forEach((i) => { if (i.type === "Bug" && !releaseItemDone(i)) ids.add(i.id); }));
+  return ids.size;
+}
+/** «Release 2.0.1 · release 2.0.2 · FileVault · 3 uten release-label», or «ingenting ennå». */
+function deliveryPartsText(plan, d) {
+  const parts = deliveryParts(plan, d);
+  const list = parts.releases.map((r, i) => (i ? "release " : "Release ") + r.version).concat(parts.epics.map((l) => l.name));
+  if (!list.length) return "ingenting ennå";
+  const u = deliveryUnlabelled(plan, d);
+  if (u) list.push(u + " uten release-label");
+  return list.join(" · ");
+}
+/** One row per customer of each delivery («Alle kunder» as one row, «Ingen kunder» when none). */
+function deliveryLines(plan, todayDay) {
+  const rows = [];
+  (plan.deliveries || []).forEach((d) => {
+    const status = deliveryStatus(plan, d, todayDay), hangsOn = deliveryPartsText(plan, d);
+    const customers = d.allCustomers ? ["Alle kunder"] : d.customers.length ? d.customers : ["Ingen kunder"];
+    customers.forEach((customer) => rows.push({ key: d.key, customer, all: !!d.allCustomers, none: !d.allCustomers && !d.customers.length, delivery: d, hangsOn, promisedDate: d.promisedDate, status }));
+  });
+  return rows;
+}
+/** The customers waiting on an epic through any delivery; `all` when one of them is for all customers. */
+function epicCustomers(plan, laneKey) {
+  const deliveries = (plan.deliveries || []).filter((d) => (d.epics || []).includes(laneKey));
+  const all = deliveries.some((d) => d.allCustomers);
+  const names = [];
+  deliveries.forEach((d) => (d.customers || []).forEach((c) => { if (!names.includes(c)) names.push(c); }));
+  return { all, names, count: names.length, deliveries };
+}
+function epicCustomersText(c) { return c.all ? "alle kunder" : c.count === 1 ? "1 kunde" : c.count > 1 ? c.count + " kunder" : ""; }
+/** The priority signal: one line is light, several are many stakeholders, all customers is the heaviest. */
+function epicWeight(c) {
+  if (c.all) return { code: "tyngst", label: "Tyngst" };
+  if (c.count >= 2) return { code: "flere", label: "Flere interessenter" };
+  if (c.count === 1) return { code: "lett", label: "Lett å prioritere" };
+  return { code: "ingen", label: "Ingen kunder venter" };
+}
+/** One segment per delivery for the band: from the earliest feature start (else the release's segment, else today) to the computed day (else the promise). */
+function deliverySegments(plan, todayDay) {
+  const today = dayToUnit(todayDay);
+  return (plan.deliveries || []).map((d) => {
+    const parts = deliveryParts(plan, d), status = deliveryStatus(plan, d, todayDay);
+    const epicKeys = new Set(parts.epics.map((l) => l.key));
+    const starts = plan.tasks.filter((t) => epicKeys.has(t.lane)).map((t) => t.start);
+    if (!starts.length && parts.releases.length) {
+      const segs = releaseSegments(plan, today);
+      parts.releases.forEach((r) => { const s = segs.find((x) => x.release.key === r.key); if (s) starts.push(s.start); });
+    }
+    const start = starts.length ? Math.min(...starts) : today;
+    const promised = dayToUnit(d.promisedDate);
+    const end = Math.max(start + WEEK / 2, status.computed ? dayToUnit(status.computed) : promised);
+    return { delivery: d, start, end, promised, status };
+  });
+}
+/** The five numbers for the investor page, with the colour and what pulls the date. */
+function deliveryInvestor(plan, d, todayDay) {
+  const parts = deliveryParts(plan, d), s = deliveryStatus(plan, d, todayDay);
+  return { key: d.key, name: d.name, customers: deliveryCustomersText(d), owner: deliveryOwner(d), promised: d.promisedDate, computed: s.computed, weeks: s.weeks, colour: DELIVERY_WORD[s.code], code: s.code,
+    by: s.by ? partName(s.by) : null, pending: s.pending, epicsDone: parts.epics.filter((l) => l.state === "avsluttet").length, epicsTotal: parts.epics.length, bugsLeft: deliveryBugsLeft(plan, d), text: s.text };
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     BASE_Y, BASE_M, N_MONTHS, WEEK, SCHEMA, OWNER_DEFAULT, STATUS_LABEL,
@@ -799,6 +930,7 @@ if (typeof module !== "undefined") {
     shelfTasks, epicCounts, sizeClass, sizeClassDerived, sizeClassText, bufferLabel, rawLabel, previewPlacement,
     canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
     dayKey, currentSprint, sprintDay, sprintLabel, navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
+    DELIVERY_OWNER, DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor,
     dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
     workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, releaseForecastText, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
     progressFraction, progressSignal, epicProgressSignal, progressText,

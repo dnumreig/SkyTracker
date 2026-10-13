@@ -75,6 +75,23 @@ export type Release = {
   label?: string;
   ado?: ReleaseAdo;
 };
+/** A delivery (R16): COO's promise to customers, hanging on epics and releases. Versioned like a release (`v`). Keys of since-deleted parts stay and are ignored when read. */
+export type Delivery = {
+  key: string;
+  v?: number;
+  name: string;
+  /** Named customers; empty when `allCustomers`. */
+  customers: string[];
+  allCustomers?: true;
+  /** YYYY-MM-DD, COO's. */
+  promisedDate: string;
+  owner?: string;
+  note?: string;
+  /** Lane keys. */
+  epics: string[];
+  /** Release keys. */
+  releases: string[];
+};
 export type AdoSnapshot = Partial<Record<"title" | "description" | "state" | "targetDate" | "startDate", string | null>>;
 export type AdoConflict = { field: string; ours: string | null; theirs: string | null };
 export type LaneAdo = { pushedAt: string; snapshot: AdoSnapshot; conflicts?: AdoConflict[] };
@@ -151,6 +168,8 @@ export type Plan = {
   deletedWishes?: Record<string, number>;
   releases?: Release[];
   deletedReleases?: Record<string, number>;
+  deliveries?: Delivery[];
+  deletedDeliveries?: Record<string, number>;
   sprints?: { at: string; items: Sprint[] };
   sprintGoals?: Record<string, { text: string; at: string }>;
   /** The sprint mix: the share of a sprint that goes to planned features (R5); the factor from raw weeks to elapsed time. */
@@ -198,6 +217,7 @@ export function mergePlans(stored: Plan, incoming: Plan): Plan {
   const deletedLanes = mergeTombstones(stored.deletedLanes, incoming.deletedLanes);
   const deletedWishes = mergeTombstones(stored.deletedWishes, incoming.deletedWishes);
   const deletedReleases = mergeTombstones(stored.deletedReleases, incoming.deletedReleases);
+  const deletedDeliveries = mergeTombstones(stored.deletedDeliveries, incoming.deletedDeliveries);
 
   // lanes: union by key, versioned (incoming wins ties); a tombstone removes a
   // lane unless its version was bumped PAST the tombstone
@@ -236,6 +256,17 @@ export function mergePlans(stored: Plan, incoming: Plan): Plan {
   for (const i of relByKey.values()) releases.push({ ...i });
   const liveReleases = releases.filter((r) => { const tomb = deletedReleases[r.key]; return tomb === undefined || (r.v ?? 0) > tomb; });
 
+  // deliveries (R16): like releases, by key and version
+  const deliveries: Delivery[] = [];
+  const delByKey = new Map((incoming.deliveries ?? []).map((d) => [d.key, d]));
+  for (const s of stored.deliveries ?? []) {
+    const i = delByKey.get(s.key);
+    deliveries.push(i && (i.v ?? 0) >= (s.v ?? 0) ? { ...i } : { ...s });
+    delByKey.delete(s.key);
+  }
+  for (const i of delByKey.values()) deliveries.push({ ...i });
+  const liveDeliveries = deliveries.filter((d) => { const tomb = deletedDeliveries[d.key]; return tomb === undefined || (d.v ?? 0) > tomb; });
+
   // tasks: union by id, stored order first, incoming-only appended
   const storedMap = new Map(stored.tasks.map((t) => [t.id, t]));
   const incomingMap = new Map(incoming.tasks.map((t) => [t.id, t]));
@@ -261,7 +292,7 @@ export function mergePlans(stored: Plan, incoming: Plan): Plan {
   const capacity = newer(stored.capacity, incoming.capacity);
   const sprintGoals: Record<string, { text: string; at: string }> = {};
   for (const src of [stored.sprintGoals, incoming.sprintGoals]) for (const [k, g] of Object.entries(src ?? {})) sprintGoals[k] = newer(sprintGoals[k], g)!;
-  const out: Plan = { ...stored, ...incoming, lanes: liveLanes, tasks, deleted, deletedLanes, wishes: liveWishes, deletedWishes, releases: liveReleases, deletedReleases };
+  const out: Plan = { ...stored, ...incoming, lanes: liveLanes, tasks, deleted, deletedLanes, wishes: liveWishes, deletedWishes, releases: liveReleases, deletedReleases, deliveries: liveDeliveries, deletedDeliveries };
   delete out.sprints;
   delete out.sprintGoals;
   delete out.capacity;

@@ -187,3 +187,17 @@ describe("mergePlans - releases (R10)", () => {
     expect(mergePlans(plan([]), plan([])).releases).toEqual([]);
   });
 });
+
+describe("mergePlans - deliveries (R16)", () => {
+  const d = (key: string, v: number, promisedDate: string) => ({ key, v, name: "L " + key, customers: [], epics: [], releases: [], promisedDate });
+  it("unions deliveries by key like releases: higher version wins, incoming wins ties, tombstones remove unless bumped past", () => {
+    const stored = plan([], { deliveries: [d("a", 2, "2026-11-30"), d("b", 1, "2026-12-15"), d("c", 1, "2027-01-15")] });
+    const incoming = plan([], { deliveries: [d("a", 1, "2026-12-07"), d("b", 1, "2026-12-22"), d("d", 1, "2027-02-01")], deletedDeliveries: { c: 1 } });
+    const m = mergePlans(stored, incoming);
+    expect(m.deliveries!.map((x) => [x.key, x.promisedDate])).toEqual([["a", "2026-11-30"], ["b", "2026-12-22"], ["d", "2027-02-01"]]);
+    expect(m.deletedDeliveries).toEqual({ c: 1 });
+    const revived = mergePlans(m, plan([], { deliveries: [d("c", 2, "2027-01-15")] }));
+    expect(revived.deliveries!.some((x) => x.key === "c")).toBe(true);
+    expect(mergePlans(plan([]), plan([])).deliveries).toEqual([]);
+  });
+});
