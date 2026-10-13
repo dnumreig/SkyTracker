@@ -115,3 +115,8 @@ export declare function sprintUnlabelledWiql(iterationPath: string): string;
 /* R14: the shared top bar and the status strip in words */
 export declare function navTabsHtml(active: "inntak" | "timeline" | "board", hosted: boolean): string;
 export declare function epicStatusWords(plan: Plan): string;
+
+/* R15: the forum view */
+export interface ForumSnapshot { id: string; at: string; kind: string; label?: string }
+export declare function forumBaseline(snapshots: ForumSnapshot[] | null | undefined): ForumSnapshot | null;
+export declare function forumDefault(stored: string | null | undefined, canWrite: boolean): boolean;

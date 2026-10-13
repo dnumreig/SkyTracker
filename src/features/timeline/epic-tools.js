@@ -775,6 +775,18 @@ function epicStatusWords(plan) {
   return parts.join(" · ");
 }
 
+/* R15: the forum view */
+function forumBaseline(snapshots) {   // the last product forum: the newest snapshot of kind «baseline»; sprint starts are not forums
+  let best = null;
+  (snapshots || []).forEach((s) => { if (s && s.kind === "baseline" && (!best || String(s.at) > String(best.at))) best = s; });
+  return best;
+}
+function forumDefault(stored, canWrite) {   // a stored choice wins; without one the forum view is the readers' default
+  if (stored === "1") return true;
+  if (stored === "0") return false;
+  return !canWrite;
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     BASE_Y, BASE_M, N_MONTHS, WEEK, SCHEMA, OWNER_DEFAULT, STATUS_LABEL,
@@ -786,7 +798,7 @@ if (typeof module !== "undefined") {
     isoWeek, weekSpan, windowLabel, epicWindowText, discoveryOverdue,
     shelfTasks, epicCounts, sizeClass, sizeClassDerived, sizeClassText, bufferLabel, rawLabel, previewPlacement,
     canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
-    dayKey, currentSprint, sprintDay, sprintLabel, navTabsHtml, epicStatusWords,
+    dayKey, currentSprint, sprintDay, sprintLabel, navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
     dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
     workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, releaseForecastText, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
     progressFraction, progressSignal, epicProgressSignal, progressText,

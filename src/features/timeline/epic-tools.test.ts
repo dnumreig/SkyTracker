@@ -10,7 +10,7 @@ import {
   workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, dayKey,
   releaseForecastText,
   BACKLOG, canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
-  navTabsHtml, epicStatusWords,
+  navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
 } from "./epic-tools.js";
 import type { Plan, PlanTask } from "./merge";
 
@@ -938,5 +938,25 @@ describe("R14: the top bar's words", () => {
     expect(words([ln("a", "aktiv", 10), ln("b", "aktiv", 10)], [estT("a1", "a", 6, 8), estT("b1", "b", 6, 8)])).toBe("2 aktive epics · 2 grønne");
     expect(words([ln("a", "aktiv", 1)], [estT("a1", "a", 4, 6)])).toBe("1 aktiv epic · 1 rød");
     expect(words([], [])).toBe("Ingen epics ennå");
+  });
+});
+
+describe("R15: the forum view", () => {
+  const snap = (id: string, kind: string, at: string) => ({ id, kind, at, label: id });
+  it("takes the newest baseline and ignores sprint starts", () => {
+    const s = [snap("a", "baseline", "2026-10-05T10:00:00.000Z"), snap("b", "sprint", "2026-11-01T08:00:00.000Z"), snap("c", "baseline", "2026-11-05T09:10:00.000Z"), snap("d", "baseline", "2026-09-01T09:00:00.000Z")];
+    expect(forumBaseline(s)?.id).toBe("c");
+  });
+  it("is null without a baseline", () => {
+    expect(forumBaseline([snap("b", "sprint", "2026-11-01T08:00:00.000Z")])).toBeNull();
+    expect(forumBaseline([])).toBeNull();
+    expect(forumBaseline(undefined)).toBeNull();
+  });
+  it("a stored choice wins; readers land in the forum view by default", () => {
+    expect(forumDefault("1", true)).toBe(true);
+    expect(forumDefault("0", false)).toBe(false);
+    expect(forumDefault(null, false)).toBe(true);
+    expect(forumDefault(null, true)).toBe(false);
+    expect(forumDefault(undefined, true)).toBe(false);
   });
 });
