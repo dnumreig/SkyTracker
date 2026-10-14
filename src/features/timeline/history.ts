@@ -5,7 +5,9 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import type { Plan } from "./merge";
 import { diffPlans, needsReason, REASON_CODES, type PlanEvent } from "./events";
-import { currentSprint } from "./epic-tools.js";
+import { currentSprint, osloDay } from "./epic-tools.js";
+
+export { osloDay };
 
 export type SaveNote = { reason?: string; reasonCode?: string; causes?: Record<string, string>; source?: string };
 const SOURCES = ["bruker", "seed", "import", "ado", "system", "fil"];   // fil = a plan JSON imported on the page
@@ -24,10 +26,6 @@ export function parseNote(raw: unknown): SaveNote {
   }
   if (typeof r.source === "string" && SOURCES.includes(r.source)) note.source = r.source;
   return note;
-}
-
-export function osloDay(d: Date): string {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Oslo", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 }
 
 const json = (v: unknown): Prisma.InputJsonValue | undefined => (v === undefined || v === null ? undefined : (v as Prisma.InputJsonValue));

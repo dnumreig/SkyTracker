@@ -2,7 +2,7 @@
 // (delivered inside the span the forum was promised) and målopnåelse (closed epics by outcome, with the reasons).
 // Pure; the route serves json, markdown or the slide; the page's «Investorer» drawer shows the same data.
 import { dayText, type PathEvent } from "./compare";
-import { dayKey, epicStatus, epicWindowText, goalText, unitToDate, WEEK } from "./epic-tools.js";
+import { dayKey, osloDay, deliveryInvestor, epicStatus, epicWindowText, goalText, unitToDate, WEEK, type DeliveryInvestor } from "./epic-tools.js";
 import { REASON_LABEL, type ReasonCode } from "./events";
 import type { Plan } from "./merge";
 
@@ -12,15 +12,16 @@ export type DeliveryItem = { id: string; label: string; lane: string; deliveredA
 export type Delivery = { delivered: number; withCommitment: number; inside: number; ratio: number | null; items: DeliveryItem[] };
 export type GoalEpic = { key: string; name: string; outcome: string | null; closedReason: string | null; closedAt: string | null; reasons: string[] };
 export type Goals = { counts: { "nådd": number; "ikke nådd": number; endret: number }; epics: GoalEpic[] };
-export type InvestorData = { window: InvestorWindow; plan: PlanLine[]; delivery: Delivery; goals: Goals; generatedAt: string };
+export type InvestorData = { window: InvestorWindow; plan: PlanLine[]; deliveries: DeliveryInvestor[]; delivery: Delivery; goals: Goals; generatedAt: string };
 
 const COLOUR: Record<string, string> = { gronn: "grønn", gul: "gul", rod: "rød", venter: "venter på utredning", "ingen-mal": "uten måldato", tom: "tom" };
 const pct = (r: number | null) => (r === null ? "–" : Math.round(r * 100) + " %");
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
-/** Two quarters back, to today. */
+/** Two quarters back, to today — the Oslo day, whatever the server's clock zone. */
 export function defaultWindow(today: Date): InvestorWindow {
-  return { since: dayKey(new Date(today.getFullYear(), today.getMonth() - 6, today.getDate())), until: dayKey(today) };
+  const [y, m, d] = osloDay(today).split("-").map(Number);
+  return { since: dayKey(new Date(y, m - 1 - 6, d)), until: osloDay(today) };
 }
 
 export function planNow(plan: Plan): PlanLine[] {
@@ -60,8 +61,13 @@ export function goalAttainment(plan: Plan, events: PathEvent[]): Goals {
   return { counts, epics };
 }
 
-export function investorData(plan: Plan, events: PathEvent[], window: InvestorWindow): InvestorData {
-  return { window, plan: planNow(plan), delivery: deliveryAbility(plan, window), goals: goalAttainment(plan, events), generatedAt: new Date().toISOString() };
+/** R16: every delivery with its five numbers, as the plan stands today. */
+export function deliveriesNow(plan: Plan, todayDay: string): DeliveryInvestor[] {
+  return (plan.deliveries ?? []).map((d) => deliveryInvestor(plan, d, todayDay));
+}
+
+export function investorData(plan: Plan, events: PathEvent[], window: InvestorWindow, todayDay: string = osloDay(new Date())): InvestorData {
+  return { window, plan: planNow(plan), deliveries: deliveriesNow(plan, todayDay), delivery: deliveryAbility(plan, window), goals: goalAttainment(plan, events), generatedAt: new Date().toISOString() };
 }
 
 const windowText = (w: InvestorWindow) => dayText(w.since) + " – " + dayText(w.until);
@@ -71,10 +77,12 @@ const countsLine = (g: Goals) => "nådd " + g.counts["nådd"] + " · ikke nådd 
 const goalLine = (e: GoalEpic) => e.name + ": " + (e.outcome ?? "uten utfall") + (e.closedReason ? " – " + e.closedReason : "") + (e.closedAt ? " (" + dayText(e.closedAt) + ")" : "");
 const planLine = (p: PlanLine) => p.name + ": " + [p.colour, p.metric, p.goal, p.window].filter(Boolean).join(" · ");
 const laneName = (plan: PlanLine[], key: string) => plan.find((p) => p.key === key)?.name ?? key;
+const deliveryLineMd = (d: DeliveryInvestor) => d.name + " (" + d.customers + "): lovet " + dayText(d.promised) + " · " + d.text + " · " + d.colour + " · " + d.epicsDone + " av " + d.epicsTotal + " epics levert · " + d.bugsLeft + " bugs igjen";
 
 export function investorMarkdown(d: InvestorData): string {
   let md = "# Tidslinjen for investorer\n\n";
   md += "## Planen nå\n" + (d.plan.length ? d.plan.map((p) => "- " + planLine(p)).join("\n") : "- ingen aktive epics") + "\n\n";
+  md += "## Leveranser\n" + (d.deliveries.length ? d.deliveries.map((x) => "- " + deliveryLineMd(x)).join("\n") : "- ingen leveranser") + "\n\n";
   md += "## Gjennomføringsevne (" + windowText(d.window) + ")\n" + deliveryLine(d.delivery) + "\n";
   if (d.delivery.items.length) md += d.delivery.items.map((i) => "- " + laneName(d.plan, i.lane) + " › " + i.label + ": levert " + dayText(i.deliveredAt) +
     (i.committedEnd ? ", lovet senest " + dayText(i.committedEnd) + (i.inside ? " – innenfor" : " – utenfor") : " – uten lovet spenn")).join("\n") + "\n";
@@ -95,7 +103,7 @@ export function investorHtml(d: InvestorData): string {
     : "<li>ingen avsluttede epics</li>";
   return "<!doctype html><html lang=\"nb\"><head><meta charset=\"utf-8\"><title>Tidslinjen for investorer</title><style>" +
     "body{margin:0;background:#0d123e;color:#fff;font-family:-apple-system,Segoe UI,Inter,sans-serif}" +
-    ".slide{width:1280px;height:720px;box-sizing:border-box;padding:48px 56px;display:grid;grid-template-columns:1.2fr 1fr 1fr;grid-template-rows:auto 1fr;gap:24px 40px}" +
+    ".slide{width:1280px;height:720px;box-sizing:border-box;padding:48px 56px;display:grid;grid-template-columns:1.2fr 1fr 1fr;grid-template-rows:auto 1fr auto;gap:24px 40px}.wide{grid-column:1/-1}" +
     "h1{grid-column:1/-1;margin:0;font-size:30px;font-weight:600}h1 small{font-size:14px;font-weight:400;opacity:.7;margin-left:14px}" +
     "h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin:0 0 12px}" +
     "ul{list-style:none;margin:0;padding:0}li{margin:0 0 10px;font-size:15px;line-height:1.35}li b{font-weight:600}" +
@@ -107,5 +115,8 @@ export function investorHtml(d: InvestorData): string {
     "<section><h2>Planen nå</h2><ul>" + planHtml + "</ul></section>" +
     "<section><h2>Gjennomføringsevne</h2><div class=\"big\">" + esc(pct(d.delivery.ratio)) + "</div><div class=\"sub\">" + esc(deliveryLine(d.delivery)) + "</div></section>" +
     "<section><h2>Målopnåelse</h2><div class=\"sub\">" + esc(countsLine(d.goals)) + "</div><ul>" + goalsHtml + "</ul></section>" +
+    "<section class=\"wide\"><h2>Leveranser</h2><ul>" + (d.deliveries.length
+      ? d.deliveries.map((x) => "<li>" + dot(x.colour) + "<b>" + esc(x.name) + "</b> (" + esc(x.customers) + ")<span class=\"s\">" + esc("lovet " + dayText(x.promised) + " · " + x.text + " · " + x.epicsDone + " av " + x.epicsTotal + " epics levert · " + x.bugsLeft + " bugs igjen") + "</span></li>").join("")
+      : "<li>ingen leveranser</li>") + "</ul></section>" +
     "</div></body></html>";
 }

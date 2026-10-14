@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kunder – SkyTracker</title>
+<style>
+  /* Same palette and controls as the timeline (timeline.html) and the intake, kept in step by hand. */
+  :root{
+    color-scheme:light;
+    --bg:#f8fafc; --surface:#ffffff; --raised:#f1f5f9; --input-bg:#ffffff;
+    --line:#cbd5e1; --line-soft:#e2e8f0;
+    --text:#0d123e; --text-hover:#0d123e; --text-2:#475569; --text-3:#64748b; --text-4:#94a3b8;
+    --accent:#3b76b0; --accent-hover:#4e94c4; --accent-text:#3b76b0; --accent-soft:rgba(59,118,176,.2);
+    --danger:#ef4444; --danger-hover:#b91c1c; --warn:#f59e0b;
+    --ok-bg:#dcfce7; --ok-fg:#15803d; --warn-bg:#fef3c7; --warn-fg:#b45309; --bad-bg:#fee2e2; --bad-fg:#b91c1c;
+    --badge-bg:#f1f5f9; --badge-fg:#475569;
+    --backdrop:rgba(0,0,0,.4);
+    --shadow:0 20px 25px -5px rgba(0,0,0,.1),0 8px 10px -6px rgba(0,0,0,.1);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      color-scheme:dark;
+      --bg:#0d123e; --surface:#1e2455; --raised:#212d63; --input-bg:#212d63;
+      --line:#294285; --line-soft:#294285;
+      --text:#ffffff; --text-hover:#71c4df; --text-2:#a5d6e6; --text-3:#a5d6e6; --text-4:#4e94c4;
+      --accent-text:#71c4df; --accent-soft:rgba(59,118,176,.35);
+      --danger:#f87171; --danger-hover:#fca5a5; --warn:#fbbf24;
+      --ok-bg:rgba(34,197,94,.2); --ok-fg:#86efac; --warn-bg:rgba(245,158,11,.2); --warn-fg:#fcd34d; --bad-bg:rgba(239,68,68,.2); --bad-fg:#fca5a5;
+      --badge-bg:#294285; --badge-fg:#cbd5e1;
+      --backdrop:rgba(0,0,0,.6);
+    }
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 24px;background:var(--surface);border-bottom:1px solid var(--line-soft)}
+  .tb-left,.tb-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
+  /* R14: the pages' tabs; the active one is the page's name */
+  .tabs{display:flex;gap:2px;align-items:center}
+  .tabs .tab{font-size:14px;font-weight:500;color:var(--text-3);text-decoration:none;padding:6px 10px;border-radius:6px;white-space:nowrap}
+  .tabs .tab:hover{color:var(--text);background:var(--raised)}
+  .tabs .tab.on{color:var(--text);font-weight:600;font-size:18px;letter-spacing:-.01em;padding:4px 10px 4px 0;background:none}
+  .tabs .tab[hidden]{display:none}
+  .whoami{font-size:12px;color:var(--text-3)}
+  .ro-tag{font-size:12px;font-weight:500;color:var(--warn)}
+  .save-note{font-size:11px;color:var(--text-4);min-width:120px;text-align:right}
+  .wrap{padding:16px 24px 40px;max-width:1240px}
+  .hint{font-size:12px;color:var(--text-3);max-width:100ch}
+  .hint b{color:var(--text);font-weight:600}
+  p.hint{position:relative;padding-right:26px}   /* R14: the hint closes once per browser */
+  p.hint .x{position:absolute;right:0;top:-2px;border:none;background:none;padding:0 2px;font-size:14px;line-height:1;color:var(--text-4);cursor:pointer}
+  p.hint .x:hover{color:var(--text-2)}
+  button,.btn{font:inherit;font-size:12px;font-weight:500;line-height:1.3;padding:5px 9px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--text-3);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;transition:color .15s ease,background-color .15s ease,border-color .15s ease}
+  button:hover,.btn:hover{color:var(--text-hover);border-color:var(--text-4)}
+  button:disabled{opacity:.5;cursor:default;pointer-events:none}
+  button.primary,#dlgYes{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover,#dlgYes:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:#fff}
+  button.text{border-color:transparent;background:transparent}
+  button.text:hover{border-color:transparent;background:var(--raised)}
+  button.x{border:none;background:none;padding:0 2px;font-size:16px;line-height:1;color:var(--text-4)}
+  button.x:hover{color:var(--text-2);background:none}
+  button.danger-ghost{color:var(--danger);border-color:transparent;background:transparent}
+  button.danger-ghost:hover{background:var(--bad-bg);border-color:transparent;color:var(--danger-hover)}
+  #dlgYes.danger{background:var(--danger);border-color:var(--danger)}
+  .modal-foot button{font-size:13px;padding:6px 12px}
+  .modal-back{display:none;position:fixed;inset:0;z-index:60;background:var(--backdrop);align-items:center;justify-content:center;padding:24px}
+  .modal-back.open{display:flex}
+  #dlgBack{z-index:80}
+  .modal{background:var(--surface);border:1px solid var(--line);border-radius:8px;width:min(640px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+  .modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:16px 20px 12px}
+  .modal-head h2{font-size:16px;font-weight:600;color:var(--text)}
+  .modal-head .md{font-size:12px;color:var(--text-3);margin-top:2px}
+  .modal-body{overflow:auto;padding:0}
+  .modal-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 20px;border-top:1px solid var(--line-soft);flex-wrap:wrap}
+  .modal-foot .btns{display:flex;gap:8px;align-items:center}
+  .ed-body{padding:4px 20px 16px;display:grid;gap:14px}
+  .ed-field > span{display:block;font-size:12px;font-weight:500;color:var(--text-2);margin-bottom:4px}
+  .ed-field input[type=text],.ed-field input[type=date],.ed-field select,.ed-field textarea,.dlg-body input{width:100%;font:inherit;font-size:14px;padding:6px 12px;border:1px solid var(--line);border-radius:4px;background:var(--input-bg);color:var(--text)}
+  .ed-field textarea{min-height:64px;resize:vertical}
+  .ed-field input:focus,.ed-field select:focus,.ed-field textarea:focus,.dlg-body input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .ed-field[hidden],[hidden]{display:none !important}
+  .ed-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  .ed-row .ed-field{flex:1;min-width:140px}
+  .ed-check{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--text-2)}
+  .dlg-body{padding:4px 20px 16px;display:grid;gap:12px;font-size:14px;color:var(--text-2)}
+  /* the page «Kunder» (R16) */
+  .views{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+  .views button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+  table.lines,table.epics{border-collapse:collapse;width:100%;min-width:760px;font-size:13px}
+  .lines th,.lines td,.epics th,.epics td{padding:8px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line-soft)}
+  .lines thead th,.epics thead th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-4);font-weight:500;background:var(--raised);white-space:nowrap}
+  .lines td.nm,.epics td.nm{font-weight:600;color:var(--text)}
+  .lines td.dt,.epics td.dt{white-space:nowrap;font-variant-numeric:tabular-nums}
+  .lines td.hang{color:var(--text-2)}
+  .lines td.acts{white-space:nowrap}
+  .lines tbody tr:last-child td,.epics tbody tr:last-child td{border-bottom:0}
+  .lines tr.hl td{background:var(--accent-soft)}
+  .why{display:block;font-size:12px;color:var(--text-3);margin-top:2px;font-weight:400}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;border-radius:999px;padding:1px 8px;background:var(--badge-bg);color:var(--badge-fg);white-space:nowrap}
+  .pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+  .pill.st-gronn,.pill.w-lett{background:var(--ok-bg);color:var(--ok-fg)}
+  .pill.st-gul,.pill.w-flere{background:var(--warn-bg);color:var(--warn-fg)}
+  .pill.st-rod,.pill.w-tyngst{background:var(--bad-bg);color:var(--bad-fg)}
+  .checks{display:grid;gap:4px;max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:4px;padding:8px 10px;background:var(--input-bg)}
+  .checks label{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--text)}
+  .checks small{color:var(--text-4)}
+  .reason{display:grid;gap:8px;padding:10px 12px;border:1px solid var(--warn);border-radius:4px;background:var(--warn-bg)}
+  .reason > span{font-size:12px;font-weight:600;color:var(--warn-fg)}
+  .reason select,.reason input{width:100%;font:inherit;font-size:14px;padding:6px 12px;border:1px solid var(--line);border-radius:4px;background:var(--input-bg);color:var(--text)}
+  .empty{padding:24px;text-align:center;color:var(--text-4);font-size:13px;border:1px dashed var(--line);border-radius:6px}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="tb-left">
+    <nav class="tabs" id="navTabs" aria-label="Sider"></nav>
+  </div>
+  <div class="tb-right">
+    <span class="save-note" id="dirtyNote"></span>
+    <span class="whoami" id="whoami"></span>
+    <span class="ro-tag" id="roTag" hidden>Lesetilgang</span>
+    <button class="primary" id="newBtn" hidden title="En leveranse: navn, kunder, lovet dato og det den henger på. Linjene følger av det.">＋ Leveranse</button>
+  </div>
+</header>
+<div class="wrap">
+  <p class="hint" id="hint">Én rad per kunde som venter på en leveranse. <b>Lovet dato</b> er COOs; <b>utregnet dato</b> er det seneste av epicenes sene ende og releasenes forventede ferdig. Grønn til og med lovet dato, gul inntil tre arbeidsdager etter, rød senere. Raden sier hva som drar. Ingen varsel: dette er stedet å sjekke. <button class="x" id="hintClose" title="Lukk hintet; det kommer ikke tilbake i denne nettleseren">✕</button></p>
+  <div class="views" id="views" hidden><button data-v="kunde" class="on" title="Én rad per kunde og leveranse">Per kunde</button><button data-v="epic" title="Hvor mange kunder som venter på hver epic">Per epic</button></div>
+  <div id="list"></div>
+</div>
+
+<div class="modal-back" id="dlBack"><div class="modal">
+  <div class="modal-head"><div><h2 id="dlTitle">Ny leveranse</h2><div class="md">Navn, kunder, lovet dato og det den henger på. Linjene følger av det. Ingenting i ADO.</div></div><button class="x" id="dlX" title="Lukk">✕</button></div>
+  <div class="modal-body"><div class="ed-body">
+    <label class="ed-field"><span>Navn</span><input id="dlName" type="text" placeholder="Skytale 2.0"></label>
+    <div class="ed-row">
+      <label class="ed-field"><span>Lovet dato</span><input id="dlPromised" type="date"></label>
+      <label class="ed-field"><span>Eier</span><input id="dlOwner" type="text" placeholder="COO"></label>
+    </div>
+    <label class="ed-check"><input type="checkbox" id="dlAll"> Alle kunder</label>
+    <label class="ed-field" id="dlCustomersField"><span>Kunder (én per linje)</span><textarea id="dlCustomers" placeholder="Telenor&#10;NSR"></textarea></label>
+    <div class="ed-field"><span>Henger på epics</span><div class="checks" id="dlEpics"></div></div>
+    <div class="ed-field"><span>Henger på releaser</span><div class="checks" id="dlReleases"></div></div>
+    <label class="ed-field"><span>Notat</span><textarea id="dlNote" placeholder="Hva kunden er lovet"></textarea></label>
+    <div class="reason" id="dlReasonRow" hidden><span>Hvorfor flyttes lovet dato?</span><select id="dlReasonCode"></select><input id="dlReasonText" type="text" placeholder="Kort, slik ledelsen skal lese det"></div>
+  </div></div>
+  <div class="modal-foot"><span class="btns"><button class="danger-ghost" id="dlDelete" hidden>Slett leveranse …</button></span><span class="btns"><button class="text" id="dlCancel">Avbryt</button><button class="primary" id="dlSave">Lagre</button></span></div>
+</div></div>
+
+<div class="modal-back" id="dlgBack"><div class="modal" style="width:min(460px,100%)">
+  <div class="modal-head"><div><h2 id="dlgTitle"></h2></div></div>
+  <div class="modal-body"><div class="dlg-body"><span id="dlgMsg"></span></div></div>
+  <div class="modal-foot"><span></span><span class="btns"><button class="text" id="dlgNo">Avbryt</button><button id="dlgYes"></button></span></div>
+</div></div>
+
+<script>
+window.__bootKunder = function(){
+  const HOSTED = location.protocol !== 'file:';
+  document.getElementById('navTabs').innerHTML = navTabsHtml('kunder', HOSTED);   // R14: the pages share the tabs
+  try{ if(localStorage.getItem('sk.hint.kunder') === '1') document.getElementById('hint').hidden = true; }catch(e){}   // the hint closes once per browser
+  document.getElementById('hintClose').addEventListener('click', () => { document.getElementById('hint').hidden = true; try{ localStorage.setItem('sk.hint.kunder', '1'); }catch(e){} });
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  const REASON_CODES = [['utredning', 'Utredningen viste mer/mindre arbeid'], ['avhengighet', 'En avhengighet flyttet seg'], ['kapasitet', 'Kapasitet: annet gikk foran'], ['prioritering', 'Prioritert om i produktforum'], ['ekstern', 'Ekstern dato endret'], ['omfang', 'Omfanget endret'], ['rydding', 'Retting / rydding'], ['annet', 'Annet']];
+  const POLL_MS = 10000;
+  let state = emptyPlan(), serverVersion = null, canWrite = false, myName = null, serverReady = false;
+  let pendingSave = false, pushing = false, saveTimer = null, dlgResolve = null, view = 'kunde', editKey = null, pendingNote = null;
+  function emptyPlan(){ return normalizePlan({ schema: SCHEMA, lanes: [], tasks: [], deleted: {}, deletedLanes: {} }); }
+  const anyModalOpen = () => ['dlBack', 'dlgBack'].some(id => $(id).classList.contains('open'));
+  const setNote = m => { $('dirtyNote').textContent = m ? '☁ ' + m : ''; };
+  const today = () => dayKey(new Date());
+  const dayText = d => fmtDate(unitToDate(dayToUnit(d)));
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const getDelivery = key => (state.deliveries || []).find(d => d.key === key);
+  const hlKey = () => { try{ return decodeURIComponent((location.hash || '').slice(1)); }catch(e){ return ''; } };
+  const pillText = s => s.code === 'ingen' ? 'Ingen dato' : cap(DELIVERY_WORD[s.code]) + (s.deltaDays ? ' · ' + s.deviation.replace(/ lovet$/, '') : '');   // «Rød · 1,5 uker etter»; the sentence under it says the rest
+
+  /* ---------- the two views ---------- */
+  function render(){
+    const list = $('list'), ds = state.deliveries || [];
+    $('views').hidden = !ds.length;
+    if(!ds.length){ list.innerHTML = '<div class="empty">Ingen leveranser ennå.' + (canWrite ? ' Opprett den første med «＋ Leveranse»: navn, kunder, lovet dato og det den henger på.' : '') + '</div>'; return; }
+    if(view === 'epic'){ renderPerEpic(); return; }
+    const rows = deliveryLines(state, today()), hl = hlKey();
+    list.innerHTML = '<div class="tblwrap"><table class="lines"><thead><tr><th>Kunde</th><th>Leveranse</th><th>Henger på</th><th>Lovet</th><th>Utregnet</th><th>Status</th><th></th></tr></thead><tbody>' +
+      rows.map(r => '<tr data-key="' + esc(r.key) + '"' + (r.key === hl ? ' class="hl"' : '') + '><td class="nm">' + esc(r.customer) + '</td><td>' + esc(r.delivery.name) + '<span class="why">eier ' + esc(deliveryOwner(r.delivery)) + (r.delivery.note ? ' · ' + esc(r.delivery.note) : '') + '</span></td><td class="hang">' + esc(r.hangsOn) + '</td><td class="dt">' + esc(dayText(r.promisedDate)) + '</td><td class="dt">' + (r.status.computed ? (r.status.pending ? 'minst ' : '') + esc(dayText(r.status.computed)) : '–') + '</td><td><span class="pill st-' + r.status.code + '">' + esc(pillText(r.status)) + '</span><span class="why">' + esc(r.status.text) + '</span></td>' + '<td class="acts">' + (canWrite ? '<button data-edit="' + esc(r.key) + '">Rediger…</button> ' : '') + '<a class="btn" data-hist="' + esc(r.key) + '" href="/timeline#historikk=' + encodeURIComponent(r.key) + '" title="Hva som har skjedd med leveransen, i Tidslinjens historikk">Historikk</a></td></tr>').join('') +
+      '</tbody></table></div>';
+  }
+  function renderPerEpic(){
+    const rows = state.lanes.map(l => ({ l, c: epicCustomers(state, l.key) })).sort((a, b) => (b.c.deliveries.length ? 1 : 0) - (a.c.deliveries.length ? 1 : 0));
+    $('list').innerHTML = '<div class="tblwrap"><table class="epics"><thead><tr><th>Epic</th><th>Linjer</th><th>Kunder som venter</th><th>Tyngde</th><th>Leveres</th></tr></thead><tbody>' +
+      rows.map(({l, c}) => { const w = epicWeight(c), via = c.deliveries.map(d => d.name).join(', ');
+        return '<tr><td class="nm">' + esc(l.name) + '</td><td class="dt">' + (c.all ? 'alle' : c.count || '–') + '</td><td>' + esc((c.all ? 'Alle kunder' + (c.names.length ? ' (' + c.names.join(', ') + ')' : '') : c.names.join(', ')) || '–') + (via ? '<span class="why">via ' + esc(via) + '</span>' : '') + '</td><td><span class="pill w-' + w.code + '">' + esc(w.label) + '</span></td><td class="dt">' + esc(epicWindowText(state, l.key) || (l.state === 'avsluttet' ? 'avsluttet' : '–')) + '</td></tr>'; }).join('') +
+      '</tbody></table></div>';
+  }
+  $('views').addEventListener('click', e => { const b = e.target.closest('button[data-v]'); if(!b) return; view = b.dataset.v; [...$('views').querySelectorAll('button')].forEach(x => x.classList.toggle('on', x === b)); render(); });
+  $('list').addEventListener('click', e => { const b = e.target.closest('button[data-edit]'); if(b) openEditor(b.dataset.edit); });
+  window.addEventListener('hashchange', render);
+
+  /* ---------- the editor ---------- */
+  $('dlReasonCode').innerHTML = '<option value="">Velg grunn …</option>' + REASON_CODES.map(([c, l]) => '<option value="' + c + '">' + esc(l) + '</option>').join('');
+  function openEditor(key){
+    editKey = key || null;
+    const d = key ? getDelivery(key) : null;
+    $('dlTitle').textContent = d ? 'Leveranse ' + d.name : 'Ny leveranse';
+    $('dlName').value = d ? d.name : '';
+    $('dlPromised').value = d ? d.promisedDate : dayKey(new Date(Date.now() + 60 * 86400000));
+    $('dlOwner').value = (d && d.owner) || '';
+    $('dlAll').checked = !!(d && d.allCustomers);
+    $('dlCustomers').value = d ? d.customers.join('\n') : '';
+    $('dlCustomersField').hidden = $('dlAll').checked;
+    const eps = new Set(d ? d.epics : []), rels = new Set(d ? d.releases : []);
+    $('dlEpics').innerHTML = state.lanes.length ? state.lanes.map(l => '<label><input type="checkbox" data-epic="' + esc(l.key) + '"' + (eps.has(l.key) ? ' checked' : '') + '> ' + esc(l.name) + ' <small>' + esc(EPIC_STATE_LABEL[l.state || 'aktiv'].toLowerCase()) + '</small></label>').join('') : '<small>Ingen epics i planen ennå.</small>';
+    $('dlReleases').innerHTML = (state.releases || []).length ? state.releases.map(r => '<label><input type="checkbox" data-release="' + esc(r.key) + '"' + (rels.has(r.key) ? ' checked' : '') + '> ' + esc(r.version) + ' <small>' + esc(r.shippedDate ? 'skippet ' + dayText(r.shippedDate) : 'mål ' + dayText(r.targetDate)) + '</small></label>').join('') : '<small>Ingen releaser i planen ennå.</small>';
+    $('dlNote').value = (d && d.note) || '';
+    $('dlReasonRow').hidden = true; $('dlReasonCode').value = ''; $('dlReasonText').value = '';
+    $('dlDelete').hidden = !d;
+    $('dlBack').classList.add('open'); setTimeout(() => $('dlName').focus(), 0);
+  }
+  function closeEditor(){ editKey = null; $('dlBack').classList.remove('open'); }
+  $('dlAll').addEventListener('change', () => { $('dlCustomersField').hidden = $('dlAll').checked; });
+  $('dlPromised').addEventListener('input', () => { const d = editKey && getDelivery(editKey); $('dlReasonRow').hidden = !(d && $('dlPromised').value && $('dlPromised').value !== d.promisedDate); });   // a moved promise asks why, like a release's target day
+  $('dlSave').addEventListener('click', () => {
+    const name = $('dlName').value.trim(), promised = $('dlPromised').value;
+    if(!name){ $('dlName').focus(); return; }
+    if(!promised){ $('dlPromised').focus(); return; }
+    state.deliveries = state.deliveries || []; state.deletedDeliveries = state.deletedDeliveries || {};
+    let d = editKey ? getDelivery(editKey) : null;
+    if(!d){ d = { key: uid('d'), v: 0, name, promisedDate: promised, customers: [], epics: [], releases: [] }; state.deliveries.push(d); }
+    else if(d.promisedDate !== promised){ const code = $('dlReasonCode').value, text = $('dlReasonText').value.trim(); if(code || text) pendingNote = { reasonCode: code || 'annet', reason: text || null }; }
+    d.name = name; d.promisedDate = promised;
+    if($('dlAll').checked){ d.allCustomers = true; d.customers = []; }
+    else { delete d.allCustomers; d.customers = $('dlCustomers').value.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean); }
+    const owner = $('dlOwner').value.trim(); if(owner) d.owner = owner; else delete d.owner;
+    const note = $('dlNote').value.trim(); if(note) d.note = note; else delete d.note;
+    d.epics = [...document.querySelectorAll('#dlEpics input:checked')].map(i => i.dataset.epic);
+    d.releases = [...document.querySelectorAll('#dlReleases input:checked')].map(i => i.dataset.release);
+    d.v = (d.v || 0) + 1; state.example = false;
+    closeEditor();
+    state = normalizePlan(state);
+    save(); render();
+  });
+  $('dlDelete').addEventListener('click', async () => {
+    const d = getDelivery(editKey); if(!d) return;
+    if(!(await confirmDialog('Slett leveranse', 'Slette «' + d.name + '»? Linjene forsvinner; epics og releaser røres ikke.', {confirmText:'Slett', danger:true}))) return;
+    state.deletedDeliveries = state.deletedDeliveries || {}; state.deletedDeliveries[d.key] = (d.v || 0) + 1;
+    state.deliveries = (state.deliveries || []).filter(x => x.key !== d.key);
+    closeEditor(); save(); render();
+  });
+  $('dlCancel').addEventListener('click', closeEditor);
+  $('dlX').addEventListener('click', closeEditor);
+  $('dlBack').addEventListener('click', e => { if(e.target === $('dlBack')) closeEditor(); });
+  $('newBtn').addEventListener('click', () => openEditor(null));
+
+  /* ---------- confirm dialog ---------- */
+  function confirmDialog(title, msg, opts){
+    opts = opts || {};
+    return new Promise(res => {
+      dlgResolve = res;
+      $('dlgTitle').textContent = title; $('dlgMsg').textContent = msg;
+      $('dlgYes').textContent = opts.confirmText || 'OK'; $('dlgYes').classList.toggle('danger', !!opts.danger);
+      $('dlgBack').classList.add('open');
+    });
+  }
+  const dlgClose = v => { $('dlgBack').classList.remove('open'); const r = dlgResolve; dlgResolve = null; if(r) r(v); };
+  $('dlgYes').addEventListener('click', () => dlgClose(true));
+  $('dlgNo').addEventListener('click', () => dlgClose(false));
+  document.addEventListener('keydown', e => { if(e.key === 'Escape'){ if($('dlgBack').classList.contains('open')) dlgClose(false); else closeEditor(); } });
+
+  /* ---------- the shared plan: same API as the timeline, merged on the server ---------- */
+  function applyRemote(data, version){ serverVersion = version; state = normalizePlan(data); render(); }
+  async function init(){
+    setNote('henter…');
+    try{
+      const r = await fetch('api/timeline-plan', {cache:'no-store'});
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      canWrite = j.role === 'writer'; myName = j.user || null; serverReady = true;
+      $('roTag').hidden = canWrite; $('newBtn').hidden = !canWrite; $('whoami').textContent = myName || '';
+      if(j.plan) applyRemote(j.plan.data, j.plan.version); else { state = emptyPlan(); render(); }
+      setNote(canWrite ? '' : 'kun lesetilgang');
+    }catch(e){ setNote('frakoblet – kunne ikke hente planen'); render(); }
+  }
+  function save(){ if(!serverReady || !canWrite) return; pendingSave = true; setNote('lagrer…'); clearTimeout(saveTimer); saveTimer = setTimeout(push, 600); }
+  async function push(){
+    pendingSave = false; pushing = true;
+    const note = pendingNote; pendingNote = null;   // the reason for a moved promise rides on this save
+    try{
+      const r = await fetch('api/timeline-plan', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ data: state, note: Object.assign({ source: 'bruker' }, note || {}) }) });
+      if(r.status === 403){ canWrite = false; $('roTag').hidden = false; $('newBtn').hidden = true; setNote('kun lesetilgang – endringene ble ikke lagret'); render(); return; }
+      if(r.status === 409){ setNote('travelt – prøver igjen'); if(!pendingNote) pendingNote = note; save(); return; }
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      if(!pendingSave) applyRemote(j.data, j.version);
+      setNote('lagret ' + new Date().toLocaleTimeString('nb-NO', {hour:'2-digit', minute:'2-digit'}));
+    }catch(e){ setNote('lagring feilet – prøver igjen'); if(!pendingNote) pendingNote = note; clearTimeout(saveTimer); saveTimer = setTimeout(push, 5000); pendingSave = true; }
+    finally{ pushing = false; }
+  }
+  async function poll(){
+    if(!serverReady || pendingSave || pushing || anyModalOpen()) return;
+    try{
+      const r = await fetch('api/timeline-plan', {cache:'no-store'});
+      if(!r.ok) return;
+      const j = await r.json();
+      if(pendingSave || pushing || anyModalOpen()) return;
+      if(j.plan && j.plan.version !== serverVersion) applyRemote(j.plan.data, j.plan.version);
+    }catch(e){ /* frakoblet – prøver igjen neste runde */ }
+  }
+  setInterval(poll, POLL_MS);
+  render();
+  init();
+};
+</script>
+<script>
+(function(){
+  var s = document.createElement('script');
+  s.src = 'timeline/epic-tools.js';
+  s.onload = function(){ window.__bootKunder(); };
+  s.onerror = function(){ document.getElementById('list').textContent = 'Kunne ikke laste epic-tools.js.'; };
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>

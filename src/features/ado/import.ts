@@ -2,7 +2,7 @@
 // Pure mapping (spec R7a, decision 5): nothing is written to ADO; an imported item carries a snapshot equal to ADO's
 // owned fields, so the next push only writes what someone changes in the tool afterwards.
 import type { Plan, PlanLane, PlanTask } from "@/features/timeline/merge";
-import { BACKLOG, dateToUnit, fmtDate, normalizePlan, OWNER_DEFAULT, unitToDate, WEEK } from "@/features/timeline/epic-tools.js";
+import { BACKLOG, dateToUnit, fmtDate, normalizePlan, OWNER_DEFAULT, unitToDate, WEEK, osloDate } from "@/features/timeline/epic-tools.js";
 import type { AdoClient, AdoWorkItem } from "./client";
 import { ADO_PARENT_REL } from "./config";
 import { adoDay, adoValue, htmlToText, OWNED_FIELDS, relTarget, type Snapshot } from "./plan-mappers";
@@ -88,7 +88,7 @@ export async function listImportable(plan: Plan, client: Pick<AdoClient, "wiql" 
   plan.lanes.forEach((l) => { if (l.adoId) laneNames.set(l.adoId, l.name); });
   const listedEpics = new Map<number, string>();
   for (const w of items) if (w.fields["System.WorkItemType"] === "Epic" && !held.has(w.id)) listedEpics.set(w.id, str(w.fields["System.Title"]) ?? "");
-  const today = snapWeek(dateToUnit(now));
+  const today = snapWeek(dateToUnit(osloDate(now)));
 
   const out: ImportCandidate[] = [];
   for (const w of items) {

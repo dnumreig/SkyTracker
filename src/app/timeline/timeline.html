@@ -203,6 +203,7 @@
 
   /* ---------- gantt ---------- */
   .gantt{
+    --axis-h:76px;   /* R16: the axis grows 18 px per delivery row */
     border:1px solid var(--line);border-radius:6px;background:var(--surface);
     display:grid;grid-template-columns:var(--label-w) 1fr;position:relative;overflow:hidden;
   }
@@ -212,7 +213,7 @@
   .col-resizer:hover::after,.col-resizer.active::after{background:var(--accent)}
   .labels{border-right:1px solid var(--line);min-width:0}
   .labels .corner{
-    height:76px;border-bottom:1px solid var(--line-soft);display:flex;align-items:flex-end;
+    height:var(--axis-h);border-bottom:1px solid var(--line-soft);display:flex;align-items:flex-end;
     padding:0 16px 8px;font-size:10px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--text-4);
   }
   .lane-label{
@@ -229,6 +230,9 @@
   .chip.sig{outline:1px dashed currentColor;outline-offset:-1px}
   .chip.pinned{background:var(--text);color:var(--surface)}
   #personBtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  /* R15: the forum view: the development lead's tools go, the compare bar goes on top (a class on body, never the hidden attribute: the role rules stay) */
+  #forumBtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  body.forum #adoMenu,body.forum #adoStatus,body.forum #personBtn,body.forum #exportBtn,body.forum #importBtn,body.forum #mixField{display:none}
   .lane-label.virtual .ln{cursor:default}
   .task-label .chip.queue{background:transparent;border:1px dashed var(--text-3);color:var(--text-2)}
   .inv-list{margin:0 0 14px;padding-left:18px;font-size:12px}.inv-list li{margin:3px 0}.inv-list ul{padding-left:16px;margin:2px 0}
@@ -258,7 +262,7 @@
 
   .chart-scroll{overflow-x:auto;overscroll-behavior-x:contain}
   .chart{position:relative;width:calc(var(--month-w) * 15)}
-  .axis{height:76px;border-bottom:1px solid var(--line-soft);position:sticky;top:0;display:flex;background:var(--surface);z-index:5}
+  .axis{height:var(--axis-h);border-bottom:1px solid var(--line-soft);position:sticky;top:0;display:flex;background:var(--surface);z-index:5}
   .axis .mth{width:var(--month-w);flex:none;border-left:1px solid var(--line-soft);padding:10px 0 0 9px}
   .axis .mth:first-child{border-left:none}
   .axis .mth .mm{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2)}
@@ -280,9 +284,23 @@
   .axis .release.pace-gronn .fill{background:var(--pace-gronn)}
   .axis .release.pace-gul .fill{background:var(--pace-gul)}
   .axis .release.pace-rod .fill{background:var(--pace-rod)}
-  .chart .release-line{position:absolute;top:76px;bottom:0;width:0;border-left:2px dashed var(--release);opacity:.55;z-index:3;pointer-events:none}
+  /* R16: the delivery band, one row per delivery above the release band */
+  .axis .deliveries{position:absolute;left:0;right:0;top:40px;height:calc(var(--axis-h) - 76px);pointer-events:none}
+  .axis .delivery{position:absolute;left:0;right:0;height:18px}
+  .axis .delivery .seg{position:absolute;top:1px;height:15px;box-sizing:border-box;font-size:10px;line-height:13px;padding:0 5px;border:1px solid var(--neutral);border-radius:3px;background:var(--badge-bg);color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:auto;cursor:pointer}
+  .axis .delivery .seg:hover{filter:brightness(.96)}
+  .axis .delivery .seg .t{position:relative;z-index:2;background:inherit;padding:0 2px;margin:0 -2px;border-radius:2px}   /* the text sits above the promise marker */
+  .axis .delivery .seg b{font-weight:600;color:var(--text)}
+  .axis .delivery .seg.st-gronn{border-color:var(--ok);background:var(--ok-bg)}
+  .axis .delivery .seg.st-gul{border-color:var(--warn-dot);background:var(--warn-bg)}
+  .axis .delivery .seg.st-rod{border-color:var(--bad);background:var(--bad-bg)}
+  .axis .delivery .promise{position:absolute;top:0;width:2px;height:17px;background:var(--text);opacity:.7;pointer-events:auto;z-index:1}
+  .sw.delivery{width:16px;height:10px;border:1px solid var(--ok);background:var(--ok-bg);border-radius:3px}
+  .lane-label .chip.cust{background:var(--accent-soft);color:var(--text)}
+  .chart .release-line{position:absolute;top:var(--axis-h);bottom:0;width:0;border-left:2px dashed var(--release);opacity:.55;z-index:3;pointer-events:none}
   .chart .release-line::after{content:attr(data-v);position:absolute;bottom:2px;left:4px;font-size:10px;line-height:14px;font-weight:600;color:var(--text-3);background:var(--surface);padding:0 4px;border-radius:3px;white-space:nowrap}   /* R14: the version at the bottom too */
   .chart .release-line.shipped{border-left-style:solid;opacity:.35}
+  .chart .release-line.edge::after{left:auto;right:4px}   /* a release at the axis end: the label hangs to the left of its line */
   .sw.release{width:16px;height:10px;border:1px solid var(--release);border-left-style:dashed;background:var(--release-bg)}
   .rel-h{font-size:12px;font-weight:600;color:var(--text-2);margin:14px 0 4px;text-transform:uppercase;letter-spacing:.04em}
   .rel-h .cnt{font-weight:400;color:var(--text-4)}
@@ -321,10 +339,10 @@
   .rel-table td,.rel-table th{padding:2px 12px 2px 0;text-align:right;font-weight:400}
   .rel-table th{color:var(--text-4)}
   .rel-table td:first-child,.rel-table th:first-child{text-align:left}
-  .grid{position:absolute;inset:0;top:76px;pointer-events:none}
+  .grid{position:absolute;inset:0;top:var(--axis-h);pointer-events:none}
   .grid .v{position:absolute;top:0;bottom:0;width:1px;background:var(--line-soft)}
   .grid .v.jan{width:2px;background:var(--text-4);opacity:.6}
-  .chart .today{position:absolute;top:76px;bottom:0;width:2px;background:var(--today);z-index:4;pointer-events:none}
+  .chart .today{position:absolute;top:var(--axis-h);bottom:0;width:2px;background:var(--today);z-index:4;pointer-events:none}
   .chart .today .tl{
     position:absolute;top:-1px;left:5px;background:var(--today);color:#fff;
     font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;white-space:nowrap;
@@ -528,6 +546,21 @@
   .import-row .map{font-size:11px;color:var(--text-2);text-align:right;white-space:nowrap}
   .shelf-group{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);padding:8px 8px 2px}
   .shelf-empty{padding:0 14px 12px;font-size:12px;color:var(--text-4)}
+  /* R15: in the forum view the shelf stands beside the chart, sticky, with the rows on two lines and the actions always shown */
+  .shelf-tip{display:none;padding:4px 14px 12px;font-size:12px;color:var(--text-4)}
+  body.forum .stage.with-shelf{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start}
+  body.forum .stage.with-shelf .shelf{margin-top:0;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+  body.forum .stage.with-shelf .shelf-head{position:sticky;top:0;background:var(--surface);z-index:1}
+  body.forum .stage.with-shelf .shelf-row{flex-wrap:wrap;gap:3px 8px;padding:6px 8px 8px 12px}
+  body.forum .stage.with-shelf .shelf-row .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body.forum .stage.with-shelf .shelf-row .st{flex-basis:100%;white-space:normal;padding-left:22px}
+  body.forum .stage.with-shelf .shelf-row .acts{opacity:1;flex-basis:100%;flex-wrap:wrap;padding-left:22px}
+  body.forum .stage.with-shelf .shelf-row .acts button{font-size:11px;padding:3px 7px}
+  body.forum .shelf-tip:not([hidden]){display:block}
+  @media (max-width:1200px){   /* a laptop, not the wall: the panel goes under the chart, still with its rows and tip */
+    body.forum .stage.with-shelf{display:block}
+    body.forum .stage.with-shelf .shelf{position:static;max-height:none;margin-top:14px}
+  }
   .preview{font-size:13px;padding:10px 12px;border-radius:6px;background:var(--bg);border:1px solid var(--line-soft);margin:0 20px 16px}
   .preview b.st-gronn{color:var(--ok-fg)} .preview b.st-gul{color:var(--warn-fg)} .preview b.st-rod{color:var(--bad-fg)}
   .lane-label .chip.preview-chip{background:var(--accent);color:#fff}
@@ -581,12 +614,14 @@
         <button id="helpBtn">Hjelp</button>
       </div>
     </details>
+    <button id="forumBtn" aria-pressed="false" title="Skjermen på veggen i produktforum: hylla ved siden av diagrammet, «Siden sist» øverst, uten ADO og JSON. Valget huskes i nettleseren.">Forum</button>
     <button id="addReleaseBtn" title="En versjon med måldato. Det som har release-labelen i ADO (bugs og stories), er innholdet.">＋ Release</button>
     <button class="primary" id="addEpicBtn">＋ Epic</button>
   </div>
 </header>
 
 <main class="wrap">
+  <div class="cmp-bar forum-note" id="forumNote" hidden></div>
   <div class="status" id="statusStrip" title="Planen nå, i ord">
     <span id="stEpics">Ingen epics ennå</span>
     <span id="stRelease" hidden></span>
@@ -635,7 +670,8 @@
         sluttdato. <b>Klar for veikart</b> setter byggetiden fra utredningen. <b>Legg i epic</b> viser prisen først: fargen epicen får.
         Da blir featuren aktiv med et lovet spenn. Epics er <b>forslag</b> til forumet velger dem, og kan <b>avsluttes</b> med et utfall.
         En utredning kan <b>legges i en epic</b> med én gang, en estimert feature kan gå <b>tilbake til utredning</b>, og en feature uten
-        ADO-kobling <b>markeres levert</b> for hånd («Levert» kommer ellers fra ADO). Leverte features ligger på Brettet, ikke på hylla.</p></div>
+        ADO-kobling <b>markeres levert</b> for hånd («Levert» kommer ellers fra ADO). Leverte features ligger på Brettet, ikke på hylla.
+        <b>Forum</b> øverst gjør siden til skjermen på veggen: hylla ved siden av diagrammet, «Siden sist» øverst, uten ADO og JSON. Valget huskes i nettleseren; for lesere er det standard.</p></div>
       <div class="help-card"><h4>Buffer og rått estimat</h4>
         <p>Spennet på linjen er det planlagte: utredningens tall pluss forumets <b>buffer</b> («4–6 uker + 1 uke buffer»). Det
         rå estimatet står urørt, så gjennomføringsevnen måles mot det som ble lovet. Antall aktive epics er et tall, ikke en grense:
@@ -664,6 +700,11 @@
         arbeidsdag i de to siste avsluttede sprintene: 20 000 simuleringer av dagene fram til målet, der hver dag er en ekte dag fra før.
         Hver lesing lagrer dagens sjanse, så tabellen under burndownen viser prognosen ved siden av det som skjedde. For skrivere
         leses labelene på nytt ved innlasting når siste lesing er eldre enn seks timer.</p></div>
+      <div class="help-card"><h4>Leveranser</h4>
+        <p>COOs lag over epics og releaser: en <b>leveranse</b> har kunder (eller alle), en <b>lovet dato</b> og det den henger på: epics og
+        releaser. Båndet øverst viser hver leveranse fram til <b>utregnet dato</b>: det seneste av epicenes sene ende og releasenes forventede
+        ferdig; streken er lovet dato. Grønn til og med lovet, gul inntil tre arbeidsdager etter, rød senere. Epic-raden viser hvor mange kunder
+        som venter. Fanen <b>Kunder</b> har én rad per kunde og sier hva som drar; der oppretter COO leveransene. Ingen varsel, ingenting i ADO.</p></div>
       <div class="help-card"><h4>Fremdrift og sprintrapport</h4>
         <p><b>Fremdrift</b> skrives inn i redigeringen på dag 10 (poeng gjort av totalt, eller prosent) og tegnes som en fylling i den mørke
         delen av spennet; har featuren stories med poeng i ADO, tar ADO over ved «Oppdater fra ADO». Chippen <i>fremdrift 60 % · tid 75 %</i> er
@@ -700,6 +741,7 @@
     <span><i class="sw goal"></i>Måldato</span>
     <span><i class="sw today"></i>I dag</span>
     <span><i class="sw release"></i>Release</span>
+    <span><i class="sw delivery"></i>Leveranse</span>
     <span><i class="sw depsw"></i>Avhengighet</span>
   </div>
 
@@ -709,6 +751,7 @@
     <span class="note" id="emptyNote"></span>
   </div>
 
+  <div class="stage" id="stage">
   <div class="gantt" id="gantt">
     <div class="labels" id="labels"></div>
     <div class="chart-scroll" id="chartScroll">
@@ -720,7 +763,9 @@
   <section class="shelf" id="shelf" hidden>
     <div class="shelf-head" id="shelfToggle"><h3>Klar for veikart <span class="cnt" id="shelfCount"></span></h3><button id="registerBtn" title="Registrer et ønske produktforum har sagt ja til">＋ Registrer ønske</button></div>
     <div class="shelf-body" id="shelfList"></div>
+    <div class="shelf-tip" id="shelfTip" hidden>Dra inn i en epic. Prisen vises først.</div>
   </section>
+  </div>
 
   <footer>
     <span>Skytale AS · Tidslinjen for utviklingsavdelingen</span>
@@ -1192,6 +1237,7 @@ window.__bootTimeline = function(){
     barRefs = {}; rowRefs = {}; rangeRefs = {}; labelDateRefs = {};
     updateTlSummary();
     renderAdoBar();
+    renderForumNote();
     if(!state.lanes.length){ renderShelf(); return; }
 
     const corner = el('div', 'corner', 'Epic / feature');
@@ -1244,6 +1290,29 @@ window.__bootTimeline = function(){
       });
       axis.appendChild(layer);
     }
+    // leveranser (R16): COO's band above the releases, one row per delivery; click → Kunder
+    const dsegs = deliverySegments(state, dayKey(new Date()));
+    gantt.style.setProperty('--axis-h', (76 + 18 * dsegs.length) + 'px');
+    if(dsegs.length){
+      const layer = el('div', 'deliveries');
+      dsegs.forEach((sg, i) => {
+        const row = el('div', 'delivery'); row.style.top = (18 * i) + 'px';
+        const a = Math.max(VIEW_FROM, sg.start), b = Math.min(N_MONTHS, sg.end), d = sg.delivery, st = sg.status;
+        if(b > a){
+          const seg = el('div', 'seg st-' + st.code);
+          seg.dataset.key = d.key;
+          seg.style.left = x(a) + 'px'; seg.style.width = (x(b) - x(a)) + 'px';
+          const wide = (x(b) - x(a)) >= 260;
+          seg.innerHTML = '<span class="t"><b>' + esc(d.name) + '</b> · ' + esc(deliveryCustomersText(d)) + (wide && st.computed ? ' · ' + esc((st.pending ? 'minst ' : 'utregnet ') + fmtDate(unitToDate(dayToUnit(st.computed)))) : '') + '</span>';
+          seg.title = 'Leveranse ' + d.name + ' · ' + deliveryCustomersText(d) + ' · lovet ' + fmtDate(unitToDate(sg.promised)) + '\n' + st.text + (HOSTED ? '\nKlikk for fanen Kunder' : '');
+          if(HOSTED) seg.addEventListener('click', () => { location.href = '/kunder#' + encodeURIComponent(d.key); });
+          row.appendChild(seg);
+        }
+        if(sg.promised >= VIEW_FROM && sg.promised <= N_MONTHS){ const pm = el('i', 'promise'); pm.style.left = x(sg.promised) + 'px'; pm.title = 'Lovet ' + fmtDate(unitToDate(sg.promised)) + ' · ' + d.name; row.appendChild(pm); }
+        layer.appendChild(row);
+      });
+      axis.appendChild(layer);
+    }
     chart.appendChild(axis);
 
     // rutenett
@@ -1256,7 +1325,7 @@ window.__bootTimeline = function(){
     chart.appendChild(grid);
     segs.forEach(sg => {   // release-linjen: der featurene i releasen ender
       if(sg.end < VIEW_FROM || sg.end > N_MONTHS) return;
-      const ln = el('div', 'release-line' + (sg.shipped ? ' shipped' : ''));
+      const ln = el('div', 'release-line' + (sg.shipped ? ' shipped' : '') + (x(sg.end) > CHART_W - 60 ? ' edge' : ''));
       ln.dataset.v = sg.release.version;   // R14: the line's label at the bottom of the chart
       ln.style.left = x(sg.end) + 'px';
       chart.appendChild(ln);
@@ -1287,7 +1356,9 @@ window.__bootTimeline = function(){
       const stateChip = lane.state === 'avsluttet'
         ? '<span class="chip" title="Epicen er avsluttet">Avsluttet: ' + esc(lane.outcome || 'uten utfall') + '</span>'
         : (lane.state === 'forslag' ? '<span class="chip st-forslag" title="Ikke valgt i produktforum ennå">Forslag</span>' : '') + '<span class="chip st-' + st.code + '">' + esc(STATUS_LABEL[st.code]) + '</span>';
-      lm.innerHTML = lane.virtual ? '<span class="goal">' + esc(personSummary(lane)) + '</span>' : stateChip + (esig ? '<span class="chip sig st-' + esig + '" title="Fremdrift mot tid, det dårligste av featurene (andre signal; teller ikke i fargen)">fremdrift</span>' : '') + (lane.ado && lane.ado.conflicts && lane.ado.conflicts.length ? '<span class="chip st-rod" title="Et felt er endret i ADO etter siste push – se øverst på siden">ADO-konflikt</span>' : '') +
+      const cust = lane.virtual ? null : epicCustomers(state, lane.key);   // R16: the customers waiting on the epic through COO's deliveries
+      const custChip = cust && (cust.all || cust.count) ? '<span class="chip cust" title="' + esc('Kunder som venter: ' + (cust.all ? 'alle kunder' + (cust.names.length ? ' (' + cust.names.join(', ') + ')' : '') : cust.names.join(', ')) + ' · via ' + cust.deliveries.map(d => d.name).join(', ')) + '">' + esc(epicCustomersText(cust)) + '</span>' : '';
+      lm.innerHTML = lane.virtual ? '<span class="goal">' + esc(personSummary(lane)) + '</span>' : stateChip + custChip + (esig ? '<span class="chip sig st-' + esig + '" title="Fremdrift mot tid, det dårligste av featurene (andre signal; teller ikke i fargen)">fremdrift</span>' : '') + (lane.ado && lane.ado.conflicts && lane.ado.conflicts.length ? '<span class="chip st-rod" title="Et felt er endret i ADO etter siste push – se øverst på siden">ADO-konflikt</span>' : '') +
         (lane.externalDate ? '<span class="chip ext-chip" title="Datoen er satt utenfra">Ekstern dato</span>' : '') +
         (overdue ? '<span class="chip st-gul">' + overdue + ' utredning' + (overdue > 1 ? 'er' : '') + ' forsinket</span>' : '') +
         '<span class="goal">' + esc((win ? win + ' · ' : '') + goalText(lane)) + '</span>' +
@@ -1820,6 +1891,12 @@ window.__bootTimeline = function(){
       if(r.ok) setBadge((await r.json()).missing14d);
     }catch(e){}
   }
+  function openFromHash(){   // #historikk=<id> opens the history of one target (a delivery from Kunder, or anything with an id)
+    const m = /^#historikk=(.+)$/.exec(location.hash || '');
+    if(!m) return;
+    let target = m[1]; try{ target = decodeURIComponent(target); }catch(e){}
+    openHistory({ target });
+  }
   function openHistory(opts){
     opts = opts || {};
     hist = { lane: opts.lane || '', target: opts.target || '', before: null, done: false, lastCs: null };
@@ -1893,6 +1970,7 @@ window.__bootTimeline = function(){
   /* ================== baseline og sammenligning ================== */
   const cmpBar = $('cmpBar'), cmpStrip = $('cmpStrip'), cmpList = $('cmpList'), cmpSelect = $('cmpSelect'), cmpDate = $('cmpDate');
   let cmp = null;   // { id, label, at, lanes, tasks, strip, path, exportText } når sammenligning er på
+  let snapshots = [], snapshotsLoaded = false;   // R15: the list, kept for the forum view's baseline
   $('baselineBtn').hidden = !HOSTED; cmpSelect.hidden = !HOSTED;
   function defaultBaselineLabel(){ const d = new Date(); return 'Produktforum ' + d.getDate() + '. ' + MND_S[d.getMonth()]; }
   async function loadSnapshots(){
@@ -1900,7 +1978,8 @@ window.__bootTimeline = function(){
     try{
       const r = await fetch('api/timeline-snapshots', {cache:'no-store'});
       if(!r.ok) return;
-      const list = (await r.json()).snapshots.filter(s => s.kind === 'baseline' || s.kind === 'sprint');   // sprintstart-baselinene (etappe 4) kan også sammenlignes med
+      snapshots = (await r.json()).snapshots; snapshotsLoaded = true;
+      const list = snapshots.filter(s => s.kind === 'baseline' || s.kind === 'sprint');   // sprintstart-baselinene (etappe 4) kan også sammenlignes med
       const cur = cmp ? cmp.id : '';
       cmpSelect.innerHTML = '<option value="">Sammenlign med …</option>' +
         list.map(s => '<option value="' + esc(s.id) + '">' + esc(s.label) + ' · ' + esc(fmtDate(new Date(s.at))) + '</option>').join('') +
@@ -2000,6 +2079,41 @@ window.__bootTimeline = function(){
     }
   });
 
+  /* ================== forum-visningen (R15): skjermen på veggen ================== */
+  const FORUM_KEY = 'sk.forum';
+  let forumMode = false, forumStartedCompare = false;
+  function readForumPref(){ try{ return localStorage.getItem(FORUM_KEY); }catch(e){ return null; } }
+  function placeCompareBar(){   // on top in the forum view, under the help panel otherwise
+    if(forumMode) $('statusStrip').before(cmpBar, cmpList); else $('linkBanner').after(cmpBar, cmpList);
+  }
+  function renderForumNote(){   // only when no forum has marked a baseline yet
+    const note = $('forumNote');
+    note.hidden = !(forumMode && HOSTED && snapshotsLoaded && !cmp && !forumBaseline(snapshots));
+    note.textContent = 'Ingen baseline fra et produktforum ennå.' + (canWrite ? ' Merk én under Mer › Merk baseline… når forumet er ferdig; neste gang viser denne stripen hva som har flyttet seg.' : '');
+  }
+  async function ensureForumCompare(){   // «Siden sist» on top: the last forum's baseline, unless a compare is already running
+    if(!HOSTED || cmp) return;
+    if(!snapshotsLoaded) await loadSnapshots();
+    const b = forumBaseline(snapshots);
+    if(!b || cmp || !forumMode){ renderForumNote(); return; }
+    forumStartedCompare = true;
+    await startCompare(b.id);
+    cmpSelect.value = b.id; cmpDate.hidden = true;
+    renderForumNote();
+  }
+  function setForum(on, remember){
+    forumMode = !!on;
+    document.body.classList.toggle('forum', forumMode);
+    const b = $('forumBtn'); b.classList.toggle('on', forumMode); b.setAttribute('aria-pressed', forumMode ? 'true' : 'false');
+    if(remember){ try{ localStorage.setItem(FORUM_KEY, forumMode ? '1' : '0'); }catch(e){} }
+    if(forumMode && personMode){ personMode = false; $('personBtn').classList.remove('on'); }   // a read view the forum does not use
+    placeCompareBar();
+    if(forumMode) ensureForumCompare();
+    else if(forumStartedCompare){ forumStartedCompare = false; if(cmp) endCompare(); }
+    render();
+  }
+  $('forumBtn').addEventListener('click', () => setForum(!forumMode, true));
+
   /* ================== hylla: klar for veikart ================== */
   const shelf = $('shelf'), shelfList = $('shelfList'), shelfCount = $('shelfCount');
   function shelfState(t){
@@ -2010,6 +2124,8 @@ window.__bootTimeline = function(){
   function renderShelf(){
     const items = shelfTasks(state);
     shelf.hidden = !items.length && !(HOSTED && canWrite);
+    $('stage').classList.toggle('with-shelf', !shelf.hidden);   // R15: the forum view's second column only when the shelf shows
+    $('shelfTip').hidden = !(forumMode && canWrite && items.length);
     shelfCount.textContent = items.length ? '(' + items.length + ')' : '';
     $('registerBtn').hidden = !(HOSTED && canWrite);
     shelfList.innerHTML = items.length ? '' : '<div class="shelf-empty">Ingen features venter på plass i en epic. Registrer et ønske produktforum har sagt ja til.</div>';
@@ -2700,9 +2816,11 @@ window.__bootTimeline = function(){
       whoami.textContent = myName || '';
       refreshHistoryBadge();
       loadSnapshots();
+      if(!forumMode && forumDefault(readForumPref(), canWrite)) setForum(true, false);   // R15: readers land in the forum view unless they chose otherwise
       if(j.plan){
         applyRemote(j.plan.data, j.plan.version);
         setSaveNote('delt plan lastet' + (canWrite ? '' : ' – kun lesetilgang'));
+        openFromHash();   // «Historikk» on the Kunder page: /timeline#historikk=<key>
       } else {
         state = emptyPlan();
         render();
@@ -2972,7 +3090,10 @@ window.__bootTimeline = function(){
     const goals = '<div class="md">' + esc('nådd ' + g.counts['nådd'] + ' · ikke nådd ' + g.counts['ikke nådd'] + ' · endret ' + g.counts.endret) + '</div>' +
       (g.epics.length ? '<ul class="inv-list">' + g.epics.map(e => '<li><b>' + esc(e.name) + '</b>: ' + esc((e.outcome || 'uten utfall') + (e.closedReason ? ' – ' + e.closedReason : '') + (e.closedAt ? ' (' + day(e.closedAt) + ')' : '')) +
         (e.reasons.length ? '<ul>' + e.reasons.map(r => '<li class="md">' + esc(r) + '</li>').join('') + '</ul>' : '') + '</li>').join('') + '</ul>' : '<div class="empty">Ingen avsluttede epics.</div>');
-    $('invBody').innerHTML = '<h3>Planen nå</h3>' + plan + '<h3>Gjennomføringsevne</h3>' + delivery + '<h3>Målopnåelse</h3>' + goals;
+    const dv = (d.deliveries || []).length   // R16: COO's deliveries with their five numbers
+      ? '<ul class="inv-list">' + d.deliveries.map(x => '<li><b>' + esc(x.name) + '</b> (' + esc(x.customers) + '): ' + esc('lovet ' + day(x.promised) + ' · ' + x.text + ' · ' + x.colour + ' · ' + x.epicsDone + ' av ' + x.epicsTotal + ' epics levert · ' + x.bugsLeft + ' bugs igjen') + '</li>').join('') + '</ul>'
+      : '<div class="empty">Ingen leveranser.</div>';
+    $('invBody').innerHTML = '<h3>Planen nå</h3>' + plan + '<h3>Leveranser</h3>' + dv + '<h3>Gjennomføringsevne</h3>' + delivery + '<h3>Målopnåelse</h3>' + goals;
     $('invWindow').textContent = 'Leveranser ' + day(d.window.since) + ' – ' + day(d.window.until);
   }
   async function openInvestor(){
@@ -3036,21 +3157,23 @@ window.__bootTimeline = function(){
     if(!raw || typeof raw !== 'object' || !Array.isArray(raw.lanes) || !Array.isArray(raw.tasks)){ askDialog('Importer (JSON)', 'Filen er ikke en eksportert plan (mangler lanes og tasks).', {confirmText:'OK', noCancel:true}); return; }
     const incoming = normalizePlan(raw);
     const strip = t => { const c = Object.assign({}, t); delete c.fv; delete c.editedAt; delete c.editedBy; delete c.v; return JSON.stringify(c); };
-    const curTasks = new Map(state.tasks.map(t => [t.id, t])), curLanes = new Map(state.lanes.map(l => [l.key, l])), curWishes = new Map((state.wishes || []).map(w => [w.id, w])), curRel = new Map((state.releases || []).map(r => [r.key, r]));
-    const inTasks = new Set(incoming.tasks.map(t => t.id)), inLanes = new Set(incoming.lanes.map(l => l.key)), inWishes = new Set((incoming.wishes || []).map(w => w.id)), inRel = new Set((incoming.releases || []).map(r => r.key));
-    const removedTasks = state.tasks.filter(t => !inTasks.has(t.id)), removedLanes = state.lanes.filter(l => !inLanes.has(l.key)), removedWishes = (state.wishes || []).filter(w => !inWishes.has(w.id)), removedRel = (state.releases || []).filter(r => !inRel.has(r.key));
+    const curTasks = new Map(state.tasks.map(t => [t.id, t])), curLanes = new Map(state.lanes.map(l => [l.key, l])), curWishes = new Map((state.wishes || []).map(w => [w.id, w])), curRel = new Map((state.releases || []).map(r => [r.key, r])), curDel = new Map((state.deliveries || []).map(d => [d.key, d]));
+    const inTasks = new Set(incoming.tasks.map(t => t.id)), inLanes = new Set(incoming.lanes.map(l => l.key)), inWishes = new Set((incoming.wishes || []).map(w => w.id)), inRel = new Set((incoming.releases || []).map(r => r.key)), inDel = new Set((incoming.deliveries || []).map(d => d.key));
+    const removedTasks = state.tasks.filter(t => !inTasks.has(t.id)), removedLanes = state.lanes.filter(l => !inLanes.has(l.key)), removedWishes = (state.wishes || []).filter(w => !inWishes.has(w.id)), removedRel = (state.releases || []).filter(r => !inRel.has(r.key)), removedDel = (state.deliveries || []).filter(d => !inDel.has(d.key));
     let added = 0, changed = 0;
     incoming.tasks.forEach(t => { const c = curTasks.get(t.id); t.fv = {}; if(!c){ added++; FV_FIELDS.forEach(g => { t.fv[g] = 1; }); return; } if(strip(c) !== strip(t)) changed++; FV_FIELDS.forEach(g => { t.fv[g] = ((c.fv && c.fv[g]) || 0) + 1; }); });
     incoming.lanes.forEach(l => { const c = curLanes.get(l.key); l.v = ((c && c.v) || 0) + 1; });
     (incoming.wishes || []).forEach(w => { const c = curWishes.get(w.id); w.v = ((c && c.v) || 0) + 1; });
     (incoming.releases || []).forEach(r => { const c = curRel.get(r.key); r.v = ((c && c.v) || 0) + 1; });
+    (incoming.deliveries || []).forEach(d => { const c = curDel.get(d.key); d.v = ((c && c.v) || 0) + 1; });   // R16: deliveries like releases
     incoming.deleted = Object.assign({}, state.deleted, incoming.deleted || {}); removedTasks.forEach(t => { incoming.deleted[t.id] = maxFvOf(t) + 1; });
     incoming.deletedLanes = Object.assign({}, state.deletedLanes, incoming.deletedLanes || {}); removedLanes.forEach(l => { incoming.deletedLanes[l.key] = (l.v || 0) + 1; });
     incoming.deletedWishes = Object.assign({}, state.deletedWishes || {}, incoming.deletedWishes || {}); removedWishes.forEach(w => { incoming.deletedWishes[w.id] = (w.v || 0) + 1; });
     incoming.deletedReleases = Object.assign({}, state.deletedReleases || {}, incoming.deletedReleases || {}); removedRel.forEach(r => { incoming.deletedReleases[r.key] = (r.v || 0) + 1; });
+    incoming.deletedDeliveries = Object.assign({}, state.deletedDeliveries || {}, incoming.deletedDeliveries || {}); removedDel.forEach(d => { incoming.deletedDeliveries[d.key] = (d.v || 0) + 1; });
     const n = (c, one, many) => c + ' ' + (c === 1 ? one : many);
     const msg = 'Planen erstattes med «' + f.name + '»: ' + n(removedTasks.length, 'feature fjernes', 'features fjernes') + ', ' + n(added, 'kommer til', 'kommer til') + ', ' + n(changed, 'feature endres', 'features endres') +
-      (removedLanes.length ? ', ' + n(removedLanes.length, 'epic fjernes', 'epics fjernes') : '') + (removedWishes.length ? ', ' + n(removedWishes.length, 'ønske fjernes', 'ønsker fjernes') : '') + (removedRel.length ? ', ' + n(removedRel.length, 'release fjernes', 'releaser fjernes') : '') + '. Alt logges i Historikk.';
+      (removedLanes.length ? ', ' + n(removedLanes.length, 'epic fjernes', 'epics fjernes') : '') + (removedWishes.length ? ', ' + n(removedWishes.length, 'ønske fjernes', 'ønsker fjernes') : '') + (removedRel.length ? ', ' + n(removedRel.length, 'release fjernes', 'releaser fjernes') : '') + (removedDel.length ? ', ' + n(removedDel.length, 'leveranse fjernes', 'leveranser fjernes') : '') + '. Alt logges i Historikk.';
     if(!(await confirmDialog('Importer (JSON)', msg, {confirmText:'Erstatt planen', danger:true}))) return;
     incoming.sprints = state.sprints; incoming.example = false;   // sprintene er serverens; en innlastet fil er aldri eksempelet
     state = normalizePlan(incoming);
@@ -3106,6 +3229,7 @@ window.__bootTimeline = function(){
   /* ================== start ================== */
   pushQueue();
   render();
+  if(readForumPref() === '1') setForum(true, false);   // R15: the stored choice, before the plan arrives
   initServerPlan();
   if(HOSTED) setInterval(pollTick, POLL_MS);
 };

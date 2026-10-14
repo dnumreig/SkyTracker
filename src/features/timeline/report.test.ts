@@ -69,6 +69,17 @@ describe("sprintReportMarkdown", () => {
   });
 });
 
+describe("the period's first day is the Oslo day (minor after R16)", () => {
+  it("an event at 23:30 UTC opens the period on the next Oslo day (CET), so a delivery the day before is not «levert» in it", () => {
+    const p = plan();
+    p.tasks.find((t) => t.id === "fildeling")!.deliveredAt = "2026-11-05";
+    const late = sprintReportMarkdown({ title: "R", strip: STRIP, path: [ev({ code: "feature.spenn", at: "2026-11-05T23:30:00.000Z" })], plan: p, laneName, todayUnit: TODAY });
+    expect(late).not.toContain("## Levert");
+    const early = sprintReportMarkdown({ title: "R", strip: STRIP, path: [ev({ code: "feature.spenn", at: "2026-11-05T10:00:00.000Z" })], plan: p, laneName, todayUnit: TODAY });
+    expect(early).toContain("## Levert\n- Samtaler › Fildeling: levert 5. nov\n");
+  });
+});
+
 describe("digestText", () => {
   it("counts the colours, names the yellow and red epics with their window, goal and latest reason, repeats the strip, lists deliveries and links", () => {
     const text = digestText({ plan: plan(), strip: STRIP, path: path(), todayUnit: TODAY, week: 46, url: "https://x/timeline" });

@@ -23,17 +23,17 @@ describe("summarizeNet", () => {
       path({ code: "feature.flyttet", changeset: { id: "a", at: "", editor: "GO", reason: null, reasonCode: "ingen", source: "bruker" } }),
       path({ code: "epic.maldato", changeset: { id: "b", at: "", editor: "GO", reason: "Telenor", reasonCode: "ekstern", source: "bruker" } }),
     ];
-    expect(summarizeNet(net, p)).toEqual({ maldatoer: 2, spenn: 1, byttetEpic: 1, prioriteringer: 2, flyttet: 1, nye: 1, fjernet: 2, onsker: 0, releaser: 0, mangler: 1 });
+    expect(summarizeNet(net, p)).toEqual({ maldatoer: 2, spenn: 1, byttetEpic: 1, prioriteringer: 2, flyttet: 1, nye: 1, fjernet: 2, onsker: 0, releaser: 0, leveranser: 0, mangler: 1 });
   });
 });
 
 describe("summaryLine and sinceLabel", () => {
   it("lists only the non-zero parts in the spec's order and wording", () => {
-    const s = { maldatoer: 2, spenn: 3, byttetEpic: 1, prioriteringer: 2, flyttet: 0, nye: 0, fjernet: 0, onsker: 0, releaser: 0, mangler: 4 };
+    const s = { maldatoer: 2, spenn: 3, byttetEpic: 1, prioriteringer: 2, flyttet: 0, nye: 0, fjernet: 0, onsker: 0, releaser: 0, leveranser: 0, mangler: 4 };
     expect(summaryLine("produktforum 5. nov", s)).toBe("Siden produktforum 5. nov: 2 måldatoer flyttet · 3 spenn utvidet · 1 feature byttet epic · 2 prioriteringer · 4 begrunnelser mangler");
-    expect(summaryLine("5. nov", { maldatoer: 1, spenn: 0, byttetEpic: 0, prioriteringer: 0, flyttet: 1, nye: 2, fjernet: 1, onsker: 0, releaser: 0, mangler: 0 }))
+    expect(summaryLine("5. nov", { maldatoer: 1, spenn: 0, byttetEpic: 0, prioriteringer: 0, flyttet: 1, nye: 2, fjernet: 1, onsker: 0, releaser: 0, leveranser: 0, mangler: 0 }))
       .toBe("Siden 5. nov: 1 måldato flyttet · 1 feature flyttet senere · 2 nye · 1 fjernet");
-    expect(summaryLine("5. nov", { maldatoer: 0, spenn: 0, byttetEpic: 0, prioriteringer: 0, flyttet: 0, nye: 0, fjernet: 0, onsker: 0, releaser: 0, mangler: 0 })).toBe("Siden 5. nov: ingen endringer");
+    expect(summaryLine("5. nov", { maldatoer: 0, spenn: 0, byttetEpic: 0, prioriteringer: 0, flyttet: 0, nye: 0, fjernet: 0, onsker: 0, releaser: 0, leveranser: 0, mangler: 0 })).toBe("Siden 5. nov: ingen endringer");
   });
   it("sinceLabel lowercases a baseline label's first letter and names a daily snapshot by its day", () => {
     expect(sinceLabel({ kind: "baseline", label: "Produktforum 5. nov", at: "2026-11-05T09:00:00.000Z", day: null })).toBe("produktforum 5. nov");
@@ -105,7 +105,19 @@ describe("releases (R10) in the summary strip", () => {
     const ev = (code: string) => ({ targetType: "release", targetId: "r1", targetLabel: "Release 2.0.1", laneKey: null, code, cause: "bruker", summary: "" }) as unknown as PlanEvent;
     const s = summarizeNet([ev("release.ny"), ev("release.maldato"), ev("release.lest")], []);
     expect(s.releaser).toBe(2);
-    expect(summaryLine("5. nov", { maldatoer: 0, spenn: 0, byttetEpic: 0, prioriteringer: 0, flyttet: 0, nye: 0, fjernet: 0, onsker: 1, releaser: 2, mangler: 0 })).toBe("Siden 5. nov: 1 ønske behandlet · 2 releaser endret");
-    expect(summaryLine("5. nov", { maldatoer: 0, spenn: 0, byttetEpic: 0, prioriteringer: 0, flyttet: 0, nye: 0, fjernet: 0, onsker: 0, releaser: 1, mangler: 0 })).toBe("Siden 5. nov: 1 release endret");
+    expect(summaryLine("5. nov", { maldatoer: 0, spenn: 0, byttetEpic: 0, prioriteringer: 0, flyttet: 0, nye: 0, fjernet: 0, onsker: 1, releaser: 2, leveranser: 0, mangler: 0 })).toBe("Siden 5. nov: 1 ønske behandlet · 2 releaser endret");
+    expect(summaryLine("5. nov", { maldatoer: 0, spenn: 0, byttetEpic: 0, prioriteringer: 0, flyttet: 0, nye: 0, fjernet: 0, onsker: 0, releaser: 1, leveranser: 0, mangler: 0 })).toBe("Siden 5. nov: 1 release endret");
+  });
+});
+
+describe("deliveries (R16) in the summary strip and the export", () => {
+  it("counts every leveranse.* event and words it; the export has a «Leveranser» section", () => {
+    const ev = (code: string) => ({ targetType: "leveranse", targetId: "d1", targetLabel: "Leveranse Skytale 2.0", laneKey: null, code, cause: "bruker", summary: "" }) as unknown as PlanEvent;
+    expect(summarizeNet([ev("leveranse.ny"), ev("leveranse.lovet"), ev("leveranse.epics")], []).leveranser).toBe(3);
+    const zero = { maldatoer: 0, spenn: 0, byttetEpic: 0, prioriteringer: 0, flyttet: 0, nye: 0, fjernet: 0, onsker: 0, releaser: 0, mangler: 0 };
+    expect(summaryLine("5. nov", { ...zero, releaser: 1, leveranser: 2 })).toBe("Siden 5. nov: 1 release endret · 2 leveranser endret");
+    expect(summaryLine("5. nov", { ...zero, leveranser: 1 })).toBe("Siden 5. nov: 1 leveranse endret");
+    const path = { ...ev("leveranse.lovet"), summary: "Lovet dato: 30. nov → 11. des", at: "2026-11-06T10:00:00.000Z", editor: "COO", changeset: { id: "c", at: "2026-11-06T10:00:00.000Z", editor: "COO", reason: "Mindre scope", reasonCode: "omfang", source: "bruker" } } as PathEvent;
+    expect(exportMarkdown("Siden 5. nov", "x", [path], () => "")).toContain("\n## Leveranser\n- Leveranse Skytale 2.0: Lovet dato: 30. nov → 11. des — Omfanget endret: Mindre scope (COO, 6. nov)\n");
   });
 });

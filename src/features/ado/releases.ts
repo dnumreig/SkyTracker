@@ -6,7 +6,7 @@
 // is done by its target day (forecast.ts), on the release and on the day's point, so the forecast can be laid next to what happened.
 import type { Plan, ReleaseAdo, ReleaseForecast, ReleaseHistoryPoint, ReleaseItem } from "@/features/timeline/merge";
 import type { PlanEvent } from "@/features/timeline/events";
-import { currentSprint, dayKey, releaseProgress, releaseQueryUrl, releaseScope, releaseWiql, sprintUnlabelledWiql, RELEASE_HISTORY_MAX } from "@/features/timeline/epic-tools.js";
+import { currentSprint, osloDay, releaseProgress, releaseQueryUrl, releaseScope, releaseWiql, sprintUnlabelledWiql, RELEASE_HISTORY_MAX } from "@/features/timeline/epic-tools.js";
 import { AdoRequestError, type AdoClient, type AdoWorkItem } from "./client";
 import { readForecast, type ForecastMemo } from "./forecast";
 
@@ -18,7 +18,7 @@ const DONE = ["Resolved", "Closed"];
 function releaseDelivered(w: AdoWorkItem): string | null {
   if (!DONE.includes(str(w.fields["System.State"]))) return null;
   const d = str(w.fields["Microsoft.VSTS.Common.ResolvedDate"]) || str(w.fields["Microsoft.VSTS.Common.ClosedDate"]);
-  return d ? d.slice(0, 10) : null;
+  return d ? osloDay(new Date(d)) : null;   // ADO's stamp is UTC; the day is the Oslo day it was done
 }
 const leaf = (path: string) => path.split("\\").pop() ?? path;
 /** A work item as the release keeps it: enough for the drawer's list, nothing that changes every hour. */
@@ -80,7 +80,7 @@ export async function refreshReleases(plan: Plan, client: Pick<AdoClient, "wiql"
       console.warn("release forecast skipped:", e instanceof Error ? e.message : e);   // e.g. no access to the team's Capacity: the release is still read
     }
     const chance = forecast && "p" in forecast ? { forecast: { p: forecast.p, mean: forecast.mean } } : {};
-    const history = historyWith(r.ado?.history, { day: dayKey(now), pointsDone: pr.pointsDone, pointsTotal: pr.pointsTotal, done: pr.done, total: pr.total, ...chance });
+    const history = historyWith(r.ado?.history, { day: osloDay(now), pointsDone: pr.pointsDone, pointsTotal: pr.pointsTotal, done: pr.done, total: pr.total, ...chance });
     const next: ReleaseAdo = { at: now.toISOString(), label, items: list, history, ...(sprints.length ? { sprints } : {}), ...(forecast ? { forecast } : {}) };
     const itemsKey = (a?: ReleaseAdo) => JSON.stringify(a ? { label: a.label, items: a.items } : null);
     const dataKey = (a?: ReleaseAdo) => JSON.stringify(a ? { label: a.label, items: a.items, history: a.history ?? [], sprints: a.sprints ?? [], forecast: a.forecast ?? null } : null);

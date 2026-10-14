@@ -1,4 +1,4 @@
-import type { Plan, PlanLane, PlanTask, Sprint, TaskFieldGroup, Wish, WishSource, WishStatus, Release } from "./merge";
+import type { Plan, PlanLane, PlanTask, Sprint, TaskFieldGroup, Wish, WishSource, WishStatus, Release, Delivery } from "./merge";
 
 export declare function progressFraction(p: PlanTask["progress"] | undefined | null): number | null;
 export declare function progressSignal(task: PlanTask, todayUnit: number): { code: "gronn" | "gul" | "rod"; done: number; elapsed: number } | null;
@@ -12,6 +12,10 @@ export declare function elapsedWeeks(rawWeeks: number, factor: number): number;
 export declare function queueFloor(plan: Plan, taskId: string): { floor: number | null; by: string | null; kind: "dep" | "queue" | null };
 export declare function resolveQueue(plan: Plan): { id: string; by: string | null; kind: "dep" | "queue" }[];
 export declare function dayKey(d: Date): string;
+/** The calendar day in Oslo (YYYY-MM-DD), whatever the server's clock zone. */
+export declare function osloDay(d: Date): string;
+/** That Oslo day as a local Date at midnight. */
+export declare function osloDate(d: Date): Date;
 export declare function currentSprint(sprints: Sprint[] | undefined | null, date: Date): Sprint | null;
 export declare function sprintDay(sprint: Sprint, date: Date): number;
 export declare function sprintLabel(sprints: Sprint[] | undefined | null, date: Date): string;
@@ -113,5 +117,34 @@ export declare function releaseForecastText(r: Release, todayDay: string): { sho
 export declare function sprintUnlabelledWiql(iterationPath: string): string;
 
 /* R14: the shared top bar and the status strip in words */
-export declare function navTabsHtml(active: "inntak" | "timeline" | "board", hosted: boolean): string;
+export declare function navTabsHtml(active: "inntak" | "timeline" | "board" | "kunder", hosted: boolean): string;
 export declare function epicStatusWords(plan: Plan): string;
+
+/* R15: the forum view */
+export interface ForumSnapshot { id: string; at: string; kind: string; label?: string }
+export declare function forumBaseline(snapshots: ForumSnapshot[] | null | undefined): ForumSnapshot | null;
+export declare function forumDefault(stored: string | null | undefined, canWrite: boolean): boolean;
+
+/* R16: Leveranser, the COO layer over epics and releases */
+export type DeliveryCode = "gronn" | "gul" | "rod" | "ingen";
+export declare const DELIVERY_OWNER: string;
+export declare const DELIVERY_WORD: Record<DeliveryCode, string>;
+export type DeliveryBy = { kind: "epic" | "release"; key: string; name: string };
+export type DeliveryStatus = { code: DeliveryCode; computed: string | null; by: DeliveryBy | null; pending: boolean; deltaDays: number | null; weeks: number | null; deviation: string; text: string };
+export declare function deliveryOwner(d: Delivery): string;
+export declare function deliveryCustomersText(d: Delivery): string;
+export declare function deliveryParts(plan: Plan, d: Delivery): { epics: PlanLane[]; releases: Release[] };
+export declare function deliveryComputed(plan: Plan, d: Delivery, todayDay: string): { day: string | null; by: DeliveryBy | null; pending: boolean; open: number; parts: number };
+export declare function deliveryStatus(plan: Plan, d: Delivery, todayDay: string): DeliveryStatus;
+export declare function deliveryUnlabelled(plan: Plan, d: Delivery): number;
+export declare function deliveryBugsLeft(plan: Plan, d: Delivery): number;
+export declare function deliveryPartsText(plan: Plan, d: Delivery): string;
+export type DeliveryLine = { key: string; customer: string; all: boolean; none: boolean; delivery: Delivery; hangsOn: string; promisedDate: string; status: DeliveryStatus };
+export declare function deliveryLines(plan: Plan, todayDay: string): DeliveryLine[];
+export type EpicCustomers = { all: boolean; names: string[]; count: number; deliveries: Delivery[] };
+export declare function epicCustomers(plan: Plan, laneKey: string): EpicCustomers;
+export declare function epicCustomersText(c: EpicCustomers): string;
+export declare function epicWeight(c: EpicCustomers): { code: "tyngst" | "flere" | "lett" | "ingen"; label: string };
+export declare function deliverySegments(plan: Plan, todayDay: string): { delivery: Delivery; start: number; end: number; promised: number; status: DeliveryStatus }[];
+export type DeliveryInvestor = { key: string; name: string; customers: string; owner: string; promised: string; computed: string | null; weeks: number | null; colour: string; code: DeliveryCode; by: string | null; pending: boolean; epicsDone: number; epicsTotal: number; bugsLeft: number; text: string };
+export declare function deliveryInvestor(plan: Plan, d: Delivery, todayDay: string): DeliveryInvestor;

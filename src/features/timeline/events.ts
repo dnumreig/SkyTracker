@@ -2,8 +2,8 @@
 // (a goal date moved, a span widened, an epic reordered), with a Norwegian
 // summary rendered once. The PUT handler logs these on every save; later the
 // compare mode (R1b) reuses the same function for "since the baseline".
-import type { Plan, PlanLane, PlanTask, Release, Wish } from "./merge";
-import { WEEK, BACKLOG, MIX_LABEL, unitToDate, fmtDate, rangeWeeks, dayToUnit, releaseScope } from "./epic-tools.js";
+import type { Delivery, Plan, PlanLane, PlanTask, Release, Wish } from "./merge";
+import { WEEK, BACKLOG, MIX_LABEL, unitToDate, fmtDate, rangeWeeks, dayToUnit, releaseScope, deliveryCustomersText } from "./epic-tools.js";
 
 export const EVENT_CODES = [
   "epic.ny", "epic.slettet", "epic.navn", "epic.maltall", "epic.eier", "epic.maldato", "epic.ekstern", "epic.prioritet", "epic.ado",
@@ -16,11 +16,12 @@ export const EVENT_CODES = [
   "onske.registrert", "onske.besluttet", "onske.slettet",
   "feature.beskrivelse", "feature.type", "feature.flater", "feature.fastdato", "feature.klasse",
   "release.ny", "release.slettet", "release.versjon", "release.maldato", "release.skippet", "release.notat", "release.scope", "release.lest",
+  "leveranse.ny", "leveranse.slettet", "leveranse.navn", "leveranse.lovet", "leveranse.kunder", "leveranse.epics", "leveranse.releaser", "leveranse.eier", "leveranse.notat",
 ] as const;
 export type EventCode = (typeof EVENT_CODES)[number];
 export type Cause = "bruker" | "avhengighet" | "ado" | "system";
 export type PlanEvent = {
-  targetType: "epic" | "feature" | "plan" | "onske" | "release";
+  targetType: "epic" | "feature" | "plan" | "onske" | "release" | "leveranse";
   targetId: string;
   targetLabel: string;
   laneKey: string | null;
@@ -280,6 +281,26 @@ export function diffPlans(before: Plan, after: Plan, opts: DiffOptions = {}): Pl
     if (releaseScope(b) !== releaseScope(r)) ev.push({ ...rbase(r), code: "release.scope", before: releaseScope(b), after: releaseScope(r), summary: "ADO-label: " + q(releaseScope(b)) + " → " + q(releaseScope(r)) });
   }
   for (const b of before.releases ?? []) if (!ar.has(b.key)) ev.push({ ...rbase(b), code: "release.slettet", before: { version: b.version, targetDate: b.targetDate }, summary: "Release slettet: " + b.version });
+
+  // ----- deliveries (R16): COO's promise; the promised day asks for a reason; the parts are logged one by one -----
+  const bdl = new Map((before.deliveries ?? []).map((d) => [d.key, d])), adl = new Map((after.deliveries ?? []).map((d) => [d.key, d]));
+  const dbase = (d: Delivery) => ({ targetType: "leveranse" as const, targetId: d.key, targetLabel: "Leveranse " + d.name, laneKey: null, cause: dc });
+  const relName = (key: string) => ((after.releases ?? []).find((x) => x.key === key) ?? (before.releases ?? []).find((x) => x.key === key))?.version ?? key;
+  for (const d of after.deliveries ?? []) {
+    const b = bdl.get(d.key);
+    if (!b) { ev.push({ ...dbase(d), code: "leveranse.ny", after: { name: d.name, promisedDate: d.promisedDate, customers: deliveryCustomersText(d) }, summary: "Ny leveranse " + q(d.name) + " · lovet " + dayWords(d.promisedDate) + " · " + deliveryCustomersText(d) }); continue; }
+    if (b.name !== d.name) ev.push({ ...dbase(d), code: "leveranse.navn", before: b.name, after: d.name, summary: "Navn: " + q(b.name) + " → " + q(d.name) });
+    if (b.promisedDate !== d.promisedDate) ev.push({ ...dbase(d), code: "leveranse.lovet", before: { date: b.promisedDate }, after: { date: d.promisedDate }, summary: "Lovet dato: " + dayWords(b.promisedDate) + " → " + dayWords(d.promisedDate) });
+    if (deliveryCustomersText(b) !== deliveryCustomersText(d)) ev.push({ ...dbase(d), code: "leveranse.kunder", before: deliveryCustomersText(b), after: deliveryCustomersText(d), summary: "Kunder: " + deliveryCustomersText(b) + " → " + deliveryCustomersText(d) });
+    const be = b.epics ?? [], ae = d.epics ?? [], br = b.releases ?? [], ar2 = d.releases ?? [];
+    for (const k of ae) if (!be.includes(k)) ev.push({ ...dbase(d), code: "leveranse.epics", after: k, summary: "Henger på epic " + q(laneName(k)) });
+    for (const k of be) if (!ae.includes(k)) ev.push({ ...dbase(d), code: "leveranse.epics", before: k, summary: "Epic " + q(laneName(k)) + " tatt av" });
+    for (const k of ar2) if (!br.includes(k)) ev.push({ ...dbase(d), code: "leveranse.releaser", after: k, summary: "Henger på release " + relName(k) });
+    for (const k of br) if (!ar2.includes(k)) ev.push({ ...dbase(d), code: "leveranse.releaser", before: k, summary: "Release " + relName(k) + " tatt av" });
+    if ((b.owner ?? "") !== (d.owner ?? "")) ev.push({ ...dbase(d), code: "leveranse.eier", before: b.owner ?? null, after: d.owner ?? null, summary: textChange("Eier", b.owner, d.owner) });
+    if ((b.note ?? "") !== (d.note ?? "")) ev.push({ ...dbase(d), code: "leveranse.notat", before: b.note ?? null, after: d.note ?? null, summary: textChange("Notat", b.note, d.note) });
+  }
+  for (const b of before.deliveries ?? []) if (!adl.has(b.key)) ev.push({ ...dbase(b), code: "leveranse.slettet", before: { name: b.name, promisedDate: b.promisedDate }, summary: "Leveranse slettet: " + q(b.name) });
   return ev;
 }
 
@@ -296,6 +317,7 @@ export function needsReason(e: PlanEvent): boolean {
     case "epic.prioritet":
     case "epic.tilstand":
     case "release.maldato":
+    case "leveranse.lovet":
     case "feature.epic": return true;
     case "feature.spenn": { const b = e.before as { likely: number; late: number }, a = e.after as { likely: number; late: number }; return a.late > b.late || a.likely > b.likely; }
     case "feature.flyttet": return (e.after as { start: number }).start - (e.before as { start: number }).start >= WEEK - 1e-9;

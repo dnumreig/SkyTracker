@@ -76,8 +76,9 @@ describe("planNow, defaultWindow and the exports", () => {
     expect(p[0].window).toMatch(/^Leveres uke \d+–\d+$/);
     expect(p[1]).toMatchObject({ key: "samtaler", metric: "", colour: "tom", window: "" });
   });
-  it("defaultWindow spans two quarters back to today", () => {
+  it("defaultWindow spans two quarters back to today, counted in Oslo", () => {
     expect(defaultWindow(new Date(2026, 9, 9))).toEqual({ since: "2026-04-09", until: "2026-10-09" });
+    expect(defaultWindow(new Date("2026-10-13T22:30:00.000Z"))).toEqual({ since: "2026-04-14", until: "2026-10-14" });
   });
   it("the markdown has the four sections with the numbers; the slide carries them too; an empty plan still renders", () => {
     const data = investorData(plan(), events(), WINDOW);
@@ -96,5 +97,18 @@ describe("planNow, defaultWindow and the exports", () => {
     expect(empty).toContain("0 av 0 levert innenfor lovet spenn (–)");
     expect(empty).toContain("## Målopnåelse\nnådd 0 · ikke nådd 0 · endret 0\n- ingen avsluttede epics\n");
     expect(investorHtml(investorData({ lanes: [], tasks: [] }, [], WINDOW))).toContain("<html");
+  });
+});
+
+describe("deliveries (R16) on the investor page", () => {
+  it("one line per delivery with the five numbers; a plan without the field has none", () => {
+    const p = normalizePlan({ ...plan(), deliveries: [{ key: "d1", name: "Skytale 2.0", allCustomers: true, customers: [], promisedDate: "2026-11-30", epics: ["telenor", "pilot"], releases: [] }] }) as Plan;
+    const data = investorData(p, events(), WINDOW, "2026-10-13");
+    expect(data.deliveries.length).toBe(1);
+    const md = investorMarkdown(data);
+    expect(md).toContain("## Leveranser\n- Skytale 2.0 (alle kunder): lovet 30. nov · " + data.deliveries[0].text + " · " + data.deliveries[0].colour + " · 1 av 2 epics levert · 0 bugs igjen\n");
+    expect(md.indexOf("## Leveranser")).toBeLessThan(md.indexOf("## Gjennomføringsevne"));
+    expect(investorHtml(data)).toContain("Skytale 2.0");
+    expect(investorMarkdown(investorData({ lanes: [], tasks: [] }, [], WINDOW))).toContain("## Leveranser\n- ingen leveranser\n");
   });
 });
