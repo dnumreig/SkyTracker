@@ -3033,6 +3033,12 @@ window.__bootTimeline = function(){
     const q = $('relQa'); $('relQaErr').hidden = !on;
     if(on){ q.setAttribute('aria-invalid', 'true'); q.setAttribute('aria-describedby', 'relQaErr'); } else { q.removeAttribute('aria-invalid'); q.removeAttribute('aria-describedby'); }
   }
+  const relQaCheck = () => {   // R18: a refusal goes as soon as the two dates are in order again, before Lagre; a day still after «Release» keeps it
+    if($('relQaErr').hidden) return;
+    const qa = $('relQa').value, target = $('relTarget').value;
+    if(!qa || !target || qa <= target) relQaRefused(false);
+  };
+  $('relQa').addEventListener('input', relQaCheck); $('relTarget').addEventListener('input', relQaCheck);
   $('relSave').addEventListener('click', () => {
     const version = $('relVersion').value.trim(), target = $('relTarget').value, shipped = $('relShipped').value, label = $('relLabel').value.trim(), note = $('relNote').value.trim();
     const qa = $('relQa').value;   // R18: «Klar for QA», on or before «Release»
