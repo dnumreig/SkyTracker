@@ -955,14 +955,15 @@ function deliveryEpicPart(plan, lane, deliveryKey) {
 function deliveryRows(plan, todayDay) {
   const segs = releaseSegments(plan, dayToUnit(todayDay));
   const nameOf = (p) => (p.kind === "epic" ? p.lane.name : p.release.version);
-  const byDay = (a, b) => (a.day === null ? 0 : 1) - (b.day === null ? 0 : 1) || (a.day < b.day ? -1 : a.day > b.day ? 1 : 0) || nameOf(a.p).localeCompare(nameOf(b.p), "nb");
+  const byDay = (a, b) => (a.day === null ? 0 : 1) - (b.day === null ? 0 : 1) || (a.day < b.day ? -1 : a.day > b.day ? 1 : 0);
   const groups = deliverySegments(plan, todayDay).map((sg) => {
     const d = sg.delivery, parts = deliveryParts(plan, d);
     const list = parts.epics.map((l) => deliveryEpicPart(plan, l, d.key)).concat(parts.releases.map((r) => {
       const s = segs.find((x) => x.release.key === r.key);
       return { kind: "release", key: r.key, release: r, start: s ? s.start : null, end: s ? s.end : null, shipped: !!r.shippedDate };
     }));
-    const ordered = list.map((p) => ({ p, day: deliveryPartDay(plan, p, todayDay) })).sort(byDay).map((x) => x.p);
+    const by = sg.status.by, pulls = (x) => (by && x.p.kind === by.kind && x.p.key === by.key ? 1 : 0);   // on equal days the part «dratt av» names comes last
+    const ordered = list.map((p) => ({ p, day: deliveryPartDay(plan, p, todayDay) })).sort((a, b) => byDay(a, b) || pulls(a) - pulls(b) || nameOf(a.p).localeCompare(nameOf(b.p), "nb")).map((x) => x.p);
     return { delivery: d, status: sg.status, segment: { start: sg.start, end: sg.end, promised: sg.promised }, parts: ordered };
   });
   const used = new Set();
@@ -989,9 +990,10 @@ function focusSelector(el) {
   return sel + " " + (act ? "[" + act + '="' + CSS.escape(el.getAttribute(act)) + '"]' : tag(el));
 }
 /** The key of the control that has the focus, taken before a render replaces it; null when nothing has it. */
-function focusKey(doc) { return focusSelector(doc.activeElement); }
-/** The focus back on the control the key names, without scrolling, when it exists. */
-function restoreFocus(doc, key) { const c = key && doc.querySelector(key); if (c) c.focus({ preventScroll: true }); }
+function focusKey(doc) { try { return focusSelector(doc.activeElement); } catch (e) { return null; } }
+/** The focus back on the control the key names, without scrolling, when it exists. Never throws: a render that called it
+ *  (inside applyRemote) must finish, or the saves that wait for it stop. */
+function restoreFocus(doc, key) { try { const c = key && doc.querySelector(key); if (c) c.focus({ preventScroll: true }); } catch (e) { /* a selector this browser can't parse: the focus stays where the render left it */ } }
 
 /* ---------- R17: modals and drawers as dialogs (browser only; every page calls it once at boot) ---------- */
 /** Role, aria-modal and a label on every `.modal-back .modal` and `aside.drawer`; focus moves in when one opens, Tab stays

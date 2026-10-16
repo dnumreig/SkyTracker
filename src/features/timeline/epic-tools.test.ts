@@ -8,7 +8,7 @@ import {
   resolveQueue, queueFloor, capacityFactor, elapsedWeeks, wishesByStatus, WISH_STATUS_LABEL, WISH_SOURCE_LABEL, sizeClassDerived, sizeClassText, FEATURE_TYPE_LABEL, AREAS,
   dayToUnit, releaseSegments, releaseProgress, releaseScope,
   workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, dayKey,
-  releaseForecastText,
+  releaseForecastText, focusKey, restoreFocus,
   BACKLOG, canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
   navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
   osloDay, osloDate,
@@ -1175,6 +1175,15 @@ describe("R17: «Per leveranse», the deliveries with what they hang on", () => 
     expect(deliveryRows(p, TODAY).groups[0].parts.map((x) => x.key)).toEqual(["a", "r1"]);   // the epic ends 2 Nov, the release's segment 22 Oct
     expect(deliveryStatus(p, p.deliveries![0], TODAY).by!.key).toBe("r1");
   });
+  it("equal days: the part «dratt av» names is the last row (two overdue epics, both clamped to today)", () => {
+    const p = normalizePlan({
+      lanes: [{ key: "a", name: "Alpha", priority: 1 }, { key: "b", name: "Beta", priority: 2 }],
+      tasks: [f("a1", "a", D(2026, 9, 7), D(2026, 9, 21), D(2026, 9, 28)), f("b1", "b", D(2026, 9, 7), D(2026, 9, 21), D(2026, 9, 28))],
+      deliveries: [del({ epics: ["a", "b"] })],
+    });
+    const keys = deliveryRows(p, TODAY).groups[0].parts.map((x) => x.key);
+    expect(keys[keys.length - 1]).toBe(deliveryStatus(p, p.deliveries![0], TODAY).by!.key);
+  });
   it("a deleted key: the group stays, with no parts and «henger ikke på noe ennå»", () => {
     const [g] = deliveryRows(base([del({ epics: ["gone"], releases: ["gone-too"] })]), TODAY).groups;
     expect(g.parts).toEqual([]);
@@ -1185,5 +1194,13 @@ describe("R17: «Per leveranse», the deliveries with what they hang on", () => 
     expect(loose.map((x) => x.key)).toEqual(["b", "p", "e"]);
     expect(loose[2]).toMatchObject({ start: null, end: null, likelyEnd: null, pending: false, shared: [] });
     expect(deliveryRows(normalizePlan({ lanes: [], tasks: [] }), TODAY)).toEqual({ groups: [], loose: [] });
+  });
+});
+
+describe("R17 review: the focus helpers never break a render", () => {
+  it("a selector the browser can't parse, or an element that throws, leaves the focus where it is", () => {
+    const doc = { querySelector: () => { throw new SyntaxError("unsupported selector"); }, activeElement: { id: "", closest: () => { throw new Error("detached"); } } };
+    expect(() => restoreFocus(doc as never, ":nth-child(1 of tr)")).not.toThrow();
+    expect(focusKey(doc as never)).toBeNull();
   });
 });
