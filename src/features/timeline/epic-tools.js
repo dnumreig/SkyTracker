@@ -610,7 +610,7 @@ const andList = (xs) => (xs.length <= 1 ? xs.join("") : xs.slice(0, -1).join(", 
 function releaseForecastText(r, todayDay) {
   const f = r && !r.shippedDate && r.ado && r.ado.forecast;
   if (!f || (r.qaDate && releasePhase(r) === "qa")) return null;
-  if (f.missing === "history") return { short: null, text: "Ingen leverte poeng i de to siste sprintene å regne tempo fra" };
+  if (f.missing === "history") return { short: null, text: "Ingen utviklede poeng i de to siste sprintene å regne tempo fra" };   // R18 (D9): the pace pool counts what was developed
   if (f.missing === "capacity") {
     const off = f.unplanned + " arbeidsdag" + (f.unplanned === 1 ? "" : "er") + " er uten sprint";
     const to = r.qaDate ? "klar for QA" : "målet";   // R18: the window ends at «Klar for QA» when it is set (D7)

@@ -818,7 +818,7 @@ describe("R12: the chance a release is done by its target day, in words and in t
     expect(releaseForecastText(rel({ day: "2026-10-13", missing: "capacity", sprints: ["Sprint 71"], unplanned: 0 }), "2026-10-13")).toEqual({ short: null, text: "Fyll inn Capacity i ADO for Sprint 71 (Development-timer per dag og fridager) for å få sannsynligheten" });
     expect(releaseForecastText(rel({ day: "2026-10-13", missing: "capacity", sprints: ["Sprint 71", "Sprint 72"], unplanned: 3 }), "2026-10-13")!.text).toBe("Fyll inn Capacity i ADO for Sprint 71 og Sprint 72 (Development-timer per dag og fridager) og lag sprintene fram til målet (3 arbeidsdager er uten sprint) for å få sannsynligheten");
     expect(releaseForecastText(rel({ day: "2026-10-13", missing: "capacity", sprints: [], unplanned: 13 }), "2026-10-13")!.text).toBe("Lag sprintene fram til målet i ADO og fyll inn Capacity (13 arbeidsdager er uten sprint) for å få sannsynligheten");
-    expect(releaseForecastText(rel({ day: "2026-10-13", missing: "history" }), "2026-10-13")).toEqual({ short: null, text: "Ingen leverte poeng i de to siste sprintene å regne tempo fra" });
+    expect(releaseForecastText(rel({ day: "2026-10-13", missing: "history" }), "2026-10-13")).toEqual({ short: null, text: "Ingen utviklede poeng i de to siste sprintene å regne tempo fra" });
   });
   it("nothing when there is no forecast or the release is shipped", () => {
     expect(releaseForecastText(rel(undefined), "2026-10-13")).toBeNull();
