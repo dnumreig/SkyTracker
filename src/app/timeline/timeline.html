@@ -22,6 +22,7 @@
     --today:#0d123e;         /* R17: ink: today is never the red of «late» */
     --past-wash:rgba(13,18,62,.045);   /* R17: the tone over the past */
     --release:#7c3aed; --release-bg:rgba(124,58,237,.10); --release-fill:rgba(124,58,237,.32);   /* R10: the release band */
+    --qa-wash:rgba(255,255,255,.35);   /* R18: the QA part of a release segment, lighter */
     --pace-gronn:rgba(22,163,74,.38); --pace-gul:rgba(217,119,6,.42); --pace-rod:rgba(220,38,38,.38);   /* R11: the tempo colour on the segment's fill */
     --dep:#94a3b8;           /* slate-400 */
     --tip-bg:#0d123e; --tip-fg:#ffffff;
@@ -36,6 +37,7 @@
       --late:#71c4df;
       --disc-a:rgba(148,163,184,.38); --disc-b:rgba(148,163,184,.08); --disc-edge:rgba(148,163,184,.5);
       --goal:#71c4df; --today:#ffffff; --past-wash:rgba(255,255,255,.045); --dep:#4e94c4; --release:#a78bfa; --release-bg:rgba(167,139,250,.14); --release-fill:rgba(167,139,250,.34);
+      --qa-wash:rgba(13,18,62,.4);   /* R18: lighter in weight, not in tone: a white wash under the light text would fail AA */
       --pace-gronn:rgba(74,222,128,.42); --pace-gul:rgba(251,191,36,.42); --pace-rod:rgba(248,113,113,.42);
       --tip-bg:#294285;
     }
@@ -71,6 +73,7 @@
   .help-card h4{font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text)}
   .help-card p{font-size:12px;color:var(--text-3);line-height:1.5}
   .help-card p b{color:var(--text);font-weight:600}
+  .help-card p + p{margin-top:6px}
 
   /* ---------- koble-modus ---------- */
   .link-banner{
@@ -226,6 +229,7 @@
   .axis .release.pace-gronn .fill{background:var(--pace-gronn)}
   .axis .release.pace-gul .fill{background:var(--pace-gul)}
   .axis .release.pace-rod .fill{background:var(--pace-rod)}
+  .release .qa-part{position:absolute;top:0;bottom:0;right:0;background:var(--qa-wash);border-left:1px dashed currentColor;pointer-events:none}   /* R18: «Klar for QA» → «Release» */
   /* R16: the delivery band, one row per delivery above the release band */
   .axis .deliveries{position:absolute;left:0;right:0;top:40px;height:calc(var(--axis-h) - 76px);pointer-events:none}
   .axis .delivery{position:absolute;left:0;right:0;height:18px}
@@ -256,12 +260,16 @@
   .rel-pace .chip{margin-top:1px}
   .rel-states{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
   .rel-sprints{font-size:12px;color:var(--text-3);margin:4px 0 2px}
+  .rel-phase{margin-top:14px}   /* R18: the drawer in two sections once «Klar for QA» is set */
+  .rel-phase h3{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px}
   .burn{display:block;width:100%;height:auto;margin:10px 0 2px}
   .burn .gl{stroke:var(--line-soft);stroke-width:1}
   .burn .ideal{stroke:var(--text-4);stroke-width:1.5;fill:none}
   .burn .actual{stroke:var(--release);stroke-width:2;fill:none;stroke-linejoin:round;stroke-linecap:round}
   .burn .pt{fill:var(--release);stroke:var(--surface);stroke-width:2}
   .burn .fc{stroke:var(--release);stroke-width:1.5;stroke-dasharray:4 4;fill:none;opacity:.7}
+  .burn .closed{fill:none;stroke:var(--text-3);stroke-width:1.5;stroke-dasharray:4 3}   /* R18: what is not closed yet */
+  .burn .rel-day{stroke:var(--text-3);stroke-width:1.5}   /* R18: the release day's tick on the axis */
   .burn .now{stroke:var(--today);stroke-width:1}
   .burn text{font-size:11px;fill:var(--text-3);font-variant-numeric:tabular-nums}
   .burn .ttl{font-size:11px;fill:var(--text-2);font-weight:600}
@@ -351,6 +359,8 @@
   .ed-kind button{padding:6px 10px}
   .ed-kind button.on[data-c],.ed-kind button.on[data-t],.ed-kind button.on[data-a]{background:var(--accent);border-color:var(--accent);color:#fff}
   .ed-field textarea{resize:vertical}
+  .ed-row.top{align-items:flex-start}   /* R18: fields with a note under them line up with those without */
+  .ed-field small{display:block;margin-top:3px}
   .task-label .chip.fixed{background:transparent;color:var(--text-2);box-shadow:inset 0 0 0 1px var(--line)}
   .ed-kind button.on[data-k=discovery]{background:var(--badge-bg);border-color:var(--text-3);color:var(--text)}
   .ed-kind button.on[data-k=estimate]{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -661,7 +671,8 @@
   </div>
   <div class="drawer-body" id="relBody"></div>
   <div class="drawer-foot" style="gap:8px;flex-wrap:wrap">
-    <button id="relEdit" title="Versjon, måldato, skippet, ADO-label og notat">Rediger…</button>
+    <button id="relEdit" title="Versjon, klar for QA, release, sluppet, ADO-label og notat">Rediger…</button>
+    <button id="relShip" hidden>Marker sluppet …</button>
     <button id="relRefresh" hidden title="Les bugs og stories med denne releasens label fra ADO; resten av planen røres ikke">Oppdater fra ADO</button>
     <a id="relOpen" class="btn-link" href="#" target="_blank" rel="noopener" title="Samme spørring i ADO">Åpne i ADO ↗</a>
   </div>
@@ -720,14 +731,18 @@
         <p>En release er verken en epic eller en feature: en <b>versjon med måldato</b> på båndet over sprintlinjalen, med en stiplet
         linje ned gjennom diagrammet. Sprintene er takten, releasene er versjonene. Innholdet er det som har <b>release-labelen i ADO</b>
         (feltet «Release» på bugs og stories, satt av utviklingsleder i sprintplanleggingen): «Oppdater fra ADO» leser dem inn, fyllingen
-        i segmentet er poeng levert, og skuffen lister alt. En feilrettingsrelease er bare et segment; en feature-release er segmentet pluss
-        featurene som ender på linjen under sine egne epics. Bugs blir aldri features. Sett «Skippet» når den er ute. <b>Fargen i segmentet er tempoet</b>:
-        grønn når dagens tempo (poeng levert per arbeidsdag siden start) rekker måldatoen, gul inntil tre arbeidsdager etter, rød senere; før noe
-        er levert etter start gjelder den rette linjen fra start til mål, med én arbeidsdags slakk. Klokka starter ved den eldste sprinten blant itemene,
+        i segmentet er poeng utviklet, og skuffen lister alt. En feilrettingsrelease er bare et segment; en feature-release er segmentet pluss
+        featurene som ender på linjen under sine egne epics. Bugs blir aldri features. Trykk «Marker sluppet …» når den er ute; det som fortsatt er åpent, huskes.</p>
+        <p>En release kan ha to datoer: <b>Klar for QA</b> (settes av utviklingsleder) og <b>Release</b> (settes av Operations). Utviklingen er ferdig
+        når alt er i Develop, QA eller lukket, og da tar QA over til releasen slippes. Blir utviklingen ferdig etter «Klar for QA», flyttes forventet
+        release like mange arbeidsdager.</p>
+        <p><b>Fargen i segmentet er tempoet</b>:
+        grønn når dagens tempo (poeng utviklet per arbeidsdag siden start) rekker «Klar for QA» (måldatoen når den mangler), gul inntil tre arbeidsdager etter, rød senere; før noe
+        er utviklet etter start gjelder den rette linjen fra start til mål, med én arbeidsdags slakk. Klokka starter ved den eldste sprinten blant itemene,
         men aldri før første lesing som fant labelen: innholdet fantes ikke før det. Skuffen viser burndown for hver arbeidsdag (fra dagen ADO sier
         hvert item ble løst, så en dag uten lesing gir ikke hull), itemene per tilstand og sprint mot release. <b>Sjansen</b> («44 % sjanse»)
         regnes fra Capacity i ADO (Development-timer per dag og fridager for hver person, 7,5 t = full dag) og hver persons poeng per
-        arbeidsdag i de to siste avsluttede sprintene: 20 000 simuleringer av dagene fram til målet, der hver dag er en ekte dag fra før.
+        arbeidsdag i de to siste avsluttede sprintene: 20 000 simuleringer av dagene fram til «Klar for QA» (målet når den mangler), der hver dag er en ekte dag fra før.
         Hver lesing lagrer dagens sjanse, så tabellen under burndownen viser prognosen ved siden av det som skjedde. For skrivere
         leses labelene på nytt ved innlasting når siste lesing er eldre enn seks timer.</p></div>
       <div class="help-card"><h4>Leveranser</h4>
@@ -879,12 +894,13 @@
     </div>
     <div class="modal-body">
       <div class="ed-body">
-        <div class="ed-row">
+        <div class="ed-row top">
           <label class="ed-field"><span>Versjon</span><input id="relVersion" type="text" placeholder="2.0.1"></label>
-          <label class="ed-field"><span>Måldato</span><input id="relTarget" type="date"></label>
+          <label class="ed-field"><span>Klar for QA</span><input id="relQa" type="date"><small class="md">settes av utviklingsleder</small></label>
+          <label class="ed-field"><span>Release</span><input id="relTarget" type="date"><small class="md">settes av Operations</small></label>
         </div>
         <div class="ed-row">
-          <label class="ed-field"><span>Skippet (dato, når den er ute)</span><input id="relShipped" type="date"></label>
+          <label class="ed-field"><span>Sluppet (dato)</span><input id="relShipped" type="date"></label>
           <label class="ed-field"><span>ADO-label (hvis ulik versjonen)</span><input id="relLabel" type="text" placeholder="f.eks. 2.0.1+ota.2"></label>
         </div>
         <label class="ed-field"><span>Notat</span><textarea id="relNote" rows="3" placeholder="Hva releasen skal rette eller gi"></textarea></label>
@@ -1258,10 +1274,16 @@ window.__bootTimeline = function(){
         if(pr.fraction !== null){ const f = el('span', 'fill'); f.style.width = Math.round(pr.fraction * 100) + '%'; d.appendChild(f); }
         const wide = (x(b) - x(a)) >= 120;
         const t = el('span', 't');
-        t.innerHTML = (sg.shipped ? '✓ ' : '') + esc(r.version) + (wide ? ' <b>· ' + (sg.shipped ? 'skippet ' : 'mål ') + esc(fmtDate(unitToDate(sg.end))) + '</b>' : '');
-        d.appendChild(t);
         const fcs = sg.shipped ? null : releaseForecastText(r, dayKey(new Date()));   // R12: the chance in the tooltip
-        d.title = 'Release ' + r.version + ' · ' + (sg.shipped ? 'skippet ' + fmtDate(unitToDate(sg.end)) : 'mål ' + fmtDate(unitToDate(sg.end))) + ' · ' + pr.text + (pace ? '\n' + pace.text : '') + (fcs && fcs.short ? '\n' + fcs.text : '');
+        const qaOn = !!r.qaDate && !sg.shipped;   // R18: the QA part and both dates once «Klar for QA» is set (D7)
+        if(qaOn){ const q = dayToUnit(r.qaDate); if(q > a && q < b){ const qp = el('span', 'qa-part'); qp.style.left = (x(q) - x(a)) + 'px'; d.appendChild(qp); } }
+        const word = sg.shipped ? 'sluppet ' : qaOn ? 'release ' : 'mål ', end = fmtDate(unitToDate(sg.end));
+        t.innerHTML = (sg.shipped ? '✓ ' : '') + esc(r.version) + (wide ? ' <b>· ' + word + esc(end) + '</b>' : '');
+        d.appendChild(t);
+        const exp = qaOn ? releaseExpected(state, r, dayKey(new Date())) : null;
+        d.title = 'Release ' + r.version + ' · ' + word + end + ' · ' + pr.text +
+          (exp ? '\nKlar for QA ' + fmtDate(unitToDate(dayToUnit(r.qaDate))) + ' · forventet release ' + fmtDate(unitToDate(dayToUnit(exp))) : '') +
+          (pace ? '\n' + pace.text : '') + (fcs && fcs.short ? '\n' + fcs.text : '');
         d.addEventListener('click', () => openRelease(r.key));
         layer.appendChild(d);
       });
@@ -1537,8 +1559,10 @@ window.__bootTimeline = function(){
       nm.addEventListener('click', e => { e.stopPropagation(); openEpicEditor(l.key); });
     } else {
       const r = p.release, pr = releaseProgress(r), fc = p.shipped ? null : releaseForecastText(r, dayKey(new Date()));
-      dd.textContent = p.shipped ? 'skippet ' + fmtDate(unitToDate(p.end))
-        : 'mål ' + fmtDate(unitToDate(p.end)) + (pr.fraction !== null ? ' · ' + Math.round(pr.fraction * 100) + ' % levert' : '') + (fc && fc.short ? ' · ' + fc.short : '');
+      const ph = r.qaDate && !p.shipped ? releasePhase(r) : null;   // R18: both dates once «Klar for QA» is set, in QA what is closed (D7)
+      dd.textContent = p.shipped ? 'sluppet ' + fmtDate(unitToDate(p.end))
+        : ph === 'qa' ? 'i QA · ' + releaseQaText(r).replace(/^I QA: /, '')
+        : (ph ? 'klar for QA ' + fmtDate(unitToDate(dayToUnit(r.qaDate))) + ' · release ' : 'mål ') + fmtDate(unitToDate(p.end)) + (pr.fraction !== null ? ' · ' + Math.round(pr.fraction * 100) + ' % utviklet' : '') + (fc && fc.short ? ' · ' + fc.short : '');
       nm.title = 'Åpne releasen';
       nm.addEventListener('click', e => { e.stopPropagation(); openRelease(r.key); });
     }
@@ -1685,18 +1709,22 @@ window.__bootTimeline = function(){
 
   function updateTlSummary(){   // R14: the status strip in words: the active epics by colour (a count, never a limit), the next release, the sprint
     $('stEpics').textContent = epicStatusWords(state);
-    const nx = nextReleaseText(state, dayKey(new Date()));   // R11: the next release's distance, share delivered and tempo colour
+    const nx = nextReleaseText(state, dayKey(new Date()));   // R11: the next release's distance, share developed and tempo colour
     const nfc = nx ? releaseForecastText(nx.release, dayKey(new Date())) : null;   // R12: and the chance
     const rel = $('stRelease');
     rel.hidden = !nx;
     if(!nx) rel.innerHTML = '';   // a hidden part must not keep its words: the strip's text is read as a whole
-    if(nx){
-      const r = nx.release, pr = releaseProgress(r), n = calendarDays(dayKey(new Date()), r.targetDate);   // R17: the chance first; the tempo colour stays in the drawer
-      const when = n > 0 ? 'om ' + n + (n === 1 ? ' dag' : ' dager') : n === 0 ? 'i dag' : -n + (n === -1 ? ' dag' : ' dager') + ' på overtid';
-      const target = fmtDate(unitToDate(dayToUnit(r.targetDate)));
-      rel.title = 'Neste release: sjansen for å bli ferdig til målet; tempo-fargen står i skuffen';
-      rel.textContent = 'Neste release ' + r.version + ' · ' + (nfc && nfc.short ? nfc.short + ' til ' + target : 'mål ' + target) + ' · ' +
-        (pr.fraction === null ? 'ikke lest fra ADO' : Math.round(pr.fraction * 100) + ' % levert') + ' · ' + when;
+    if(nx){   // R17: the chance first; the tempo colour stays in the drawer
+      const r = nx.release, pr = releaseProgress(r), today = dayKey(new Date()), ph = r.qaDate ? releasePhase(r) : null;   // R18: by phase (D7)
+      if(ph === 'qa') rel.textContent = 'Neste release ' + r.version + ' i QA · ' + releaseQaText(r, today).replace(/^I QA: /, '');
+      else {
+        const dev = releaseDevTarget(r), n = calendarDays(today, dev), day = fmtDate(unitToDate(dayToUnit(dev)));
+        const when = n > 0 ? 'om ' + n + (n === 1 ? ' dag' : ' dager') : n === 0 ? 'i dag' : -n + (n === -1 ? ' dag' : ' dager') + ' på overtid';
+        const goal = r.qaDate ? 'klar for QA ' + day : null;
+        rel.textContent = 'Neste release ' + r.version + ' · ' + (nfc && nfc.short ? nfc.short + ' til ' + (goal || day) : (goal || 'mål ' + day)) + ' · ' +
+          (pr.fraction === null ? 'ikke lest fra ADO' : Math.round(pr.fraction * 100) + ' % utviklet') + ' · ' + when;
+      }
+      rel.title = 'Neste release: sjansen for at alt er utviklet til ' + (r.qaDate ? 'klar for QA' : 'målet') + '; tempo-fargen står i skuffen';
     }
     $('mixSelect').value = (state.capacity && state.capacity.mode) || 'transition';
     renderSprintGoal();
@@ -2833,42 +2861,53 @@ window.__bootTimeline = function(){
   let releaseKey = null, relEditKey = null;
   const getRelease = key => (state.releases || []).find(r => r.key === key);
   const relDay = d => fmtDate(unitToDate(dayToUnit(d)));
-  function releaseSubText(r){
-    const pr = releaseProgress(r);
-    return (r.shippedDate ? 'Skippet ' + relDay(r.shippedDate) + (r.shippedDate !== r.targetDate ? ' · målet var ' + relDay(r.targetDate) : '') : 'Mål ' + relDay(r.targetDate)) +
-      ' · ' + pr.text + (r.ado ? ' · lest fra ADO ' + whenText(r.ado.at) : '');
+  function releaseSubText(r){   // R18: with «Klar for QA» the head says the phase and both dates; without it, as before (D7)
+    const pr = releaseProgress(r), ph = releasePhase(r);
+    const head = r.shippedDate ? 'Sluppet ' + relDay(r.shippedDate) + (r.shippedDate !== r.targetDate ? ' · målet var ' + relDay(r.targetDate) : '')
+      : !r.qaDate ? 'Mål ' + relDay(r.targetDate)
+      : (ph === 'qa' ? 'I QA' : 'I utvikling · klar for QA ' + relDay(r.qaDate)) + ' · release ' + relDay(r.targetDate);
+    return head + ' · ' + pr.text + (r.ado ? ' · lest fra ADO ' + whenText(r.ado.at) : '');
   }
   const PACE_LABEL = { gronn: 'Grønn', gul: 'Gul', rod: 'Rød' };
   function burndownSvg(d){   // R11: today's scope left per working day, the ideal line start → target, the tempo's projection, today
     const W = 480, H = 160, L = 34, R = 14, T = 16, B = 26;
+    const qa = !!d.qaDay;   // R18: one chart for both phases: what is not developed, and dashed, what is not closed; the ideal line ends at «Klar for QA», a tick at «Release»
     const span = Math.max(1, calendarDays(d.axisStart, d.endDay));
-    const maxY = Math.max(1, d.total, ...d.actual.map(p => p.remaining));
+    const maxY = Math.max(1, d.total, ...d.actual.map(p => p.remaining), ...(qa ? d.closedActual.map(p => p.remaining) : []));
     const f = n => Math.round(n * 10) / 10;
     const xOf = day => L + (W - L - R) * Math.max(0, Math.min(1, calendarDays(d.axisStart, day) / span));
     const yOf = v => T + (H - T - B) * (1 - v / maxY);
     let s = '<svg class="burn" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Burndown: ' + d.unit + ' igjen per dag">';
     s += '<text class="ttl" x="' + L + '" y="10">Igjen (' + d.unit + ')</text>';
     [0, maxY].forEach(v => { s += '<line class="gl" x1="' + L + '" x2="' + (W - R) + '" y1="' + f(yOf(v)) + '" y2="' + f(yOf(v)) + '"/><text x="' + (L - 6) + '" y="' + f(yOf(v) + 3) + '" text-anchor="end">' + v + '</text>'; });
-    s += '<line class="ideal" x1="' + f(xOf(d.startDay)) + '" y1="' + f(yOf(d.total)) + '" x2="' + f(xOf(d.targetDay)) + '" y2="' + f(yOf(0)) + '"><title>Ideallinjen: alt levert på måldatoen</title></line>';
+    s += '<line class="ideal" x1="' + f(xOf(d.startDay)) + '" y1="' + f(yOf(d.total)) + '" x2="' + f(xOf(d.targetDay)) + '" y2="' + f(yOf(0)) + '"><title>' + (qa ? 'Ideallinjen: alt utviklet til klar for QA' : 'Ideallinjen: alt utviklet på måldatoen') + '</title></line>';
     if(d.todayDay >= d.axisStart && d.todayDay <= d.endDay) s += '<line class="now" x1="' + f(xOf(d.todayDay)) + '" x2="' + f(xOf(d.todayDay)) + '" y1="' + T + '" y2="' + f(yOf(0)) + '"/>';
     const pts = d.actual.map(p => [xOf(p.day), yOf(p.remaining)]);
+    if(qa && d.closedActual.length > 1) s += '<polyline class="closed" points="' + d.closedActual.map(p => f(xOf(p.day)) + ',' + f(yOf(p.remaining))).join(' ') + '"><title>Ikke lukket ennå</title></polyline>';   // under the developed line, which stays on top
     if(pts.length > 1) s += '<polyline class="actual" points="' + pts.map(p => f(p[0]) + ',' + f(p[1])).join(' ') + '"/>';
     if(d.forecastDay && pts.length){   // the projection, clipped at the axis end but with the right slope
       const last = pts[pts.length - 1], fx = L + (W - L - R) * calendarDays(d.axisStart, d.forecastDay) / span, fy = yOf(0);
       const t = fx > W - R ? (W - R - last[0]) / (fx - last[0]) : 1;
-      s += '<line class="fc" x1="' + f(last[0]) + '" y1="' + f(last[1]) + '" x2="' + f(last[0] + t * (fx - last[0])) + '" y2="' + f(last[1] + t * (fy - last[1])) + '"><title>' + esc('Med dagens tempo: ferdig ' + relDay(d.forecastDay)) + '</title></line>';
+      s += '<line class="fc" x1="' + f(last[0]) + '" y1="' + f(last[1]) + '" x2="' + f(last[0] + t * (fx - last[0])) + '" y2="' + f(last[1] + t * (fy - last[1])) + '"><title>' + esc((qa ? 'Med dagens tempo: klar for QA ' : 'Med dagens tempo: ferdig ') + relDay(d.forecastDay)) + '</title></line>';
     }
     d.actual.forEach((p, i) => { s += '<circle class="pt" cx="' + f(pts[i][0]) + '" cy="' + f(pts[i][1]) + '" r="4"><title>' + esc(relDay(p.day) + ': ' + p.remaining + ' ' + d.unit + ' igjen') + '</title></circle>'; });
+    const label = (day, text, anchor) => '<text x="' + f(day === d.endDay ? W - R : xOf(day)) + '" y="' + (H - 8) + '" text-anchor="' + (day === d.endDay ? 'end' : anchor) + '">' + esc(text) + '</text>';
     s += '<text x="' + f(xOf(d.axisStart)) + '" y="' + (H - 8) + '">' + esc(relDay(d.axisStart)) + '</text>';
-    s += '<text x="' + f(xOf(d.targetDay)) + '" y="' + (H - 8) + '" text-anchor="' + (d.targetDay === d.endDay ? 'end' : 'middle') + '">' + esc('mål ' + relDay(d.targetDay)) + '</text>';
-    if(d.endDay !== d.targetDay) s += '<text x="' + (W - R) + '" y="' + (H - 8) + '" text-anchor="end">' + esc(relDay(d.endDay)) + '</text>';
+    if(!qa) s += label(d.targetDay, 'mål ' + relDay(d.targetDay), 'middle');
+    else if(d.releaseDay === d.targetDay) s += label(d.targetDay, 'klar for QA og release ' + relDay(d.targetDay), 'middle');
+    else {   // «klar for QA» hangs to the left of its point (to the right near the axis start), so it never runs into «release» to its right
+      s += label(d.targetDay, 'klar for QA ' + relDay(d.targetDay), xOf(d.targetDay) - L >= 110 ? 'end' : 'start');
+      s += '<line class="rel-day" x1="' + f(xOf(d.releaseDay)) + '" x2="' + f(xOf(d.releaseDay)) + '" y1="' + f(yOf(0)) + '" y2="' + f(yOf(0) + 5) + '"/>' + label(d.releaseDay, 'release ' + relDay(d.releaseDay), 'middle');
+    }
+    if(d.endDay !== d.targetDay && !(qa && d.endDay === d.releaseDay)) s += '<text x="' + (W - R) + '" y="' + (H - 8) + '" text-anchor="end">' + esc(relDay(d.endDay)) + '</text>';
     return s + '</svg>';
   }
   function burndownTable(d){   // the chart's table twin: every number without hovering; R12: the chance that day, next to what happened
     const ch = new Map((d.chances || []).map(c => [c.day, c]));
-    const head = ch.size ? '<th>Sjanse</th><th>Forventet</th>' : '';
+    const closed = d.qaDay ? new Map(d.closedActual.map(p => [p.day, p.remaining])) : null;   // R18: what is not closed yet, beside what is not developed
+    const head = (closed ? '<th>Ikke lukket</th>' : '') + (ch.size ? '<th>Sjanse</th><th>Forventet</th>' : '');
     const cells = day => { if(!ch.size) return ''; const c = ch.get(day); return c ? '<td>' + Math.round(c.p * 100) + ' %</td><td>' + c.mean + ' ' + d.unit + '</td>' : '<td></td><td></td>'; };
-    return '<details class="rel-table"><summary>Tall per dag</summary><table><tr><th>Dag</th><th>Igjen</th>' + head + '</tr>' + d.actual.map(p => '<tr><td>' + esc(relDay(p.day)) + '</td><td>' + p.remaining + ' ' + d.unit + '</td>' + cells(p.day) + '</tr>').join('') + '</table></details>';
+    return '<details class="rel-table"><summary>Tall per dag</summary><table><tr><th>Dag</th><th>Igjen</th>' + head + '</tr>' + d.actual.map(p => '<tr><td>' + esc(relDay(p.day)) + '</td><td>' + p.remaining + ' ' + d.unit + '</td>' + (closed ? '<td>' + closed.get(p.day) + ' ' + d.unit + '</td>' : '') + cells(p.day) + '</tr>').join('') + '</table></details>';
   }
   const dec = n => String(n).replace('.', ',');
   function forecastBlock(r, todayDay){   // R12: the chance in words, each person's days, pace and expected points, and what it rests on
@@ -2876,7 +2915,7 @@ window.__bootTimeline = function(){
     if(!fc) return '';
     if(!fc.short) return '<p class="rel-fc-missing" title="Sannsynligheten regnes fra Capacity i ADO">' + esc(fc.text) + '</p>';
     const rows = (fc.people || []).map(x => '<tr><td>' + esc(x.name) + '</td><td>' + dec(x.days) + '</td><td>' + dec(x.pace) + '</td><td>' + dec(x.expected) + ' SP</td></tr>').join('');
-    return '<div class="rel-fc"><p class="rel-pace"><span class="chip" title="Andelen av 20 000 simuleringer der alt blir levert">' + esc(fc.short) + '</span><span>' + esc(fc.text.slice(fc.short.length + 1)) + '</span></p>' +
+    return '<div class="rel-fc"><p class="rel-pace"><span class="chip" title="Andelen av 20 000 simuleringer der alt blir utviklet">' + esc(fc.short) + '</span><span>' + esc(fc.text.slice(fc.short.length + 1)) + '</span></p>' +
       '<p class="rel-fc-detail">' + esc(fc.detail) + '</p>' +
       (rows ? '<details class="rel-table"><summary>Per person</summary><table><tr><th>Person</th><th>Dager</th><th>SP per dag</th><th>Forventet</th></tr>' + rows + '</table></details>' : '') +
       '<p class="rel-basis">' + esc(fc.basis) + '</p></div>';
@@ -2896,21 +2935,43 @@ window.__bootTimeline = function(){
     let html = r.note ? '<p class="rel-note">' + esc(r.note) + '</p>' : '';
     html += '<p class="rel-scope">Innholdet er det som har ADO-labelen <code>' + esc(releaseScope(r)) + '</code> på bugs og stories.' + (r.ado ? '' : ' Trykk «Oppdater fra ADO» for å lese det.') + '</p>';
     const todayDay = dayKey(new Date()), pace = releasePace(state, r, todayDay);   // R11: tempo, states, sprint against release, burndown
-    if(pace) html += '<p class="rel-pace"><span class="chip st-' + pace.code + '">' + PACE_LABEL[pace.code] + '</span><span>' + esc(pace.text) + '</span></p>';
-    html += forecastBlock(r, todayDay);   // R12: the chance, from ADO's Capacity and each person's pace
-    const states = releaseStateCounts(r);
-    if(states.length) html += '<div class="rel-states" title="Itemene etter tilstand i ADO">' + states.map(s => '<span class="chip' + (releaseItemDone(s) ? ' st-gronn' : '') + '">' + esc(s.state) + ' ' + s.count + '</span>').join('') + '</div>';
+    let dev = '';   // R18: today's lines from the tempo to the chart, unchanged: with «Klar for QA» they are the development section
+    if(pace) dev += '<p class="rel-pace"><span class="chip st-' + pace.code + '">' + PACE_LABEL[pace.code] + '</span><span>' + esc(pace.text) + '</span></p>';
+    dev += forecastBlock(r, todayDay);   // R12: the chance, from ADO's Capacity and each person's pace
+    const states = releaseStateCounts(r);   // R18: by category with the real names; a name in two categories carries the type
+    if(states.length) dev += '<div class="rel-states" title="Itemene etter tilstand i ADO">' + states.map(s => '<span class="chip' + (releaseItemDone(s) ? ' st-gronn' : '') + '">' + esc(s.state + (s.type ? ' (' + (s.type === 'Bug' ? 'bug' : 'story') + ')' : '') + ' ' + s.count) + '</span>').join('') + '</div>';
     const spt = releaseSprintText(r);
-    if(spt) html += '<p class="rel-sprints">' + esc(spt) + '</p>';
+    if(spt) dev += '<p class="rel-sprints">' + esc(spt) + '</p>';
     const bd = releaseBurndownData(state, r, todayDay);
-    if(bd && bd.firstScope) html += '<p class="rel-sprints" title="Innholdet har endret seg siden første lesing">Innhold nå ' + bd.total + ' ' + bd.unit + ' · ' + bd.firstScope.total + ' ' + bd.unit + ' ved første lesing ' + esc(relDay(bd.firstScope.day)) + '</p>';
-    if(bd && bd.actual.length) html += burndownSvg(bd) + burndownTable(bd);
+    if(bd && bd.firstScope) dev += '<p class="rel-sprints" title="Innholdet har endret seg siden første lesing">Innhold nå ' + bd.total + ' ' + bd.unit + ' · ' + bd.firstScope.total + ' ' + bd.unit + ' ved første lesing ' + esc(relDay(bd.firstScope.day)) + '</p>';
+    if(bd && bd.actual.length) dev += burndownSvg(bd) + burndownTable(bd);
+    if(r.qaDate){   // R18: two sections, development until «Klar for QA», QA until «Release»; without it, as before (D7)
+      html += '<section class="rel-phase"><h3>Utvikling — til klar for QA ' + esc(relDay(r.qaDate)) + '</h3>' + dev + '</section>';
+      const qaBody = '<p class="rel-pace"><span>' + esc(releaseQaText(r, todayDay)) + '</span></p>' +
+        group('Utviklet, ikke lukket', items.filter(i => releaseItemDone(i) && !releaseItemClosed(i)));
+      html += '<section class="rel-phase"><h3>QA — til release ' + esc(relDay(r.targetDate)) + '</h3>' + qaBody + '</section>';
+    } else html += dev;
+    const openIds = r.openAtShip || [];   // R18: what «Marker sluppet …» found open
+    if(openIds.length) html += '<div class="rel-open">' + group('Åpne ved release', openIds.map(id => items.find(i => i.id === id) || { id, title: '', state: '', points: 0, assignee: '' })) + '</div>';
+    if(r.ado && r.ado.statesMissing) html += '<p class="md rel-note">Fant ikke ADO-tilstandene: teller Resolved og Closed</p>';
+    $('relShip').hidden = (HOSTED && !canWrite) || !!r.shippedDate;
     html += group('Bugs', items.filter(i => i.type === 'Bug')) + group('Stories', items.filter(i => i.type !== 'Bug'));
     if(r.ado && !items.length) html += '<p class="hist-empty">Ingenting i ADO har labelen ennå.</p>';
     $('relBody').innerHTML = html;
   }
   $('relClose').addEventListener('click', () => { relDrawer.hidden = true; });
   $('relEdit').addEventListener('click', () => openReleaseEditor(releaseKey));
+  $('relShip').addEventListener('click', async () => {   // R18: the release process ships it; what is still open is remembered
+    const r = getRelease(releaseKey); if(!r || r.shippedDate) return;
+    const open = ((r.ado && r.ado.items) || []).filter(i => !releaseItemClosed(i)).map(i => i.id);
+    const msg = 'Marker ' + r.version + ' som sluppet. ' + (open.length ? open.length + (open.length === 1 ? ' åpen sak huskes' : ' åpne saker huskes') + ' som åpne ved release.' : 'Alt er lukket.');
+    const day = await askDialog('Marker sluppet', msg, { input: 'date', value: dayKey(new Date()), confirmText: 'Marker sluppet' });
+    if(typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
+    r.shippedDate = day; if(open.length) r.openAtShip = open; else delete r.openAtShip;
+    r.v = (r.v || 0) + 1;
+    save(); render(); renderReleaseDrawer();
+    setTimeout(() => $('relEdit').focus(), 0);   // the button is gone: its neighbour takes the focus (after the key events, or Enter's keypress would click it), not the page
+  });
   $('relRefresh').addEventListener('click', async () => {   // R14: only this release's label, not the whole plan
     const r = (state.releases || []).find(x => x.key === releaseKey); if(!r) return;
     try{
@@ -2924,12 +2985,20 @@ window.__bootTimeline = function(){
       else { setSaveNote(''); askDialog('Oppdater fra ADO', e.message, {confirmText:'OK', noCancel:true}); }
     }
   });
+  async function rereadRelease(key){   // R18: a moved dev target: the stored chance was simulated against the old day, so read this one release again (the path of «Oppdater fra ADO»)
+    try{
+      const j = await adoCall('api/ado-releases', { release: key });
+      if(j.data && !pendingSave && !drag) applyRemote(j.data, j.version);
+      if(!relDrawer.hidden) renderReleaseDrawer();
+    }catch(e){ /* quiet, like the read on load: «Oppdater fra ADO» is there, and adoCall shows the login link when the token is gone */ }
+  }
   function openReleaseEditor(key){
     relEditKey = key;
     const r = key ? getRelease(key) : null;
     $('relEdTitle').textContent = r ? 'Release ' + r.version : 'Ny release';
     $('relVersion').value = r ? r.version : '';
     $('relTarget').value = r ? r.targetDate : dayKey(new Date(Date.now() + 14 * 86400000));
+    $('relQa').value = (r && r.qaDate) || ''; $('relQa').removeAttribute('aria-invalid');
     $('relShipped').value = (r && r.shippedDate) || '';
     $('relLabel').value = (r && r.label) || '';
     $('relNote').value = (r && r.note) || '';
@@ -2942,18 +3011,25 @@ window.__bootTimeline = function(){
   function closeReleaseEditor(){ relEditKey = null; relBack.classList.remove('open'); }
   $('relSave').addEventListener('click', () => {
     const version = $('relVersion').value.trim(), target = $('relTarget').value, shipped = $('relShipped').value, label = $('relLabel').value.trim(), note = $('relNote').value.trim();
-    if(!version || !target){ askDialog('Release', 'Versjon og måldato må fylles ut.', {confirmText:'OK', noCancel:true}); return; }
+    const qa = $('relQa').value;   // R18: «Klar for QA», on or before «Release»
+    if(!version || !target){ askDialog('Release', 'Versjon og release-dato må fylles ut.', {confirmText:'OK', noCancel:true}); return; }
+    if(qa && qa > target){ $('relQa').setAttribute('aria-invalid', 'true'); askDialog('Release', 'Klar for QA kan ikke være etter release-datoen.', {confirmText:'OK', noCancel:true}); return; }
+    $('relQa').removeAttribute('aria-invalid');
     state.releases = state.releases || []; state.deletedReleases = state.deletedReleases || {};
     let r = relEditKey ? getRelease(relEditKey) : null;
+    const devBefore = r && r.ado ? releaseDevTarget(r) : null;   // R18: a read release's chance was simulated against this day
     const lines = [];
     if(!r){ r = { key: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4), v: 0, version, targetDate: target }; state.releases.push(r); state.example = false; }
-    else if(r.targetDate !== target){ lines.push('Release ' + r.version + ': måldato ' + relDay(r.targetDate) + ' → ' + relDay(target)); if(target > r.targetDate) pendingNote.reasonCode = 'ekstern'; }   // en release flyttes av verden utenfor
+    else if(r.targetDate !== target){ lines.push('Release ' + r.version + ': release ' + relDay(r.targetDate) + ' → ' + relDay(target)); if(target > r.targetDate) pendingNote.reasonCode = 'ekstern'; }   // en release flyttes av verden utenfor
+    if(r.qaDate && qa && qa > r.qaDate) lines.push('Release ' + r.version + ': klar for QA ' + relDay(r.qaDate) + ' → ' + relDay(qa));   // R18 (D8): a later handover asks why
     r.version = version; r.targetDate = target;
-    if(shipped) r.shippedDate = shipped; else delete r.shippedDate;
+    if(qa) r.qaDate = qa; else delete r.qaDate;
+    if(shipped) r.shippedDate = shipped; else { delete r.shippedDate; delete r.openAtShip; }
     if(label && label !== version) r.label = label; else delete r.label;
     if(note) r.note = note; else delete r.note;
     r.v = (r.v || 0) + 1;
     const key = r.key;
+    if(HOSTED && canWrite && devBefore && devBefore !== releaseDevTarget(r) && !r.shippedDate) afterSave(() => rereadRelease(key));   // R18: the chance again, for the new day, once the save has landed
     closeReleaseEditor();
     if(lines.length) askReason(lines);
     save(); render();
