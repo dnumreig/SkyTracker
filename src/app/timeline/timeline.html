@@ -1054,11 +1054,12 @@ window.__bootTimeline = function(){
   const mayEdit = () => !HOSTED || canWrite;   // R17: from a file everything is local; hosted, only writers edit
   let drag = null, colDrag = null, saveTimer = null, pendingSave = false, pushing = false;
   let renderPending = false;   // R17: a background render (the compare) that came during a drag; afterDrag() runs it
-  function newNote(){ return { causes: {}, reason: null, reasonCode: null, source: null, lines: [] }; }
+  function newNote(){ return { causes: {}, reason: null, reasonCode: null, source: null, lines: [], carried: null }; }
   let pendingNote = newNote();   // følger neste lagring: begrunnelse, årsaker (dytt fra avhengighet), kilde (eksempel)
   function restoreNote(note){      // lagringen feilet: begrunnelsen og årsakene skal bli med i neste forsøk
     Object.assign(pendingNote.causes, note.causes);
-    if(!pendingNote.reasonCode && note.reasonCode){ pendingNote.reasonCode = note.reasonCode; pendingNote.reason = note.reason; }
+    const why = note.reasonCode ? { reasonCode: note.reasonCode, reason: note.reason } : note.carried;
+    if(why && !pendingNote.reasonCode && !pendingNote.carried) pendingNote.carried = why;   // R17: kept apart, so the next «Hvorfor?» starts empty: it is an earlier change's reason, and its save went out
     if(!pendingNote.source) pendingNote.source = note.source;
   }
 
@@ -1711,7 +1712,8 @@ window.__bootTimeline = function(){
     if(!t) return;
     const h = e.target.classList.contains('h') ? e.target : null;
     const mode = !h ? 'move' : h.classList.contains('l') ? 'l' : h.classList.contains('m') ? 'm' : 'r';
-    drag = {t, bar, mode, x0: e.clientX, start0: t.start, likely0: t.endLikely, end0: t.end, moved: false, pointerId: e.pointerId, undo: dragUndo()};
+    if(pendingSave){ clearTimeout(saveTimer); pushPlan(); }   // R17: a due save goes out now, before the drag moves anything: one PUT, one note (pushPlan's hold stays the backstop)
+    drag = {t, bar, mode, x0: e.clientX, start0: t.start, likely0: t.endLikely, end0: t.end, moved: false, pointerId: e.pointerId, pointerType: e.pointerType, undo: dragUndo()};
     bar.classList.add('dragging');
     bar.setPointerCapture(e.pointerId);
     showTip(e, t);
@@ -1784,7 +1786,7 @@ window.__bootTimeline = function(){
   }
   function renderWhenFree(){ if(drag) renderPending = true; else render(); }   // R17: a render nobody asked for now (a compare coming back) never lands under a drag
   document.addEventListener('lostpointercapture', e => { if(drag && e.pointerId === drag.pointerId) cancelDrag(); });   // a release ends the drag before its capture goes, so only a lost bar lands here
-  chart.addEventListener('contextmenu', () => { if(drag) cancelDrag(); });   // R17: a Mac's Ctrl+click is button 0 and opens the menu, and its release never reaches the chart
+  chart.addEventListener('contextmenu', () => { if(drag && drag.pointerType !== 'touch') cancelDrag(); });   // R17: a Mac's Ctrl+click is button 0 and opens the menu, and its release never reaches the chart; a finger's long press is part of its drag
   function inFrontOfQueue(t, floor){   // started before the queue lets it: overstyrt with intent (a drag and a key do the same)
     return t.kind === 'estimate' && t.lane !== BACKLOG && t.state !== 'levert' && floor !== null && t.start < floor - 1e-9;
   }
@@ -3030,11 +3032,12 @@ window.__bootTimeline = function(){
     pendingSave = false;
     pushing = true;
     const note = pendingNote;        // det som følger akkurat denne lagringen
+    const why = note.reasonCode || !note.carried ? note : note.carried;   // its own reason first, else the one a failed save left
     pendingNote = newNote();
     try{
       const r = await fetch('api/timeline-plan', {
         method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ data: state, note: { reason: note.reason, reasonCode: note.reasonCode, causes: note.causes, source: note.source } })
+        body: JSON.stringify({ data: state, note: { reason: why.reason, reasonCode: why.reasonCode, causes: note.causes, source: note.source } })
       });
       if(r.status === 403){
         canWrite = false;
@@ -3060,7 +3063,7 @@ window.__bootTimeline = function(){
       if(drag || colDrag){
         // brukeren drar: ikke bytt ut tilstanden under hånden. serverVersion holdes gammel,
         // så pollTick henter den flettede planen når draget er ferdig (eller neste lagring gjør det).
-        setSaveNote('lagret for alle ' + tid);
+        setSaveNote(pendingSave ? 'lagrer…' : 'lagret for alle ' + tid);   // R17: a save that waits (held under the drag) is not saved yet
         return;
       }
       serverVersion = j.version;
@@ -3070,7 +3073,7 @@ window.__bootTimeline = function(){
         applyRemote(j.data, j.version);
         setSaveNote('lagret ' + tid + ' – flettet med endringer fra andre');
       } else {
-        setSaveNote('lagret for alle ' + tid);
+        setSaveNote(pendingSave ? 'lagrer…' : 'lagret for alle ' + tid);   // R17: a newer save still waits (its debounce, or «Hvorfor?»)
       }
     }catch(err){
       restoreNote(note);
