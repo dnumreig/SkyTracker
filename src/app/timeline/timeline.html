@@ -670,13 +670,13 @@
       <div class="help-card"><h4>Epic, måltall og måldato</h4>
         <p>Hver uthevet rad er en <b>epic</b>: et resultat ledelsen vil ha, eid av PM + CTO. Klikk navnet for å sette navn,
         <b>måltall</b>, måldato (eller foreløpig mål), <b>ekstern dato</b> og prioritet. <b>＋ Epic</b> øverst lager en ny. Måldatoen tegnes som en
-        loddrett strek i raden; «Leveres uke 49–51» er vinduet spennene gir.</p></div>
+        stiplet loddrett strek i raden; «Leveres uke 49–51» er vinduet spennene gir.</p></div>
       <div class="help-card"><h4>Utredning og estimat</h4>
-        <p><b>＋</b> på epic-raden legger til en feature. I redigeringen velger du <b>Utredning</b> (stripet, med sluttdato)
+        <p><b>＋</b> på epic-raden legger til en feature. I redigeringen velger du <b>Utredning</b> (grått stripet, med sluttdato)
         eller <b>Estimert</b> (spenn: sannsynlig i uker + senest i uker). Klikk et feature-navn for å redigere. Utredning tar utviklertid og vises derfor.</p></div>
       <div class="help-card"><h4>Status</h4>
         <p>Regnes ut, aldri skrevet inn: <b>grønn</b> = hele spennet før måldato, <b>gul</b> = måldatoen inne i spennet,
-        <b>rød</b> = hele spennet etter. <b>Venter på utredning</b> så lenge en feature utredes.</p></div>
+        <b>rød</b> = hele spennet etter. <b>Venter på utredning</b> så lenge en feature utredes. Grønt, gult og rødt betyr bare dette; <b>i dag</b> er den mørke streken, og fortiden er tonet.</p></div>
       <div class="help-card"><h4>Flytt og juster</h4>
         <p><b>Dra en linje</b> for å flytte den i tid. Dra i <b>venstre ende</b> for start, <b>høyre ende</b> for senest,
         og i <b>skillet</b> mellom mørk og lys del for sannsynlig. Dra fester til uke; datoer du skriver inn i redigeringen beholdes eksakt.</p></div>
@@ -727,15 +727,15 @@
         leses labelene på nytt ved innlasting når siste lesing er eldre enn seks timer.</p></div>
       <div class="help-card"><h4>Leveranser</h4>
         <p>COOs lag over epics og releaser: en <b>leveranse</b> har kunder (eller alle), en <b>lovet dato</b> og det den henger på: epics og
-        releaser. Båndet øverst viser hver leveranse fram til <b>utregnet dato</b>: det seneste av epicenes sene ende og releasenes forventede
-        ferdig; streken er lovet dato. Grønn til og med lovet, gul inntil tre arbeidsdager etter, rød senere. Epic-raden viser hvor mange kunder
+        releaser. Raden øverst har én markør per leveranse på <b>lovet dato</b>, farget etter status; <b>utregnet dato</b> er det seneste av
+        epicenes sene ende og releasenes forventede ferdig. Grønn til og med lovet, gul inntil tre arbeidsdager etter, rød senere. Epic-raden viser hvor mange kunder
         som venter. Fanen <b>Kunder</b> har én rad per kunde og sier hva som drar; der oppretter COO leveransene. Ingen varsel, ingenting i ADO.
         <b>Mer › Per leveranse</b> viser hver leveranse som en gruppe med det den henger på under, i den rekkefølgen delene blir ferdige: den siste drar datoen.</p></div>
       <div class="help-card"><h4>Fremdrift og sprintrapport</h4>
         <p><b>Fremdrift</b> skrives inn i redigeringen på dag 10 (poeng gjort av totalt, eller prosent) og tegnes som en fylling i den mørke
         delen av spennet; har featuren stories med poeng i ADO, tar ADO over ved «Oppdater fra ADO». Chippen <i>fremdrift 60 % · tid 75 %</i> er
         et <b>andre signal</b> (fremdrift mot tid i det sannsynlige vinduet, 10 % slingringsmonn): grønn, gul eller rød. Det endrer ikke epicens
-        farge. «Levert» kommer fra ADO. Velg sprintens baseline under <b>Sammenlign med</b> og trykk <b>Sprintrapport</b> for dag 10-rapporten:
+        farge. «Levert» kommer fra ADO. Velg sprintens baseline under <b>Sammenlign</b> og trykk <b>Sprintrapport</b> for dag 10-rapporten:
         levert, fremdrift per feature, utredninger som kom videre og spenn som endret seg.</p></div>
       <div class="help-card"><h4>Kø og kapasitet</h4>
         <p>En aktiv feature <b>starter når den kan</b>: etter blokkerne sine og etter eierens tidligere arbeid, i prioritert rekkefølge
