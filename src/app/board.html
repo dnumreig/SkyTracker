@@ -33,24 +33,27 @@
   .col{background:var(--raised);border-radius:8px;padding:10px;min-height:50vh;border:2px solid transparent}
   .col.over{border-color:var(--accent)}
   .col.no{border-color:var(--danger)}
-  .col h2{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);margin:2px 4px 10px;display:flex;justify-content:space-between}
+  .col h2{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--text-2);margin:2px 4px 10px;display:flex;justify-content:space-between}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:9px 10px;margin-bottom:8px;display:grid;gap:5px;cursor:pointer}
   .card[draggable=true]{cursor:grab}
   .card.dragging{opacity:.5}
   .card .ttl{font-weight:600;font-size:13px;line-height:1.3}
-  .card .epic{font-size:11px;color:var(--text-3)}
+  .card .epic{font-size:12px;color:var(--text-3)}
   .card .chips{display:flex;flex-wrap:wrap;gap:4px}
-  .chip{font-size:10px;font-weight:500;line-height:1.5;padding:1px 6px;border-radius:4px;background:var(--badge-bg);color:var(--badge-fg);white-space:nowrap;text-decoration:none}
-  .chip.who{background:var(--accent-soft);color:var(--text);font-weight:600}
-  .chip.ado{background:var(--ado-bg);color:var(--ado-fg)}
+  .chip{font-size:11px;font-weight:500;line-height:1.5;padding:1px 6px;border-radius:4px;background:var(--badge-bg);color:var(--badge-fg);white-space:nowrap;text-decoration:none}
   .chip.st-gul{background:var(--warn-bg);color:var(--warn-fg)}
   .chip.st-gronn{background:var(--ok-bg);color:var(--ok-fg)}
   .chip.fixed{background:var(--text);color:var(--surface)}
-  .empty{padding:14px 6px;font-size:12px;color:var(--text-4)}
+  /* R17: chips are for state; the owner (initials) and the ADO id (a link) sit at the card's foot */
+  .card .foot{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .who-dot{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 5px;border-radius:11px;background:var(--accent-soft);color:var(--text);font-size:11px;font-weight:700}
+  .ado-link{font-size:12px;color:var(--ado-fg);text-decoration:none}
+  .ado-link:hover{text-decoration:underline}
+  .empty{padding:12px 10px;font-size:12px;color:var(--text-3);border:1px dashed var(--line);border-radius:6px;background:var(--surface)}
   .import-list{padding:4px 0 8px}
   .import-row{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:center;padding:7px 20px;border-bottom:1px solid var(--line-soft);font-size:13px;cursor:pointer}
   .import-row .ttl{font-weight:600;color:var(--text)}
-  .import-row .map{font-size:11px;color:var(--warn-fg);text-align:right}
+  .import-row .map{font-size:12px;color:var(--warn-fg);text-align:right}
   .note{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--surface);padding:8px 14px;border-radius:6px;font-size:13px;box-shadow:var(--shadow);opacity:0;transition:opacity .2s;pointer-events:none}
   .note.show{opacity:1}
   @media (max-width:1100px){.cols{grid-template-columns:repeat(2,1fr)}}
@@ -72,7 +75,7 @@
 </header>
 <main class="wrap">
   <h1 class="sr-only">Brettet</h1>
-  <p class="hint" id="hint">Hvert kort er en feature i Tidslinjen, og kolonnene er livssyklusen. Dra et kort til neste kolonne: <b>Utredes</b> spør etter eier og størrelse, <b>Klar for veikart</b> etter byggetiden, <b>Aktiv</b> etter epicen. <b>Levert</b> settes fra ADO; et kort uten ADO-kobling dras til Levert og får dagen. Fra Klar for veikart og Aktiv kan et kort dras tilbake til <b>Utredes</b>. Klikk et kort for å redigere beskrivelse, type, flater, fast dato, epicen det ligger i, estimatet (uker og buffer) og hva den venter på; en utredning får «Klar for veikart …» der. <button class="x" id="hintClose" title="Lukk hintet; det kommer ikke tilbake i denne nettleseren">✕</button></p>
+  <p class="hint" id="hint">Kolonnene er livssyklusen: dra et kort til neste kolonne, og klikk et kort for å redigere det. <button class="x" id="hintClose" title="Lukk hintet; det kommer ikke tilbake i denne nettleseren">✕</button></p>
   <div class="cols" id="cols"></div>
 </main>
 <div class="note" id="note"></div>
@@ -163,6 +166,8 @@ window.__bootBoard = function(){
   const ADO_URL = id => 'https://dev.azure.com/SkytaleAS/Skytale/_workitems/edit/' + id;
   const CLASS_WEEKS = { S: 1, M: 2, L: 4, XL: 6 };
   const COLS = [['ny', 'Registrert'], ['utredes', 'Utredes'], ['klar', 'Klar for veikart'], ['aktiv', 'Aktiv'], ['levert', 'Levert']];
+  const EMPTY_TEXT = { ny: 'Nye features havner her når produktforum har sagt ja.', utredes: 'Dra hit for å starte en utredning med eier og størrelse.',
+    klar: 'Utredet, med byggetid: venter på en epic.', aktiv: 'Dra hit for å legge featuren i en epic.', levert: 'Settes fra ADO; et kort uten ADO-kobling dras hit.' };   // R17: an empty column says what goes there
   const REASON_CODES = [['utredning', 'Utredningen viste mer/mindre arbeid'], ['avhengighet', 'En avhengighet flyttet seg'], ['kapasitet', 'Kapasitet: annet gikk foran'], ['prioritering', 'Prioritert om i produktforum'], ['ekstern', 'Ekstern dato endret'], ['omfang', 'Omfanget endret'], ['rydding', 'Retting / rydding'], ['annet', 'Annet']];
   const POLL_MS = 10000;
   let state = emptyPlan(), serverVersion = null, canWrite = false, myName = null, serverReady = false;
@@ -188,18 +193,18 @@ window.__bootBoard = function(){
   const colOf = boardColumn;   // the shared rule (epic-tools, R13)
   function cardHtml(t){
     const lane = t.lane === BACKLOG ? null : getLane(t.lane);
-    const chips = [];
-    if(t.assignee) chips.push('<span class="chip who" title="Eier">' + esc(t.assignee) + '</span>');
+    const chips = [];   // R17: chips are for state; the owner and the ADO id sit at the card's foot
     if(t.kind === 'discovery' && t.state === 'utredes'){ chips.push('<span class="chip" title="Utredning: størrelse, til dato">' + esc(sizeClassText(t)) + ' · til ' + esc(fmtDate(unitToDate(t.end))) + '</span>'); if(discoveryOverdue(t, todayUnit())) chips.push('<span class="chip st-gul">Utredning forsinket</span>'); }
     if(t.kind === 'estimate' && (t.state === 'klar' || t.state === 'aktiv')) chips.push('<span class="chip" title="Byggetid på tidslinjen">' + esc(bufferLabel(t)) + (t.state === 'aktiv' ? ' → ' + esc(windowLabel(t)) : '') + '</span>');
     if(t.state === 'levert') chips.push('<span class="chip st-gronn">Levert' + (t.deliveredAt ? ' ' + esc(fmtDate(new Date(t.deliveredAt))) : '') + '</span>');
-    if(t.adoId) chips.push('<a class="chip ado" target="_blank" rel="noopener" href="' + ADO_URL(t.adoId) + '" title="Åpne i Azure DevOps">#' + t.adoId + '</a>');
     if(t.type && t.type !== 'feature') chips.push('<span class="chip" title="Type">' + esc(FEATURE_TYPE_LABEL[t.type] || t.type) + '</span>');
     (t.areas || []).forEach(a => chips.push('<span class="chip" title="Flate">' + esc(a) + '</span>'));
     if(t.fixedEnd) chips.push('<span class="chip fixed" title="Fast dato: køen flytter den aldri">fast dato</span>');
     if((t.deps || []).length) chips.push('<span class="chip" title="Venter på ' + t.deps.length + ' feature(s)">⇠ ' + t.deps.length + '</span>');
+    const foot = (t.assignee ? '<span class="who-dot" title="Eier: ' + esc(t.assignee) + '">' + esc(String(t.assignee).slice(0, 3)) + '</span>' : '') +
+      (t.adoId ? '<a class="ado-link" target="_blank" rel="noopener" href="' + ADO_URL(t.adoId) + '" title="Åpne i Azure DevOps">#' + t.adoId + '</a>' : '');
     return '<div class="card" data-id="' + esc(t.id) + '"' + (canWrite && t.state !== 'levert' ? ' draggable="true"' : '') + '><div class="ttl">' + esc(t.label) + '</div>' +
-      '<div class="epic">' + (lane ? esc(lane.name) : 'Hylla') + '</div><div class="chips">' + chips.join('') + '</div></div>';
+      '<div class="epic">' + (lane ? esc(lane.name) : 'Hylla') + '</div><div class="chips">' + chips.join('') + '</div>' + (foot ? '<div class="foot">' + foot + '</div>' : '') + '</div>';
   }
   function render(){
     const groups = Object.fromEntries(COLS.map(([k]) => [k, []]));
@@ -207,7 +212,7 @@ window.__bootBoard = function(){
     const laneIdx = new Map(state.lanes.map((l, i) => [l.key, i]));
     const sortKey = t => (t.lane === BACKLOG ? 999 : laneIdx.get(t.lane) || 0) * 1000 + (t.order || 0);
     $('cols').innerHTML = COLS.map(([k, name]) => '<div class="col" data-col="' + k + '"><h2><span>' + name + '</span><span>' + groups[k].length + '</span></h2>' +
-      (groups[k].length ? groups[k].sort((a, b) => sortKey(a) - sortKey(b)).map(cardHtml).join('') : '<div class="empty">Ingen</div>') + '</div>').join('');
+      (groups[k].length ? groups[k].sort((a, b) => sortKey(a) - sortKey(b)).map(cardHtml).join('') : '<div class="empty">' + EMPTY_TEXT[k] + '</div>') + '</div>').join('');
     $('registerBtn').hidden = !canWrite;
   }
   $('cols').addEventListener('click', e => { const c = e.target.closest('.card'); if(!c || e.target.closest('a')) return; openEdit(c.dataset.id); });
