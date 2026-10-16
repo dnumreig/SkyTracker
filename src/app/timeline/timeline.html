@@ -97,6 +97,8 @@
   .sw.today{width:2px;height:16px;background:var(--today)}
   .sw.depsw{width:26px;height:0;border-top:1.5px solid var(--dep);position:relative}
   .sw.depsw::after{content:"";position:absolute;right:-1px;top:-4px;border:4px solid transparent;border-left-color:var(--dep)}
+  .legend .zoom{margin-left:auto}   /* R17: zoom at the right end of the row, in sky.css's 12 px buttons; a view, so readers and the wall have it too */
+  #zoomReset{min-width:54px}        /* «100 %» and «50 %» take the same room: − stays under the pointer */
   /* R14: the status strip in words, under the top bar */
   .status{display:flex;flex-wrap:wrap;gap:4px 0;margin:12px 0 0;font-size:12px;color:var(--text-2);align-items:center}
   .status > *{padding:0 12px;border-left:1px solid var(--line-soft);display:inline-flex;align-items:center;gap:6px;min-width:0}
@@ -598,6 +600,7 @@
     <span><i class="sw release"></i>Release</span>
     <span><i class="sw delivery"></i>Leveranse</span>
     <span><i class="sw depsw"></i>Avhengighet</span>
+    <span class="zoom" role="group" aria-label="Zoom"><span class="zl">Zoom</span><button type="button" id="zoomOut" aria-label="Zoom ut">−</button><button type="button" id="zoomReset" title="Tilbake til 100 %">100 %</button><button type="button" id="zoomIn" aria-label="Zoom inn">+</button></span>
   </div>
 
   <div class="empty" id="emptyState" hidden>
@@ -679,7 +682,8 @@
         <b>rød</b> = hele spennet etter. <b>Venter på utredning</b> så lenge en feature utredes. Grønt, gult og rødt betyr bare dette; <b>i dag</b> er den mørke streken, og fortiden er tonet.</p></div>
       <div class="help-card"><h4>Flytt og juster</h4>
         <p><b>Dra en linje</b> for å flytte den i tid. Dra i <b>venstre ende</b> for start, <b>høyre ende</b> for senest,
-        og i <b>skillet</b> mellom mørk og lys del for sannsynlig. Dra fester til uke; datoer du skriver inn i redigeringen beholdes eksakt.</p></div>
+        og i <b>skillet</b> mellom mørk og lys del for sannsynlig. Dra fester til uke; datoer du skriver inn i redigeringen beholdes eksakt.
+        <b>Zoom</b> (− og + til høyre over diagrammet) gjør månedene smalere eller bredere, fra 50 til 200 %. Midten av utsnittet blir stående, og nettleseren husker valget.</p></div>
       <div class="help-card"><h4>Avhengigheter</h4>
         <p>Klikk <b>⇢</b> på featuren som må bli <b>ferdig først</b>, deretter på den som venter. Sprekker en blokker,
         flyttes alt som venter på den, og epicen kan skifte farge. Klikk pilen for å fjerne koblingen.</p></div>
@@ -1218,7 +1222,7 @@ window.__bootTimeline = function(){
     for(let i = VIEW_FROM; i < N_MONTHS; i++){
       const {m, y} = monthInfo(i);
       const mth = el('div', 'mth' + (m === 0 ? ' jan' : ''));
-      mth.innerHTML = '<div class="mm">' + MND_S[m] + '</div><div class="yy">' + y + '</div>';
+      mth.innerHTML = '<div class="mm">' + MND_S[m] + '</div>' + (MONTH_W >= 64 || m === 0 ? '<div class="yy">' + y + '</div>' : '');   // R17: under 64 px a month the name only, January with its year
       axis.appendChild(mth);
     }
     if(sprintsNow.length){
@@ -2181,6 +2185,45 @@ window.__bootTimeline = function(){
     }
   });
 
+  /* ================== zoom (R17): the months narrower or wider, per browser; a view, never the plan ================== */
+  const ZOOMS = [0.5, 0.75, 1, 1.5, 2], ZOOM_KEY = 'sk.zoom';
+  let zoom = 1;
+  try{ const z = Number(localStorage.getItem(ZOOM_KEY)); if(ZOOMS.includes(z)) zoom = z; }catch(e){}   // anything else reads as 100 %
+  function applyZoom(){   // the factor over the stylesheet's month: 96 px at the desk, 112 on the wall, 76 on a narrow screen
+    const root = document.documentElement;
+    root.style.removeProperty('--month-w');
+    if(zoom !== 1) root.style.setProperty('--month-w', Math.round(cssNum('--month-w') * zoom) + 'px');
+    readMetrics();
+    $('zoomReset').textContent = Math.round(zoom * 100) + ' %';
+    $('zoomOut').disabled = zoom === ZOOMS[0];
+    $('zoomIn').disabled = zoom === ZOOMS[ZOOMS.length - 1];
+  }
+  function setZoom(z){   // the date in the middle of the view stays in the middle
+    if(!ZOOMS.includes(z) || z === zoom) return;
+    const half = chartScroll.clientWidth / 2, mid = VIEW_FROM + (chartScroll.scrollLeft + half) / MONTH_W;
+    zoom = z;
+    try{ localStorage.setItem(ZOOM_KEY, String(zoom)); }catch(e){}
+    applyZoom();
+    render();
+    chartScroll.scrollLeft = x(mid) - half;
+  }
+  const zoomStep = d => setZoom(ZOOMS[ZOOMS.indexOf(zoom) + d]);
+  $('zoomOut').addEventListener('click', () => zoomStep(-1));
+  $('zoomIn').addEventListener('click', () => zoomStep(1));
+  $('zoomReset').addEventListener('click', () => setZoom(1));
+  chartScroll.addEventListener('keydown', e => {   // + or = in, - out, 0 back to 100 %; with Ctrl/Cmd they stay the browser's own zoom
+    if(e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, select, textarea')) return;
+    const go = e.key === '+' || e.key === '=' ? () => zoomStep(1) : e.key === '-' ? () => zoomStep(-1) : e.key === '0' ? () => setZoom(1) : null;
+    if(!go) return;
+    e.preventDefault();
+    const bar = e.target.closest('.bar:not(.ghost)');
+    go();
+    if(chartScroll.contains(document.activeElement)) return;   // the render replaced a focused bar: focus its new self, or the chart
+    const nb = bar && chart.querySelector('.bar:not(.ghost)[data-id="' + CSS.escape(bar.dataset.id) + '"]');
+    (nb || chartScroll).focus({ preventScroll: true });
+  });
+  matchMedia('(max-width:860px)').addEventListener('change', () => { applyZoom(); render(); });   // a narrow screen's 76 px a month, zoomed too
+
   /* ================== forum-visningen (R15): skjermen på veggen ================== */
   const FORUM_KEY = 'sk.forum';
   let forumMode = false, forumStartedCompare = false;
@@ -2207,7 +2250,7 @@ window.__bootTimeline = function(){
     forumMode = !!on;
     document.body.classList.toggle('forum', forumMode);
     document.documentElement.classList.toggle('forum', forumMode);
-    readMetrics();   // R17: wall mode grows the size tokens; drags and rows follow
+    applyZoom();   // R17: wall mode grows the size tokens, the zoom on top; drags and rows follow
     const b = $('forumBtn'); b.classList.toggle('on', forumMode); b.setAttribute('aria-pressed', forumMode ? 'true' : 'false');
     if(remember){ try{ localStorage.setItem(FORUM_KEY, forumMode ? '1' : '0'); }catch(e){} }
     if(forumMode && viewMode !== 'epic') setView('epic', false);   // read views the forum does not use (the stored choice stays)
@@ -3353,6 +3396,7 @@ window.__bootTimeline = function(){
 
   /* ================== start ================== */
   pushQueue();
+  applyZoom();   // R17: the stored zoom, before the first render
   render();
   if(readForumPref() === '1') setForum(true, false);   // R15: the stored choice, before the plan arrives
   initServerPlan();
