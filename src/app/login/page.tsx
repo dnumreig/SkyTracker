@@ -20,7 +20,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         >
           <button
             type="submit"
-            className="w-full rounded-md bg-ocean-5 text-white py-2.5 text-sm font-medium hover:bg-ocean-6 transition"
+            className="w-full rounded-md bg-ocean-5 text-white py-2.5 text-sm font-medium hover:bg-[#2f5f8f] transition"
           >
             Logg inn med Skytale-kontoen din
           </button>
