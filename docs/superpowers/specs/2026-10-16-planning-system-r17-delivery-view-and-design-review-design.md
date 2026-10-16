@@ -41,8 +41,10 @@ tree in the list for every child row. Everything else below is the default unles
 - `groups`: one per delivery in the plan's order (promised day, then name — the normaliser's order). Each is
   `{ delivery, status, segment: { start, end, promised }, parts }` where `status` is `deliveryStatus` and `segment` is the
   delivery's entry from `deliverySegments`.
-- `parts`: the epics and releases from `deliveryParts`, sorted by end (ascending; parts without an end first, then by
-  name), so the last part is the one that pulls the date:
+- `parts`: the epics and releases from `deliveryParts`, ordered by the day each is expected to finish, as the computed
+  date reads it (`deliveryPartDay`): an epic's open features' latest end, the tempo forecast for a release (else its
+  target), never before today. The parts that no longer pull (a closed epic, one with nothing open, a shipped release)
+  come first, then by that day, then by name, so the last row is the one that pulls the date:
   - epic: `{ kind: "epic", lane, code, start, likelyEnd, end, pending, window, shared }` — `start`/`end` = the earliest
     start and latest end of the epic's features (open ones when any are open, else all), `likelyEnd` = the latest likely
     end of its estimates (else `end`), `pending` = an open discovery runs, `code` = `epicStatus(...).code`, `window` =
@@ -58,9 +60,10 @@ tree in the list for every child row. Everything else below is the default unles
 - **Where:** «Mer › Per leveranse» (`#deliveryViewBtn`), next to «Per person». The active button is marked like
   `#personBtn.on`. The list's corner names the view and offers the way back: «Leveranse / det den henger på · Vis epics»
   (and «Person / utredninger og features · Vis epics» for Per person).
-- **Group row** (the lane row): the delivery's name as a button → `/kunder#<key>`; line two: customers · «lovet 30. nov» ·
-  the status pill («Gul · 0,6 uke etter», «Grønn · alt levert», «Uten dato · henger ikke på noe ennå») · «dratt av
-  «FileVault»» (with «minst …» and «venter på utredning» when pending). The lane band draws the delivery's segment from
+- **Group row** (the lane row): the delivery's name as a button → `/kunder#<key>`; line two: the status pill («Gul · 0,6
+  uke etter», «Grønn · alt levert», «Uten dato · henger ikke på noe ennå») · «dratt av «FileVault»» (with «minst …» and
+  «venter på utredning» when pending) · customers · «lovet 30. nov», so what pulls the date is in sight at the default
+  width; the tooltip holds the whole line. The lane band draws the delivery's segment from
   start to computed day, coloured by status, with the promised marker — the same look as the band in the axis.
 - **Part rows** (the feature rows):
   - Epic: the name as a button → the epic editor (as in the epic view). Line two: the status chip, the window («Leveres

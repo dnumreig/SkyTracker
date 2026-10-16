@@ -127,6 +127,7 @@ window.__bootKunder = function(){
 
   /* ---------- the two views ---------- */
   function render(){
+    const keep = focusKey(document);   // R17: a save and a poll redraw the table: the row's control that had the focus gets it back
     const list = $('list'), ds = state.deliveries || [];
     $('views').hidden = !ds.length;
     if(!ds.length){ list.innerHTML = '<div class="empty">Ingen leveranser ennå.' + (canWrite ? ' Opprett den første med «＋ Leveranse»: navn, kunder, lovet dato og det den henger på.' : '') + '</div>'; return; }
@@ -137,6 +138,7 @@ window.__bootKunder = function(){
     list.innerHTML = '<div class="tblwrap"><table class="lines' + (canWrite ? ' writable' : '') + '"><thead><tr><th>Kunde</th><th>Leveranse</th><th>Henger på</th><th>Lovet</th><th>Utregnet</th><th>Status</th><th></th></tr></thead><tbody>' +
       rows.map(r => '<tr data-key="' + esc(r.key) + '"' + (r.key === hl ? ' class="hl"' : '') + '><td class="nm">' + (canWrite ? '<button type="button" class="as-text" data-edit="' + esc(r.key) + '">' + esc(r.customer) + '</button>' : esc(r.customer)) + '</td><td>' + esc(r.delivery.name) + '<span class="why">eier ' + esc(deliveryOwner(r.delivery)) + (r.delivery.note ? ' · ' + esc(r.delivery.note) : '') + '</span></td><td class="hang">' + esc(r.hangsOn) + '</td><td class="dt">' + esc(dayText(r.promisedDate)) + '</td><td class="dt">' + (r.status.computed ? (r.status.pending ? 'minst ' : '') + esc(dayText(r.status.computed)) : '–') + '</td><td><span class="pill st-' + r.status.code + '">' + esc(pillText(r.status)) + '</span><span class="why">' + esc(pullsText(r.status)) + '</span></td>' + '<td class="acts"><a class="hist-link" data-hist="' + esc(r.key) + '" href="/timeline#historikk=' + encodeURIComponent(r.key) + '" title="Hva som har skjedd med leveransen, i Tidslinjens historikk">Historikk</a></td></tr>').join('') +
       '</tbody></table></div>';
+    restoreFocus(document, keep);
   }
   function renderPerEpic(){
     const rows = state.lanes.map(l => ({ l, c: epicCustomers(state, l.key) })).sort((a, b) => (b.c.deliveries.length ? 1 : 0) - (a.c.deliveries.length ? 1 : 0));

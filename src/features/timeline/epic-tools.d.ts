@@ -158,3 +158,7 @@ export declare function deliveryRows(plan: Plan, todayDay: string): { groups: De
 
 /* R17: modals and drawers as dialogs (browser only) */
 export declare function wireDialogs(doc: Document): void;
+
+/* R17: the focus across a re-render (browser only) */
+export declare function focusKey(doc: Document): string | null;
+export declare function restoreFocus(doc: Document, key: string | null): void;

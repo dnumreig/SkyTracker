@@ -918,17 +918,17 @@ describe("R14: the top bar's words", () => {
   it("navTabsHtml keeps the process order, marks the active tab and shows all four when hosted", () => {
     const html = navTabsHtml("timeline", true);
     expect([...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1])).toEqual(["/inntak", "/timeline", "/", "/kunder"]);
-    expect(html).toContain('<a class="tab on" id="tab-timeline" data-tab="timeline" href="/timeline" aria-current="page">Tidslinjen</a>');
-    expect(html).toContain('<a class="tab" id="tab-board" data-tab="board" href="/">Brettet</a>');
+    expect(html).toContain('<a class="tab on" id="tab-timeline" data-tab="timeline" data-label="Tidslinjen" href="/timeline" aria-current="page">Tidslinjen</a>');
+    expect(html).toContain('<a class="tab" id="tab-board" data-tab="board" data-label="Brettet" href="/">Brettet</a>');   // R17: the label reserves the bold width (sky.css)
     expect(html).not.toContain("hidden");
   });
 
   it("navTabsHtml hides the other tabs when the page is opened from a file", () => {
     const html = navTabsHtml("board", false);
-    expect(html).toContain('id="tab-board" data-tab="board" href="/" aria-current="page">');
-    expect(html).toContain('id="tab-inntak" data-tab="inntak" href="/inntak" hidden>');
-    expect(html).toContain('id="tab-timeline" data-tab="timeline" href="/timeline" hidden>');
-    expect(html).toContain('id="tab-kunder" data-tab="kunder" href="/kunder" hidden>');
+    expect(html).toContain('id="tab-board" data-tab="board" data-label="Brettet" href="/" aria-current="page">');
+    expect(html).toContain('id="tab-inntak" data-tab="inntak" data-label="Inntak" href="/inntak" hidden>');
+    expect(html).toContain('id="tab-timeline" data-tab="timeline" data-label="Tidslinjen" href="/timeline" hidden>');
+    expect(html).toContain('id="tab-kunder" data-tab="kunder" data-label="Kunder" href="/kunder" hidden>');
   });
 
   it("epicStatusWords counts the active epics by colour, in Norwegian words", () => {
@@ -1158,10 +1158,22 @@ describe("R17: «Per leveranse», the deliveries with what they hang on", () => 
   });
   it("a closed epic spans its delivered features; a release part is its segment, a shipped one marked", () => {
     const parts = deliveryRows(base([del({ epics: ["c"], releases: ["r0", "r1"] })]), TODAY).groups[0].parts;
-    expect(parts.map((x) => x.key)).toEqual(["c", "r0", "r1"]);
-    expect(parts[0]).toMatchObject({ start: D(2026, 9, 1), end: D(2026, 9, 30) });
-    expect(parts[1]).toMatchObject({ kind: "release", shipped: true, end: dayToUnit("2026-10-07") });
+    expect(parts.map((x) => x.key)).toEqual(["r0", "c", "r1"]);   // the shipped release and the closed epic pull nothing: first, by name
+    expect(parts[1]).toMatchObject({ start: D(2026, 9, 1), end: D(2026, 9, 30) });
+    expect(parts[0]).toMatchObject({ kind: "release", shipped: true, end: dayToUnit("2026-10-07") });
     expect(parts[2]).toMatchObject({ kind: "release", shipped: false, end: dayToUnit("2026-10-22") });
+  });
+  it("a release whose tempo forecast is past its target pulls the date: it is the last row, after an epic that ends between the two", () => {
+    const sprints = { at: "2026-10-12T00:00:00.000Z", items: [{ name: "Sprint 71", path: "Skytale\\Sprint 71", start: "2026-10-05", finish: "2026-10-23" }] };
+    const item = (id: number, state: string, points: number) => ({ id, type: "Bug", title: "b" + id, state, points, assignee: null, iteration: "Sprint 71", ...(state === "Closed" ? { delivered: "2026-10-09" } : {}) });
+    const p = normalizePlan({
+      lanes: [{ key: "a", name: "Epic A", priority: 1 }], tasks: [f("a1", "a", D(2026, 10, 19), D(2026, 10, 26), D(2026, 11, 2))], sprints,
+      releases: [{ key: "r1", version: "2.0.1", targetDate: "2026-10-22", ado: { at: "2026-10-12T10:00:00.000Z", label: "2.0.1", items: [item(1, "Closed", 30), item(2, "Active", 49)] } }],
+      deliveries: [del({ epics: ["a"], releases: ["r1"] })],
+    });
+    expect(releasePace(p, p.releases![0], TODAY)!.forecastDay).toBe("2026-11-10");   // 30 SP in ten working days: 49 left → 17 more
+    expect(deliveryRows(p, TODAY).groups[0].parts.map((x) => x.key)).toEqual(["a", "r1"]);   // the epic ends 2 Nov, the release's segment 22 Oct
+    expect(deliveryStatus(p, p.deliveries![0], TODAY).by!.key).toBe("r1");
   });
   it("a deleted key: the group stays, with no parts and «henger ikke på noe ennå»", () => {
     const [g] = deliveryRows(base([del({ epics: ["gone"], releases: ["gone-too"] })]), TODAY).groups;

@@ -770,7 +770,7 @@ const NAV_TABS = [["inntak", "Inntak", "/inntak"], ["timeline", "Tidslinjen", "/
 function navTabsHtml(active, hosted) {
   return NAV_TABS.map(([key, name, href]) => {
     const on = key === active;
-    return '<a class="tab' + (on ? " on" : "") + '" id="tab-' + key + '" data-tab="' + key + '" href="' + href + '"' + (on ? ' aria-current="page"' : hosted ? "" : " hidden") + ">" + name + "</a>";
+    return '<a class="tab' + (on ? " on" : "") + '" id="tab-' + key + '" data-tab="' + key + '" data-label="' + name + '" href="' + href + '"' + (on ? ' aria-current="page"' : hosted ? "" : " hidden") + ">" + name + "</a>";
   }).join("");
 }
 /** The status strip's first part: the active epics by colour, in words; zero parts are left out. */
@@ -815,24 +815,36 @@ function deliveryParts(plan, d) {
 }
 const partName = (p) => (p.kind === "epic" ? "«" + p.name + "»" : "release " + p.name);
 const laterDay = (a, b) => (a > b ? a : b);
+/** The day a part ({ kind, lane } or { kind, release }) is expected to finish, never before today: an epic's open features'
+ *  latest end, a release's tempo forecast (else its target). Null when it no longer pulls: «avsluttet», nothing open, shipped. */
+function deliveryPartDay(plan, part, todayDay) {
+  if (part.kind === "release") {
+    const r = part.release;
+    if (r.shippedDate) return null;
+    const pace = releasePace(plan, r, todayDay);
+    return laterDay((pace && pace.forecastDay) || r.targetDate, todayDay);
+  }
+  if (part.lane.state === "avsluttet") return null;
+  const tasks = plan.tasks.filter((t) => t.lane === part.lane.key && t.state !== "levert");
+  return tasks.length ? laterDay(dayKey(unitToDate(Math.max(...tasks.map((t) => t.end)))), todayDay) : null;
+}
 /** The computed date: the latest of the open epics' late ends and the open releases' expected finish (never before today); who gives it; whether a discovery still runs. */
 function deliveryComputed(plan, d, todayDay) {
   const parts = deliveryParts(plan, d);
   let day = null, by = null, pending = false, open = 0;
   const take = (cand, who) => { if (cand && (day === null || cand > day)) { day = cand; by = who; } };
   parts.epics.forEach((l) => {
-    if (l.state === "avsluttet") return;
-    const tasks = plan.tasks.filter((t) => t.lane === l.key && t.state !== "levert");
-    if (!tasks.length) return;
+    const cand = deliveryPartDay(plan, { kind: "epic", lane: l }, todayDay);
+    if (cand === null) return;
     open++;
-    if (tasks.some((t) => t.kind === "discovery")) pending = true;
-    take(laterDay(dayKey(unitToDate(Math.max(...tasks.map((t) => t.end)))), todayDay), { kind: "epic", key: l.key, name: l.name });
+    if (plan.tasks.some((t) => t.lane === l.key && t.state !== "levert" && t.kind === "discovery")) pending = true;
+    take(cand, { kind: "epic", key: l.key, name: l.name });
   });
   parts.releases.forEach((r) => {
-    if (r.shippedDate) return;
+    const cand = deliveryPartDay(plan, { kind: "release", release: r }, todayDay);
+    if (cand === null) return;
     open++;
-    const pace = releasePace(plan, r, todayDay);
-    take(laterDay((pace && pace.forecastDay) || r.targetDate, todayDay), { kind: "release", key: r.key, name: r.version });
+    take(cand, { kind: "release", key: r.key, name: r.version });
   });
   return { day, by, pending, open, parts: parts.epics.length + parts.releases.length };
 }
@@ -936,25 +948,50 @@ function deliveryEpicPart(plan, lane, deliveryKey) {
     pending: open.some((t) => t.kind === "discovery"),
   });
 }
-/** Each delivery (the plan's order) with its parts ordered by end — the last one pulls the date — and the open epics no
- *  delivery hangs on («Ingen leveranse»). Keys of since-deleted epics or releases are ignored. Units are the time unit. */
+/** Each delivery (the plan's order) with its parts ordered by the day each is expected to finish (`deliveryPartDay`; the
+ *  ones that no longer pull first, then by name), so the last row is the one that pulls the date as «dratt av» names it;
+ *  and the open epics no delivery hangs on («Ingen leveranse»). Keys of since-deleted epics or releases are ignored. Units
+ *  are the time unit. */
 function deliveryRows(plan, todayDay) {
   const segs = releaseSegments(plan, dayToUnit(todayDay));
   const nameOf = (p) => (p.kind === "epic" ? p.lane.name : p.release.version);
-  const byEnd = (a, b) => (a.end === null ? 0 : 1) - (b.end === null ? 0 : 1) || (a.end || 0) - (b.end || 0) || nameOf(a).localeCompare(nameOf(b), "nb");
+  const byDay = (a, b) => (a.day === null ? 0 : 1) - (b.day === null ? 0 : 1) || (a.day < b.day ? -1 : a.day > b.day ? 1 : 0) || nameOf(a.p).localeCompare(nameOf(b.p), "nb");
   const groups = deliverySegments(plan, todayDay).map((sg) => {
     const d = sg.delivery, parts = deliveryParts(plan, d);
     const list = parts.epics.map((l) => deliveryEpicPart(plan, l, d.key)).concat(parts.releases.map((r) => {
       const s = segs.find((x) => x.release.key === r.key);
       return { kind: "release", key: r.key, release: r, start: s ? s.start : null, end: s ? s.end : null, shipped: !!r.shippedDate };
     }));
-    return { delivery: d, status: sg.status, segment: { start: sg.start, end: sg.end, promised: sg.promised }, parts: list.sort(byEnd) };
+    const ordered = list.map((p) => ({ p, day: deliveryPartDay(plan, p, todayDay) })).sort(byDay).map((x) => x.p);
+    return { delivery: d, status: sg.status, segment: { start: sg.start, end: sg.end, promised: sg.promised }, parts: ordered };
   });
   const used = new Set();
   (plan.deliveries || []).forEach((d) => (d.epics || []).forEach((k) => used.add(k)));
   const loose = (plan.lanes || []).filter((l) => !used.has(l.key) && l.state !== "avsluttet").map((l) => deliveryEpicPart(plan, l, null));
   return { groups, loose };
 }
+
+/* ---------- R17: the focus across a re-render (browser only) ---------- */
+/** A selector that finds `el` again after a re-render: `#id`; else its row (the closest [data-id] or [data-key], never a
+ *  ghost; the n-th of them when rows share the key, as Kunder's one per customer) and the control in it. */
+function focusSelector(el) {
+  if (!el || !el.closest) return null;
+  if (el.id) return "#" + CSS.escape(el.id);
+  const row = el.closest("[data-id], [data-key]");
+  if (!row) return null;
+  const tag = (e) => e.tagName.toLowerCase() + (e.classList[0] ? "." + CSS.escape(e.classList[0]) : "");
+  const attr = row.hasAttribute("data-id") ? "data-id" : "data-key";
+  let sel = tag(row) + ":not(.ghost)[" + attr + '="' + CSS.escape(row.getAttribute(attr)) + '"]';
+  const same = row.parentElement ? [...row.parentElement.children].filter((r) => r.matches(sel)) : [];
+  if (same.length > 1) sel = ":nth-child(" + (same.indexOf(row) + 1) + " of " + sel + ")";
+  if (el === row) return sel;
+  const act = ["data-act", "data-edit", "data-hist"].find((k) => el.hasAttribute(k));
+  return sel + " " + (act ? "[" + act + '="' + CSS.escape(el.getAttribute(act)) + '"]' : tag(el));
+}
+/** The key of the control that has the focus, taken before a render replaces it; null when nothing has it. */
+function focusKey(doc) { return focusSelector(doc.activeElement); }
+/** The focus back on the control the key names, without scrolling, when it exists. */
+function restoreFocus(doc, key) { const c = key && doc.querySelector(key); if (c) c.focus({ preventScroll: true }); }
 
 /* ---------- R17: modals and drawers as dialogs (browser only; every page calls it once at boot) ---------- */
 /** Role, aria-modal and a label on every `.modal-back .modal` and `aside.drawer`; focus moves in when one opens, Tab stays
@@ -973,17 +1010,18 @@ function wireDialogs(doc) {
     if (isModal(b)) d.setAttribute("aria-modal", "true");
     if (h) { if (!h.id) h.id = (b.id || "dialog" + i) + "Title"; d.setAttribute("aria-labelledby", h.id); }
   });
-  const openers = new Map();
+  const openers = new Map();   // the opener and its focus key, taken while it is still in the page
   new MutationObserver((list) => list.forEach((m) => {
     const b = m.target;
     if (!b.matches || !b.matches(SEL)) return;
     if (isOpen(b) && !openers.has(b)) {
-      openers.set(b, doc.activeElement);
+      openers.set(b, { el: doc.activeElement, key: focusKey(doc) });
       setTimeout(() => { if (isOpen(b) && !box(b).contains(doc.activeElement)) { const f = focusables(b)[0]; if (f) f.focus(); } }, 30);
     } else if (!isOpen(b) && openers.has(b)) {
-      let o = openers.get(b); openers.delete(b);
-      if (o && !o.isConnected && o.dataset && o.dataset.id) o = doc.querySelector("[data-id=\"" + CSS.escape(o.dataset.id) + "\"]." + o.classList[0] + ":not(.ghost)");   // a re-render replaced it; never its ghost
-      if (o && o.isConnected && typeof o.focus === "function" && !topModal()) o.focus();
+      const { el, key } = openers.get(b); openers.delete(b);
+      const o = el && el.isConnected ? el : key && doc.querySelector(key);   // a re-render replaced it: the same control in its row, never a ghost
+      const top = topModal();   // a modal still open (Avbryt on «Slett feature …» over the editor) takes it back only when the opener is inside it
+      if (o && typeof o.focus === "function" && (!top || top.contains(o))) o.focus();
     }
   })).observe(doc.body, { subtree: true, attributes: true, attributeFilter: ["class", "hidden"] });
   doc.addEventListener("keydown", (e) => {
@@ -1016,5 +1054,6 @@ if (typeof module !== "undefined") {
     workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, releaseForecastText, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
     progressFraction, progressSignal, epicProgressSignal, progressText,
     MIX, MIX_LABEL, capacityFactor, elapsedWeeks, queueFloor, resolveQueue,
+    focusKey, restoreFocus,
   };
 }

@@ -20,6 +20,7 @@
     --disc-edge:rgba(71,85,105,.45);
     --goal:#0d123e;          /* ocean-1 */
     --today:#0d123e;         /* R17: ink: today is never the red of «late» */
+    --past-wash:rgba(13,18,62,.045);   /* R17: the tone over the past */
     --release:#7c3aed; --release-bg:rgba(124,58,237,.10); --release-fill:rgba(124,58,237,.32);   /* R10: the release band */
     --pace-gronn:rgba(22,163,74,.38); --pace-gul:rgba(217,119,6,.42); --pace-rod:rgba(220,38,38,.38);   /* R11: the tempo colour on the segment's fill */
     --dep:#94a3b8;           /* slate-400 */
@@ -34,11 +35,10 @@
       --ok:#4ade80; --warn-dot:#fbbf24; --bad:#f87171; --neutral:#4e94c4;
       --late:#71c4df;
       --disc-a:rgba(148,163,184,.38); --disc-b:rgba(148,163,184,.08); --disc-edge:rgba(148,163,184,.5);
-      --goal:#71c4df; --today:#ffffff; --dep:#4e94c4; --release:#a78bfa; --release-bg:rgba(167,139,250,.14); --release-fill:rgba(167,139,250,.34);
+      --goal:#71c4df; --today:#ffffff; --past-wash:rgba(255,255,255,.045); --dep:#4e94c4; --release:#a78bfa; --release-bg:rgba(167,139,250,.14); --release-fill:rgba(167,139,250,.34);
       --pace-gronn:rgba(74,222,128,.42); --pace-gul:rgba(251,191,36,.42); --pace-rod:rgba(248,113,113,.42);
       --tip-bg:#294285;
     }
-    .chart .today::before{background:rgba(255,255,255,.045)}
   }
   /* ---------- topplinje (som tavlens header) ---------- */
   /* R14: the ADO and Mer menus */
@@ -247,7 +247,7 @@
   .rel-row.done .st{color:var(--ok-fg)}
   .rel-note{font-size:13px;color:var(--text);margin:8px 0 2px;white-space:pre-wrap}
   .rel-scope{font-size:12px;color:var(--text-3);margin:6px 0 4px}
-  .rel-scope code{font-size:12px;background:var(--raised);padding:1px 5px;border-radius:3px}
+  .rel-scope code{font-size:12px;background:var(--raised);padding:1px 5px;border-radius:3px;color:var(--text-2)}   /* R17: AA on --raised (--text-3 gave 4.34:1) */
   /* R11: the drawer's progress block: the tempo line, the items by state, sprint against release, the burndown */
   .rel-pace{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-2);margin:8px 0 2px;line-height:1.4}
   .rel-pace .chip{margin-top:1px}
@@ -279,7 +279,7 @@
   .grid .v.jan{width:2px;background:var(--text-4);opacity:.6}
   /* R17: one meaning per colour: today is ink over a washed past and its label sits in the axis, never the red of «late» */
   .chart .today{position:absolute;top:var(--axis-h);bottom:0;width:2px;background:var(--today);opacity:.85;z-index:6;pointer-events:none}
-  .chart .today::before{content:"";position:absolute;top:0;bottom:0;right:2px;width:4000px;background:rgba(13,18,62,.045);pointer-events:none}
+  .chart .today::before{content:"";position:absolute;top:0;bottom:0;right:2px;width:4000px;background:var(--past-wash);pointer-events:none}
   .chart .today .tl{position:absolute;top:-18px;left:-1px;background:var(--today);color:var(--surface);font-size:12px;font-weight:600;padding:1px 7px;border-radius:3px 3px 3px 0;white-space:nowrap;letter-spacing:.02em}
   .lane-band{height:var(--lane-h);border-bottom:1px solid var(--line-soft);background:var(--raised);position:relative}
   .lane-band .goal-lbl{
@@ -448,7 +448,7 @@
   .shelf{margin-top:14px;border:1px dashed var(--line);border-radius:6px;background:var(--surface)}
   .shelf[hidden]{display:none}
   .shelf-head{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer}
-  .shelf-head h3{font-size:14px;font-weight:600;flex:1;color:var(--text)}
+  .shelf-head h2{font-size:14px;font-weight:600;flex:1;color:var(--text)}
   .shelf-head .cnt{font-size:12px;color:var(--text-3)}
   .shelf-body{display:grid;gap:4px;padding:0 10px 10px}
   .shelf.closed .shelf-body{display:none}
@@ -616,7 +616,7 @@
   </div>
 
   <section class="shelf" id="shelf" hidden>
-    <div class="shelf-head" id="shelfToggle"><h3>Klar for veikart <span class="cnt" id="shelfCount"></span></h3><button id="registerBtn" title="Registrer et ønske produktforum har sagt ja til">＋ Registrer ønske</button></div>
+    <div class="shelf-head" id="shelfToggle"><h2>Klar for veikart <span class="cnt" id="shelfCount"></span></h2><button id="registerBtn" title="Registrer et ønske produktforum har sagt ja til">＋ Registrer ønske</button></div>
     <div class="shelf-body" id="shelfList"></div>
     <div class="shelf-tip" id="shelfTip" hidden>Dra inn i en epic. Prisen vises først.</div>
   </section>
@@ -1193,6 +1193,7 @@ window.__bootTimeline = function(){
     return g;
   }
   function render(){
+    const keep = focusKey(document);   // R17: a save, a poll and a compare refresh redraw the list, the chart and the shelf: the control that had the focus gets it back
     showEmpty();
     exampleBadge.hidden = !state.example;
     viewWindow();
@@ -1203,7 +1204,7 @@ window.__bootTimeline = function(){
     updateTlSummary();
     renderAdoBar();
     renderForumNote();
-    if(!state.lanes.length){ renderShelf(); return; }
+    if(!state.lanes.length){ renderShelf(); restoreFocus(document, keep); return; }
 
     const corner = el('div', 'corner');
     corner.innerHTML = viewMode === 'epic' ? 'Epic / feature'
@@ -1492,6 +1493,7 @@ window.__bootTimeline = function(){
     if(!scrolledToToday){ scrolledToToday = true; chartScroll.scrollLeft = Math.max(0, x(todayUnit()) - MONTH_W); }   // åpner med i dag i fokus
     else chartScroll.scrollLeft = sx;
     renderShelf();
+    restoreFocus(document, keep);
   }
 
   const DELIVERY_PILL = { gronn: 'Grønn', gul: 'Gul', rod: 'Rød', ingen: 'Uten dato' };
@@ -1548,8 +1550,8 @@ window.__bootTimeline = function(){
         const st = g.status, d = g.delivery;
         const pill = DELIVERY_PILL[st.code] + (st.deviation ? ' · ' + st.deviation : st.code === 'gronn' && !st.computed ? ' · alt levert' : '');
         const pulls = st.by ? (st.pending ? 'minst ' + fmtDate(unitToDate(dayToUnit(st.computed))) + ' · venter på utredning · ' : '') + 'dratt av ' + (st.by.kind === 'epic' ? '«' + st.by.name + '»' : 'release ' + st.by.name) : st.text;
-        lm.innerHTML = '<span class="goal">' + esc(deliveryCustomersText(d) + ' · lovet ' + fmtDate(unitToDate(g.segment.promised))) + '</span>' +
-          '<span class="chip st-' + esc(st.code) + '">' + esc(pill) + '</span><span class="goal">' + esc(pulls) + '</span>';
+        lm.innerHTML = '<span class="chip st-' + esc(st.code) + '">' + esc(pill) + '</span><span class="goal">' + esc(pulls) + '</span>' +   // R17: what pulls the date first, in sight at the default width
+          '<span class="goal">' + esc(deliveryCustomersText(d) + ' · lovet ' + fmtDate(unitToDate(g.segment.promised))) + '</span>';
         lm.title = deliveryCustomersText(d) + ' · lovet ' + fmtDate(unitToDate(g.segment.promised)) + ' · ' + pill + ' · ' + pulls;   // the whole line when the column is narrow
         ln.type = 'button'; ln.title = 'Åpne leveransen på fanen Kunder';
         if(HOSTED) ln.addEventListener('click', () => { location.href = '/kunder#' + encodeURIComponent(d.key); });
