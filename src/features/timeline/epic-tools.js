@@ -1018,10 +1018,11 @@ function wireDialogs(doc) {
       openers.set(b, { el: doc.activeElement, key: focusKey(doc) });
       setTimeout(() => { if (isOpen(b) && !box(b).contains(doc.activeElement)) { const f = focusables(b)[0]; if (f) f.focus(); } }, 30);
     } else if (!isOpen(b) && openers.has(b)) {
-      const { el, key } = openers.get(b); openers.delete(b);
-      const o = el && el.isConnected ? el : key && doc.querySelector(key);   // a re-render replaced it: the same control in its row, never a ghost
-      const top = topModal();   // a modal still open (Avbryt on «Slett feature …» over the editor) takes it back only when the opener is inside it
-      if (o && typeof o.focus === "function" && (!top || top.contains(o))) o.focus();
+      const rec = openers.get(b); openers.delete(b);
+      const o = rec.el && rec.el.isConnected ? rec.el : rec.key && doc.querySelector(rec.key);   // a re-render replaced it: the same control in its row, never a ghost
+      const top = topModal(), above = top && openers.get(top);
+      if (above && above.el && b.contains(above.el)) openers.set(top, rec);   // the modal on top was opened from inside this one (the reason over the editor's Lagre): it gives the focus back here when it closes
+      else if (o && typeof o.focus === "function" && (!top || top.contains(o))) o.focus();   // a modal still open (Avbryt on «Slett feature …» over the editor) takes it back only when the opener is inside it
     }
   })).observe(doc.body, { subtree: true, attributes: true, attributeFilter: ["class", "hidden"] });
   doc.addEventListener("keydown", (e) => {
