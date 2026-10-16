@@ -21,19 +21,28 @@
   .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
   table.lines,table.epics{border-collapse:collapse;width:100%;min-width:760px;font-size:13px}
   .lines th,.lines td,.epics th,.epics td{padding:8px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line-soft)}
-  .lines thead th,.epics thead th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);font-weight:500;background:var(--raised);white-space:nowrap}
+  .lines thead th,.epics thead th{font-size:12px;letter-spacing:0;text-transform:none;color:var(--text-2);font-weight:600;background:var(--raised);white-space:nowrap}   /* R17: sentence case */
   .lines td.nm,.epics td.nm{font-weight:600;color:var(--text)}
+  .lines td.nm{min-width:120px;white-space:nowrap}   /* R17: «Alle kunder» stays on one line */
   .lines td.dt,.epics td.dt{white-space:nowrap;font-variant-numeric:tabular-nums}
   .lines td.hang{color:var(--text-2)}
   .lines td.acts{white-space:nowrap}
   .lines tbody tr:last-child td,.epics tbody tr:last-child td{border-bottom:0}
   .lines tr.hl td{background:var(--accent-soft)}
+  .hist-link{font-size:12px;color:var(--accent-text)}
+  table.lines.writable tbody tr{cursor:pointer}   /* R17: a click on the row edits (writers; the name is the keyboard target) */
+  table.lines.writable tbody tr:hover td{background:var(--raised)}
+  table.lines.writable tbody tr:hover .why,table.lines.writable tbody tr:hover .hist-link{color:var(--text-2)}   /* text on --raised uses --text-2 (4.5:1) */
   .why{display:block;font-size:12px;color:var(--text-3);margin-top:2px;font-weight:400}
   .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;border-radius:999px;padding:1px 8px;background:var(--badge-bg);color:var(--badge-fg);white-space:nowrap}
   .pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
-  .pill.st-gronn,.pill.w-lett{background:var(--ok-bg);color:var(--ok-fg)}
-  .pill.st-gul,.pill.w-flere{background:var(--warn-bg);color:var(--warn-fg)}
-  .pill.st-rod,.pill.w-tyngst{background:var(--bad-bg);color:var(--bad-fg)}
+  .pill.st-gronn{background:var(--ok-bg);color:var(--ok-fg)}
+  .pill.st-gul{background:var(--warn-bg);color:var(--warn-fg)}
+  .pill.st-rod{background:var(--bad-bg);color:var(--bad-fg)}
+  .pill.w-lett,.pill.w-flere,.pill.w-tyngst,.pill.w-ingen{background:var(--badge-bg);color:var(--text)}   /* R17: weight is an amount, a neutral meter; the colours are the plan's health (spec §6) */
+  .pill.w-lett::before,.pill.w-flere::before,.pill.w-tyngst::before{height:6px;border-radius:3px;background:var(--accent)}
+  .pill.w-lett::before{width:8px} .pill.w-flere::before{width:16px} .pill.w-tyngst::before{width:26px}
+  .pill.w-ingen::before{width:0}
   .checks{display:grid;gap:4px;max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:4px;padding:8px 10px;background:var(--input-bg)}
   .checks label{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--text)}
   .checks small{color:var(--text-4)}
@@ -71,12 +80,12 @@
       <label class="ed-field"><span>Lovet dato</span><input id="dlPromised" type="date"></label>
       <label class="ed-field"><span>Eier</span><input id="dlOwner" type="text" placeholder="COO"></label>
     </div>
+    <div class="reason" id="dlReasonRow" hidden><span>Hvorfor flyttes lovet dato?</span><select id="dlReasonCode"></select><input id="dlReasonText" type="text" placeholder="Kort, slik ledelsen skal lese det"></div>
     <label class="ed-check"><input type="checkbox" id="dlAll"> Alle kunder</label>
     <label class="ed-field" id="dlCustomersField"><span>Kunder (én per linje)</span><textarea id="dlCustomers" placeholder="Telenor&#10;NSR"></textarea></label>
     <div class="ed-field"><span>Henger på epics</span><div class="checks" id="dlEpics"></div></div>
     <div class="ed-field"><span>Henger på releaser</span><div class="checks" id="dlReleases"></div></div>
     <label class="ed-field"><span>Notat</span><textarea id="dlNote" placeholder="Hva kunden er lovet"></textarea></label>
-    <div class="reason" id="dlReasonRow" hidden><span>Hvorfor flyttes lovet dato?</span><select id="dlReasonCode"></select><input id="dlReasonText" type="text" placeholder="Kort, slik ledelsen skal lese det"></div>
   </div></div>
   <div class="modal-foot"><span class="btns"><button class="danger-ghost" id="dlDelete" hidden>Slett leveranse …</button></span><span class="btns"><button class="text" id="dlCancel">Avbryt</button><button class="primary" id="dlSave">Lagre</button></span></div>
 </div></div>
@@ -110,6 +119,10 @@ window.__bootKunder = function(){
   const getDelivery = key => (state.deliveries || []).find(d => d.key === key);
   const hlKey = () => { try{ return decodeURIComponent((location.hash || '').slice(1)); }catch(e){ return ''; } };
   const pillText = s => s.code === 'ingen' ? 'Ingen dato' : cap(DELIVERY_WORD[s.code]) + (s.deltaDays ? ' · ' + s.deviation.replace(/ lovet$/, '') : '');   // «Rød · 1,5 uker etter»; the sentence under it says the rest
+  function pullsText(st){   // R17: the date and the deviation are in their own columns
+    if(!st.by) return st.text;
+    return (st.pending ? 'venter på utredning · ' : '') + 'dratt av ' + (st.by.kind === 'epic' ? '«' + st.by.name + '»' : 'release ' + st.by.name);
+  }
 
   /* ---------- the two views ---------- */
   function render(){
@@ -118,8 +131,10 @@ window.__bootKunder = function(){
     if(!ds.length){ list.innerHTML = '<div class="empty">Ingen leveranser ennå.' + (canWrite ? ' Opprett den første med «＋ Leveranse»: navn, kunder, lovet dato og det den henger på.' : '') + '</div>'; return; }
     if(view === 'epic'){ renderPerEpic(); return; }
     const rows = deliveryLines(state, today()), hl = hlKey();
-    list.innerHTML = '<div class="tblwrap"><table class="lines"><thead><tr><th>Kunde</th><th>Leveranse</th><th>Henger på</th><th>Lovet</th><th>Utregnet</th><th>Status</th><th></th></tr></thead><tbody>' +
-      rows.map(r => '<tr data-key="' + esc(r.key) + '"' + (r.key === hl ? ' class="hl"' : '') + '><td class="nm">' + esc(r.customer) + '</td><td>' + esc(r.delivery.name) + '<span class="why">eier ' + esc(deliveryOwner(r.delivery)) + (r.delivery.note ? ' · ' + esc(r.delivery.note) : '') + '</span></td><td class="hang">' + esc(r.hangsOn) + '</td><td class="dt">' + esc(dayText(r.promisedDate)) + '</td><td class="dt">' + (r.status.computed ? (r.status.pending ? 'minst ' : '') + esc(dayText(r.status.computed)) : '–') + '</td><td><span class="pill st-' + r.status.code + '">' + esc(pillText(r.status)) + '</span><span class="why">' + esc(r.status.text) + '</span></td>' + '<td class="acts">' + (canWrite ? '<button data-edit="' + esc(r.key) + '">Rediger…</button> ' : '') + '<a class="btn" data-hist="' + esc(r.key) + '" href="/timeline#historikk=' + encodeURIComponent(r.key) + '" title="Hva som har skjedd med leveransen, i Tidslinjens historikk">Historikk</a></td></tr>').join('') +
+    const RANK = { rod: 0, gul: 1, gronn: 2, ingen: 3 };   // R17: what needs attention first
+    rows.sort((a, b) => RANK[a.status.code] - RANK[b.status.code] || (a.promisedDate < b.promisedDate ? -1 : a.promisedDate > b.promisedDate ? 1 : 0) || a.customer.localeCompare(b.customer, 'nb'));
+    list.innerHTML = '<div class="tblwrap"><table class="lines' + (canWrite ? ' writable' : '') + '"><thead><tr><th>Kunde</th><th>Leveranse</th><th>Henger på</th><th>Lovet</th><th>Utregnet</th><th>Status</th><th></th></tr></thead><tbody>' +
+      rows.map(r => '<tr data-key="' + esc(r.key) + '"' + (r.key === hl ? ' class="hl"' : '') + '><td class="nm">' + (canWrite ? '<button type="button" class="as-text" data-edit="' + esc(r.key) + '">' + esc(r.customer) + '</button>' : esc(r.customer)) + '</td><td>' + esc(r.delivery.name) + '<span class="why">eier ' + esc(deliveryOwner(r.delivery)) + (r.delivery.note ? ' · ' + esc(r.delivery.note) : '') + '</span></td><td class="hang">' + esc(r.hangsOn) + '</td><td class="dt">' + esc(dayText(r.promisedDate)) + '</td><td class="dt">' + (r.status.computed ? (r.status.pending ? 'minst ' : '') + esc(dayText(r.status.computed)) : '–') + '</td><td><span class="pill st-' + r.status.code + '">' + esc(pillText(r.status)) + '</span><span class="why">' + esc(pullsText(r.status)) + '</span></td>' + '<td class="acts"><a class="hist-link" data-hist="' + esc(r.key) + '" href="/timeline#historikk=' + encodeURIComponent(r.key) + '" title="Hva som har skjedd med leveransen, i Tidslinjens historikk">Historikk</a></td></tr>').join('') +
       '</tbody></table></div>';
   }
   function renderPerEpic(){
@@ -130,7 +145,11 @@ window.__bootKunder = function(){
       '</tbody></table></div>';
   }
   $('views').addEventListener('click', e => { const b = e.target.closest('button[data-v]'); if(!b) return; view = b.dataset.v; [...$('views').querySelectorAll('button')].forEach(x => x.classList.toggle('on', x === b)); render(); });
-  $('list').addEventListener('click', e => { const b = e.target.closest('button[data-edit]'); if(b) openEditor(b.dataset.edit); });
+  $('list').addEventListener('click', e => {   // R17: a click on the row edits (writers); «Historikk» stays a link
+    if(e.target.closest('a')) return;
+    const tr = e.target.closest('table.lines tbody tr[data-key]');
+    if(canWrite && tr) openEditor(tr.dataset.key);
+  });
   window.addEventListener('hashchange', render);
 
   /* ---------- the editor ---------- */
