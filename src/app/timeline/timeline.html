@@ -2918,7 +2918,7 @@ window.__bootTimeline = function(){
     const closed = d.qaDay ? new Map(d.closedActual.map(p => [p.day, p.remaining])) : null;   // R18: what is not closed yet, beside what is not developed
     const head = (closed ? '<th>Ikke lukket</th>' : '') + (ch.size ? '<th>Sjanse</th><th>Forventet</th>' : '');
     const cells = day => { if(!ch.size) return ''; const c = ch.get(day); return c ? '<td>' + Math.round(c.p * 100) + ' %</td><td>' + c.mean + ' ' + d.unit + '</td>' : '<td></td><td></td>'; };
-    return '<details class="rel-table"><summary>Tall per dag</summary><table><tr><th>Dag</th><th>Igjen</th>' + head + '</tr>' + d.actual.map(p => '<tr><td>' + esc(relDay(p.day)) + '</td><td>' + p.remaining + ' ' + d.unit + '</td>' + (closed ? '<td>' + closed.get(p.day) + ' ' + d.unit + '</td>' : '') + cells(p.day) + '</tr>').join('') + '</table></details>';
+    return '<details class="rel-table"><summary>Tall per dag</summary><table><tr><th>Dag</th><th>' + (closed ? 'Ikke utviklet' : 'Igjen') + '</th>' + head + '</tr>' + d.actual.map(p => '<tr><td>' + esc(relDay(p.day)) + '</td><td>' + p.remaining + ' ' + d.unit + '</td>' + (closed ? '<td>' + closed.get(p.day) + ' ' + d.unit + '</td>' : '') + cells(p.day) + '</tr>').join('') + '</table></details>';   // R18: beside «Ikke lukket», the first column says what it counts (D7: «Igjen» with one date)
   }
   const dec = n => String(n).replace('.', ',');
   function forecastBlock(r, todayDay){   // R12: the chance in words, each person's days, pace and expected points, and what it rests on
