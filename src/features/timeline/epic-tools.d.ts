@@ -149,5 +149,12 @@ export declare function deliverySegments(plan: Plan, todayDay: string): { delive
 export type DeliveryInvestor = { key: string; name: string; customers: string; owner: string; promised: string; computed: string | null; weeks: number | null; colour: string; code: DeliveryCode; by: string | null; pending: boolean; epicsDone: number; epicsTotal: number; bugsLeft: number; text: string };
 export declare function deliveryInvestor(plan: Plan, d: Delivery, todayDay: string): DeliveryInvestor;
 
+/* R17: «Per leveranse» */
+export type DeliveryEpicPart = { kind: "epic"; key: string; lane: PlanLane; code: string; window: string; shared: string[]; start: number | null; likelyEnd: number | null; end: number | null; pending: boolean };
+export type DeliveryReleasePart = { kind: "release"; key: string; release: Release; start: number | null; end: number | null; shipped: boolean };
+export type DeliveryPart = DeliveryEpicPart | DeliveryReleasePart;
+export type DeliveryGroup = { delivery: Delivery; status: DeliveryStatus; segment: { start: number; end: number; promised: number }; parts: DeliveryPart[] };
+export declare function deliveryRows(plan: Plan, todayDay: string): { groups: DeliveryGroup[]; loose: DeliveryEpicPart[] };
+
 /* R17: modals and drawers as dialogs (browser only) */
 export declare function wireDialogs(doc: Document): void;

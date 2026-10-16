@@ -12,7 +12,7 @@ import {
   BACKLOG, canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
   navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
   osloDay, osloDate,
-  DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor,
+  DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor, deliveryRows,
 } from "./epic-tools.js";
 import type { Delivery, Plan, PlanTask } from "./merge";
 
@@ -1110,5 +1110,68 @@ describe("minors after R16: the Oslo day and the numeric sprint order", () => {
       { id: 3, type: "Bug", title: "c", state: "New", points: 1, assignee: null, iteration: "Sprint 9" },
     ] } } as unknown as Parameters<typeof releaseSprintText>[0];
     expect(releaseSprintText(r)).toBe("3 items i 2.1: 2 i Sprint 9, 1 i Sprint 10");
+  });
+});
+
+describe("R17: «Per leveranse», the deliveries with what they hang on", () => {
+  const D = (y: number, m: number, d: number) => dateToUnit(new Date(y, m - 1, d));
+  const TODAY = "2026-10-16";
+  const del = (over: Record<string, unknown>): Delivery => ({ key: "d1", name: "Skytale 2.0", customers: [], allCustomers: true, promisedDate: "2026-11-30", epics: [], releases: [], ...over }) as unknown as Delivery;
+  const f = (id: string, lane: string, start: number, likely: number, end: number, over: Partial<PlanTask> = {}): PlanTask =>
+    ({ id, lane, label: id.toUpperCase(), kind: "estimate", start, endLikely: likely, end, deps: [], fv: {}, state: "aktiv", ...over }) as PlanTask;
+  const base = (deliveries: Delivery[]) => normalizePlan({
+    lanes: [
+      { key: "a", name: "Epic A", priority: 1, goalDate: D(2026, 12, 18) }, { key: "b", name: "Epic B", priority: 2 },
+      { key: "c", name: "Epic C", priority: 3, state: "avsluttet", outcome: "nådd" }, { key: "p", name: "Epic P", priority: 4, state: "forslag" },
+      { key: "e", name: "Epic E", priority: 5 },
+    ],
+    tasks: [
+      f("a1", "a", D(2026, 11, 2), D(2026, 11, 30), D(2026, 12, 11)),
+      f("a2", "a", D(2026, 10, 12), D(2026, 10, 26), D(2026, 11, 2), { state: "levert", deliveredAt: "2026-11-02" }),
+      { id: "b1", lane: "b", label: "B1", kind: "discovery", start: D(2026, 10, 19), end: D(2026, 11, 13), deps: [], fv: {}, state: "utredes" } as PlanTask,
+      f("c1", "c", D(2026, 9, 1), D(2026, 9, 20), D(2026, 9, 30), { state: "levert", deliveredAt: "2026-09-30" }),
+      f("p1", "p", D(2027, 1, 4), D(2027, 2, 1), D(2027, 2, 15)),
+    ],
+    releases: [{ key: "r1", version: "2.0.1", targetDate: "2026-10-22" }, { key: "r0", version: "2.0.0", targetDate: "2026-10-07", shippedDate: "2026-10-07" }],
+    deliveries,
+  });
+
+  it("one group per delivery in the plan's order; its parts by end, so the last one is what pulls the date", () => {
+    const p = base([del({ key: "d1", epics: ["a", "b"], releases: ["r1"] }), del({ key: "d0", name: "Proxy", allCustomers: false, customers: ["Telenor"], promisedDate: "2026-11-15", epics: ["b"] })]);
+    const { groups } = deliveryRows(p, TODAY);
+    expect(groups.map((g) => g.delivery.key)).toEqual(["d0", "d1"]);
+    expect(groups[1].parts.map((x) => x.key)).toEqual(["r1", "b", "a"]);
+    expect(groups[1].status.by).toEqual({ kind: "epic", key: "a", name: "Epic A" });
+    expect(groups[1].segment.promised).toBeCloseTo(dayToUnit("2026-11-30"), 9);
+  });
+  it("an epic part spans its open features, darker to the latest likely end, striped while a discovery runs", () => {
+    const g = deliveryRows(base([del({ epics: ["a", "b"] })]), TODAY).groups[0];
+    const a = g.parts.find((x) => x.key === "a")!, b = g.parts.find((x) => x.key === "b")!;
+    expect(a).toMatchObject({ kind: "epic", code: "gronn", start: D(2026, 11, 2), likelyEnd: D(2026, 11, 30), end: D(2026, 12, 11), pending: false });
+    expect(a.kind === "epic" && a.window).toMatch(/^Leveres uke /);
+    expect(b).toMatchObject({ kind: "epic", code: "venter", start: D(2026, 10, 19), end: D(2026, 11, 13), pending: true });
+  });
+  it("shared: an epic two deliveries hang on shows under both, each naming the other", () => {
+    const [g1, g2] = deliveryRows(base([del({ key: "d1", epics: ["b"] }), del({ key: "d2", name: "Proxy", promisedDate: "2026-12-15", epics: ["b"] })]), TODAY).groups;
+    expect(g1.parts[0].kind === "epic" && g1.parts[0].shared).toEqual(["Proxy"]);
+    expect(g2.parts[0].kind === "epic" && g2.parts[0].shared).toEqual(["Skytale 2.0"]);
+  });
+  it("a closed epic spans its delivered features; a release part is its segment, a shipped one marked", () => {
+    const parts = deliveryRows(base([del({ epics: ["c"], releases: ["r0", "r1"] })]), TODAY).groups[0].parts;
+    expect(parts.map((x) => x.key)).toEqual(["c", "r0", "r1"]);
+    expect(parts[0]).toMatchObject({ start: D(2026, 9, 1), end: D(2026, 9, 30) });
+    expect(parts[1]).toMatchObject({ kind: "release", shipped: true, end: dayToUnit("2026-10-07") });
+    expect(parts[2]).toMatchObject({ kind: "release", shipped: false, end: dayToUnit("2026-10-22") });
+  });
+  it("a deleted key: the group stays, with no parts and «henger ikke på noe ennå»", () => {
+    const [g] = deliveryRows(base([del({ epics: ["gone"], releases: ["gone-too"] })]), TODAY).groups;
+    expect(g.parts).toEqual([]);
+    expect(g.status).toMatchObject({ code: "ingen", text: "henger ikke på noe ennå" });
+  });
+  it("loose: the open epics no delivery hangs on, in the plan's order; one without features has no span", () => {
+    const { loose } = deliveryRows(base([del({ epics: ["a"] })]), TODAY);
+    expect(loose.map((x) => x.key)).toEqual(["b", "p", "e"]);
+    expect(loose[2]).toMatchObject({ start: null, end: null, likelyEnd: null, pending: false, shared: [] });
+    expect(deliveryRows(normalizePlan({ lanes: [], tasks: [] }), TODAY)).toEqual({ groups: [], loose: [] });
   });
 });

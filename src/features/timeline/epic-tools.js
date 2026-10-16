@@ -922,6 +922,40 @@ function deliveryInvestor(plan, d, todayDay) {
     by: s.by ? partName(s.by) : null, pending: s.pending, epicsDone: parts.epics.filter((l) => l.state === "avsluttet").length, epicsTotal: parts.epics.length, bugsLeft: deliveryBugsLeft(plan, d), text: s.text };
 }
 
+/* ---------- R17: «Per leveranse»: COO's business cases with what they hang on ---------- */
+/** One epic as a part: the span of its open features (all of them when none is open), darker to the latest likely end. */
+function deliveryEpicPart(plan, lane, deliveryKey) {
+  const all = plan.tasks.filter((t) => t.lane === lane.key), open = all.filter((t) => t.state !== "levert"), use = open.length ? open : all;
+  const shared = (plan.deliveries || []).filter((d) => d.key !== deliveryKey && (d.epics || []).includes(lane.key)).map((d) => d.name);
+  const part = { kind: "epic", key: lane.key, lane, code: epicStatus(plan, lane.key).code, window: epicWindowText(plan, lane.key), shared };
+  if (!use.length) return Object.assign(part, { start: null, likelyEnd: null, end: null, pending: false });
+  return Object.assign(part, {
+    start: Math.min(...use.map((t) => t.start)),
+    likelyEnd: Math.max(...use.map((t) => (t.kind === "estimate" ? t.endLikely : t.end))),
+    end: Math.max(...use.map((t) => t.end)),
+    pending: open.some((t) => t.kind === "discovery"),
+  });
+}
+/** Each delivery (the plan's order) with its parts ordered by end — the last one pulls the date — and the open epics no
+ *  delivery hangs on («Ingen leveranse»). Keys of since-deleted epics or releases are ignored. Units are the time unit. */
+function deliveryRows(plan, todayDay) {
+  const segs = releaseSegments(plan, dayToUnit(todayDay));
+  const nameOf = (p) => (p.kind === "epic" ? p.lane.name : p.release.version);
+  const byEnd = (a, b) => (a.end === null ? 0 : 1) - (b.end === null ? 0 : 1) || (a.end || 0) - (b.end || 0) || nameOf(a).localeCompare(nameOf(b), "nb");
+  const groups = deliverySegments(plan, todayDay).map((sg) => {
+    const d = sg.delivery, parts = deliveryParts(plan, d);
+    const list = parts.epics.map((l) => deliveryEpicPart(plan, l, d.key)).concat(parts.releases.map((r) => {
+      const s = segs.find((x) => x.release.key === r.key);
+      return { kind: "release", key: r.key, release: r, start: s ? s.start : null, end: s ? s.end : null, shipped: !!r.shippedDate };
+    }));
+    return { delivery: d, status: sg.status, segment: { start: sg.start, end: sg.end, promised: sg.promised }, parts: list.sort(byEnd) };
+  });
+  const used = new Set();
+  (plan.deliveries || []).forEach((d) => (d.epics || []).forEach((k) => used.add(k)));
+  const loose = (plan.lanes || []).filter((l) => !used.has(l.key) && l.state !== "avsluttet").map((l) => deliveryEpicPart(plan, l, null));
+  return { groups, loose };
+}
+
 /* ---------- R17: modals and drawers as dialogs (browser only; every page calls it once at boot) ---------- */
 /** Role, aria-modal and a label on every `.modal-back .modal` and `aside.drawer`; focus moves in when one opens, Tab stays
  *  inside a modal, focus returns to what opened it when it closes. A modal opens with the class «open», a drawer by losing «hidden». */
@@ -977,7 +1011,7 @@ if (typeof module !== "undefined") {
     shelfTasks, epicCounts, sizeClass, sizeClassDerived, sizeClassText, bufferLabel, rawLabel, previewPlacement,
     canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
     dayKey, osloDay, osloDate, currentSprint, sprintDay, sprintLabel, navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
-    DELIVERY_OWNER, DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor, wireDialogs,
+    DELIVERY_OWNER, DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor, deliveryRows, wireDialogs,
     dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
     workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, releaseForecastText, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
     progressFraction, progressSignal, epicProgressSignal, progressText,

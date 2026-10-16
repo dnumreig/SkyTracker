@@ -150,11 +150,30 @@
   .chip.st-rod{background:var(--bad-bg);color:var(--bad-fg)}
   .chip.sig{outline:1px dashed currentColor;outline-offset:-1px}
   .chip.pinned{background:var(--text);color:var(--surface)}
-  #personBtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  #personBtn.on,#deliveryViewBtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
   /* R15: the forum view: the development lead's tools go, the compare bar goes on top (a class on body, never the hidden attribute: the role rules stay) */
   #forumBtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
-  body.forum #adoMenu,body.forum #adoStatus,body.forum #personBtn,body.forum #exportBtn,body.forum #importBtn,body.forum #mixField{display:none}
+  body.forum #adoMenu,body.forum #adoStatus,body.forum #personBtn,body.forum #deliveryViewBtn,body.forum #exportBtn,body.forum #importBtn,body.forum #mixField{display:none}
   .lane-label.virtual .ln{cursor:default}
+  /* R17: «Per leveranse»: the group's segment in its band, the parts' bars */
+  .lane-label.delivery-group button.ln{cursor:pointer}
+  .labels .corner .back{display:inline;color:var(--accent-text);font-weight:600;text-decoration:underline;letter-spacing:0;text-transform:none}
+  .lane-band .group-seg{position:absolute;top:17px;height:18px;border-radius:4px;border:1px solid var(--neutral);background:var(--badge-bg);z-index:2}
+  .lane-band .group-seg.st-gronn{border-color:var(--ok);background:var(--ok-bg)}
+  .lane-band .group-seg.st-gul{border-color:var(--warn-dot);background:var(--warn-bg)}
+  .lane-band .group-seg.st-rod{border-color:var(--bad);background:var(--bad-bg)}
+  .lane-band .promise{position:absolute;top:12px;width:2px;height:28px;margin-left:-1px;background:var(--text);opacity:.8;z-index:3}
+  .row.part .part-epic{position:absolute;top:12px;height:22px;border-radius:4px;overflow:hidden;z-index:2;background:var(--badge-bg)}
+  .row.part .part-epic .likely{position:absolute;left:0;top:0;bottom:0;background:var(--neutral)}
+  .row.part .part-epic.st-gronn{background:var(--ok-bg)} .row.part .part-epic.st-gronn .likely{background:var(--ok)}
+  .row.part .part-epic.st-gul{background:var(--warn-bg)} .row.part .part-epic.st-gul .likely{background:var(--warn-dot)}
+  .row.part .part-epic.st-rod{background:var(--bad-bg)} .row.part .part-epic.st-rod .likely{background:var(--bad)}
+  .row.part .part-epic.pending{background:repeating-linear-gradient(45deg,var(--disc-a) 0 6px,var(--disc-b) 6px 12px);box-shadow:inset 0 0 0 1px var(--disc-edge)}
+  .row.part .part-epic.pending .likely{display:none}
+  .row.part .part-rel{position:absolute;top:13px;height:20px;border:1px solid var(--release);border-left-style:dashed;border-radius:3px 0 0 3px;background:var(--release-bg);overflow:hidden;z-index:2}
+  .row.part .part-rel .fill{position:absolute;left:0;top:0;bottom:0;background:var(--release-fill)}
+  .row.part .part-rel.pace-gronn .fill{background:var(--pace-gronn)} .row.part .part-rel.pace-gul .fill{background:var(--pace-gul)} .row.part .part-rel.pace-rod .fill{background:var(--pace-rod)}
+  .row.part .part-rel.shipped{border-style:solid;opacity:.7}
   .task-label .chip.queue{background:transparent;border:1px dashed var(--text-3);color:var(--text-2)}
   .inv-list{margin:0 0 14px;padding-left:18px;font-size:12px}.inv-list li{margin:3px 0}.inv-list ul{padding-left:16px;margin:2px 0}
   .inv-big{font-size:34px;font-weight:700;margin:4px 0;color:var(--text)}
@@ -507,7 +526,8 @@
     <details class="menu" id="moreMenu">
       <summary>Mer ▾</summary>
       <div class="menu-list">
-        <button id="personBtn" title="Én rad per eier: utredninger og features i rekkefølge. Lesevisning; rediger i epic-visningen.">Per person</button>
+        <button id="personBtn" aria-pressed="false" title="Én rad per eier: utredninger og features i rekkefølge. Lesevisning; rediger i epic-visningen.">Per person</button>
+        <button id="deliveryViewBtn" aria-pressed="false" title="Én gruppe per leveranse fra fanen Kunder, med epicene og releasene den henger på, i den rekkefølgen de blir ferdige. Lesevisning; leveransene redigeres på Kunder.">Per leveranse</button>
         <button id="baselineBtn" title="Lagre planen slik den er nå, som et punkt å sammenligne med">Merk baseline…</button>
         <button id="exportBtn">Eksporter (JSON)</button>
         <button id="importBtn" hidden title="Erstatt planen med en eksportert JSON-fil: det filen mangler fjernes, det filen endrer vinner. Alt logges.">Importer (JSON)</button>
@@ -584,7 +604,7 @@
       <div class="help-card"><h4>Prioritet</h4>
         <p>Rekkefølgen på epicene er prioriteten produktforum har satt; rekkefølgen i en epic er byggerekkefølgen. Dra i <b>⋮⋮</b>
         for å flytte en rad, eller sett tallet i redigeringen. Dra en feature til en annen epic for å flytte den dit. En utredning
-        som har passert sluttdatoen sin merkes <b>Utredning forsinket</b>. <b>Per person</b> viser én rad per eier med utredninger og features i rekkefølge: en utredning opptar eieren, så eierens features og senere utredninger legges etter den («i kø bak utredning …»). Nålen overstyrer.</p></div>
+        som har passert sluttdatoen sin merkes <b>Utredning forsinket</b>. <b>Per person</b> viser én rad per eier med utredninger og features i rekkefølge: en utredning opptar eieren, så eierens features og senere utredninger legges etter den («i kø bak utredning …»). Nålen overstyrer. <b>Vis epics</b> øverst i lista går tilbake.</p></div>
       <div class="help-card"><h4>ADO og sprinter</h4>
         <p>Tidslinjen eier epics, features, estimater og avhengigheter; ADO speiler dem. <b>Lagre og push til ADO</b> i redigeringen oppretter
         eller oppdaterer epicen/featuren (tittel, beskrivelse, tilstand, parent, datoer, avhengigheter) og en discovery-story med eier og sluttdato
@@ -609,7 +629,8 @@
         <p>COOs lag over epics og releaser: en <b>leveranse</b> har kunder (eller alle), en <b>lovet dato</b> og det den henger på: epics og
         releaser. Båndet øverst viser hver leveranse fram til <b>utregnet dato</b>: det seneste av epicenes sene ende og releasenes forventede
         ferdig; streken er lovet dato. Grønn til og med lovet, gul inntil tre arbeidsdager etter, rød senere. Epic-raden viser hvor mange kunder
-        som venter. Fanen <b>Kunder</b> har én rad per kunde og sier hva som drar; der oppretter COO leveransene. Ingen varsel, ingenting i ADO.</p></div>
+        som venter. Fanen <b>Kunder</b> har én rad per kunde og sier hva som drar; der oppretter COO leveransene. Ingen varsel, ingenting i ADO.
+        <b>Mer › Per leveranse</b> viser hver leveranse som en gruppe med det den henger på under, i den rekkefølgen delene blir ferdige: den siste drar datoen.</p></div>
       <div class="help-card"><h4>Fremdrift og sprintrapport</h4>
         <p><b>Fremdrift</b> skrives inn i redigeringen på dag 10 (poeng gjort av totalt, eller prosent) og tegnes som en fylling i den mørke
         delen av spennet; har featuren stories med poeng i ADO, tar ADO over ved «Oppdater fra ADO». Chippen <i>fremdrift 60 % · tid 75 %</i> er
@@ -1088,9 +1109,11 @@ window.__bootTimeline = function(){
   let barRefs = {}, rowRefs = {}, rangeRefs = {}, labelDateRefs = {}, depSvg = null;
 
   /* ---------- per person (R8): virtuelle rader, én per eier ---------- */
-  let personMode = false;
+  const VIEW_KEY = 'sk.view';
+  let viewMode = 'epic';   // R17: 'epic' · 'person' (R8) · 'leveranse' — one at a time, remembered per browser
+  try{ const v = localStorage.getItem(VIEW_KEY); if(v === 'person' || v === 'leveranse') viewMode = v; }catch(e){}
   function viewLanes(){
-    if(!personMode) return state.lanes;
+    if(viewMode !== 'person') return state.lanes;
     const live = state.tasks.filter(t => t.state !== 'levert' && (t.lane !== BACKLOG || t.kind === 'discovery'));
     const owners = [...new Set(live.filter(t => t.assignee).map(t => t.assignee))].sort((a, b) => a.localeCompare(b, 'nb'));
     const lanes = owners.map(o => ({ key: 'person:' + o, name: o, state: 'aktiv', virtual: true, owner: o }));
@@ -1105,7 +1128,18 @@ window.__bootTimeline = function(){
     const ts = viewTasks(lane), d = ts.filter(t => t.kind === 'discovery').length, f = ts.length - d;
     return [d ? d + (d === 1 ? ' utredning' : ' utredninger') : '', f ? f + (f === 1 ? ' feature' : ' features') : ''].filter(Boolean).join(' · ') || 'ingenting';
   }
-  $('personBtn').addEventListener('click', () => { personMode = !personMode; $('personBtn').classList.toggle('on', personMode); render(); });
+  function paintViewButtons(){
+    [['personBtn', 'person'], ['deliveryViewBtn', 'leveranse']].forEach(([id, v]) => { $(id).classList.toggle('on', viewMode === v); $(id).setAttribute('aria-pressed', viewMode === v ? 'true' : 'false'); });
+  }
+  function setView(v, remember){
+    viewMode = v === 'person' || v === 'leveranse' ? v : 'epic';
+    paintViewButtons();
+    if(remember !== false){ try{ localStorage.setItem(VIEW_KEY, viewMode); }catch(e){} }
+    render();
+  }
+  paintViewButtons();
+  $('personBtn').addEventListener('click', () => setView(viewMode === 'person' ? 'epic' : 'person'));
+  $('deliveryViewBtn').addEventListener('click', () => setView(viewMode === 'leveranse' ? 'epic' : 'leveranse'));
   function showEmpty(){
     const empty = !state.lanes.length;
     emptyState.hidden = !empty;
@@ -1148,7 +1182,10 @@ window.__bootTimeline = function(){
     renderForumNote();
     if(!state.lanes.length){ renderShelf(); return; }
 
-    const corner = el('div', 'corner', 'Epic / feature');
+    const corner = el('div', 'corner');
+    corner.innerHTML = viewMode === 'epic' ? 'Epic / feature'
+      : esc(viewMode === 'person' ? 'Person / utredninger og features' : 'Leveranse / det den henger på') + ' · <button type="button" class="as-text back" id="viewBack">Vis epics</button>';
+    if(viewMode !== 'epic') corner.querySelector('#viewBack').addEventListener('click', () => setView('epic'));
     labels.appendChild(corner);
 
     // akse, med sprintene fra ADO nederst
@@ -1200,7 +1237,7 @@ window.__bootTimeline = function(){
       axis.appendChild(layer);
     }
     // leveranser (R16): COO's band above the releases, one row per delivery; click → Kunder
-    const dsegs = deliverySegments(state, dayKey(new Date()));
+    const dsegs = viewMode === 'leveranse' ? [] : deliverySegments(state, dayKey(new Date()));   // R17: in «Per leveranse» the groups say it
     gantt.style.setProperty('--axis-h', (76 + 18 * dsegs.length) + 'px');
     if(dsegs.length){
       const layer = el('div', 'deliveries');
@@ -1250,7 +1287,8 @@ window.__bootTimeline = function(){
     chart.appendChild(today);
 
     // epics (lanes) og features (rader); i per-person-visningen én virtuell rad per eier (R8)
-    viewLanes().forEach(lane => {
+    if(viewMode === 'leveranse') renderDeliveryView();
+    else viewLanes().forEach(lane => {
       const st = lane.virtual ? { code: 'tom' } : epicStatus(state, lane.key);
       const hasGoal = typeof lane.goalDate === 'number';
 
@@ -1343,15 +1381,15 @@ window.__bootTimeline = function(){
         tt.title = t.label + ' (klikk for å redigere)';
         const dd = el('span', 'd');
         const acts = el('div', 'row-actions');
-        acts.hidden = personMode;
+        acts.hidden = viewMode === 'person';
         acts.innerHTML = '<button class="link" title="Koble avhengighet: velg hvem som venter på denne">⇢</button>' +
           '<button class="del" title="Slett feature">×</button>';
         acts.querySelector('.link').addEventListener('click', e => { e.stopPropagation(); startLink(t.id); });
         acts.querySelector('.del').addEventListener('click', e => { e.stopPropagation(); removeTask(t.id); });
         const tg = el('span', 'grip', '⋮⋮');
         tg.title = 'Dra for å endre rekkefølgen, eller slipp på en annen epic';
-        tg.draggable = !personMode;
-        tg.hidden = personMode;
+        tg.draggable = viewMode !== 'person';
+        tg.hidden = viewMode === 'person';
         tg.addEventListener('dragstart', e => { rowDrag = { type: 'task', id: t.id }; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', t.id); tl.classList.add('dragging-row'); });
         tg.addEventListener('dragend', () => { rowDrag = null; clearDropMarks(); });
         tl.addEventListener('dragover', e => {
@@ -1436,6 +1474,90 @@ window.__bootTimeline = function(){
     renderShelf();
   }
 
+  const DELIVERY_PILL = { gronn: 'Grønn', gul: 'Gul', rod: 'Rød', ingen: 'Uten dato' };
+  function partBar(p){   // one part's chart row: an epic's span coloured by its status, or a release's segment with its progress
+    if(p.start === null) return null;
+    const a = Math.max(VIEW_FROM, p.start), b = Math.min(N_MONTHS, Math.max(p.end, p.start + WEEK / 2));
+    if(b <= a) return null;
+    let d;
+    if(p.kind === 'release'){
+      const pr = releaseProgress(p.release), pace = p.shipped ? null : releasePace(state, p.release, dayKey(new Date()));
+      d = el('div', 'part-rel' + (p.shipped ? ' shipped' : '') + (pace ? ' pace-' + pace.code : ''));
+      if(pr.fraction !== null){ const f = el('span', 'fill'); f.style.width = Math.round(pr.fraction * 100) + '%'; d.appendChild(f); }
+    } else {
+      d = el('div', 'part-epic st-' + (['gronn', 'gul', 'rod'].includes(p.code) ? p.code : 'grey') + (p.pending ? ' pending' : ''));
+      const lk = el('i', 'likely');
+      lk.style.width = (p.end > p.start ? Math.round(Math.max(0, Math.min(1, (p.likelyEnd - p.start) / (p.end - p.start))) * 100) : 100) + '%';
+      d.appendChild(lk);
+    }
+    d.style.left = x(a) + 'px'; d.style.width = (x(b) - x(a)) + 'px';
+    return d;
+  }
+  function partLabel(p){
+    const tl = el('div', 'task-label part');
+    tl.dataset.id = (p.kind === 'epic' ? 'epic:' : 'rel:') + p.key;
+    const nm = el('button', 't as-text', p.kind === 'epic' ? p.lane.name : 'Release ' + p.release.version);
+    nm.type = 'button';
+    const dd = el('span', 'd');
+    if(p.kind === 'epic'){
+      const l = p.lane;
+      dd.innerHTML = (l.state === 'forslag' ? '<span class="chip st-forslag">Forslag</span>' : '') +
+        (l.state === 'avsluttet' ? '<span class="chip">Avsluttet: ' + esc(l.outcome || 'uten utfall') + '</span>' : '<span class="chip st-' + esc(p.code) + '">' + esc(STATUS_LABEL[p.code]) + '</span>') +
+        esc(p.window || (p.start === null ? 'Ingen features ennå' : '')) + (p.shared.length ? esc(' · også i ' + p.shared.map(n => '«' + n + '»').join(', ')) : '');
+      nm.title = 'Klikk for å redigere epicen';
+      nm.addEventListener('click', e => { e.stopPropagation(); openEpicEditor(l.key); });
+    } else {
+      const r = p.release, pr = releaseProgress(r), fc = p.shipped ? null : releaseForecastText(r, dayKey(new Date()));
+      dd.textContent = p.shipped ? 'skippet ' + fmtDate(unitToDate(p.end))
+        : 'mål ' + fmtDate(unitToDate(p.end)) + (pr.fraction !== null ? ' · ' + Math.round(pr.fraction * 100) + ' % levert' : '') + (fc && fc.short ? ' · ' + fc.short : '');
+      nm.title = 'Åpne releasen';
+      nm.addEventListener('click', e => { e.stopPropagation(); openRelease(r.key); });
+    }
+    tl.addEventListener('click', () => nm.click());
+    tl.append(nm, dd);
+    return tl;
+  }
+  function renderDeliveryView(){   // R17: COO's business cases in the list, each with what it hangs on (a read view, like Per person)
+    const rows = deliveryRows(state, dayKey(new Date()));
+    rows.groups.map(g => [g, g.parts]).concat([[null, rows.loose]]).forEach(([g, parts]) => {
+      const ll = el('div', 'lane-label virtual delivery-group');
+      ll.dataset.key = g ? 'lev:' + g.delivery.key : 'lev:';
+      const ln = g ? el('button', 'ln as-text', g.delivery.name) : el('span', 'ln', 'Ingen leveranse');
+      const lm = el('div', 'lm');
+      if(g){
+        const st = g.status, d = g.delivery;
+        const pill = DELIVERY_PILL[st.code] + (st.deviation ? ' · ' + st.deviation : st.code === 'gronn' && !st.computed ? ' · alt levert' : '');
+        const pulls = st.by ? (st.pending ? 'minst ' + fmtDate(unitToDate(dayToUnit(st.computed))) + ' · venter på utredning · ' : '') + 'dratt av ' + (st.by.kind === 'epic' ? '«' + st.by.name + '»' : 'release ' + st.by.name) : st.text;
+        lm.innerHTML = '<span class="goal">' + esc(deliveryCustomersText(d) + ' · lovet ' + fmtDate(unitToDate(g.segment.promised))) + '</span>' +
+          '<span class="chip st-' + esc(st.code) + '">' + esc(pill) + '</span><span class="goal">' + esc(pulls) + '</span>';
+        lm.title = deliveryCustomersText(d) + ' · lovet ' + fmtDate(unitToDate(g.segment.promised)) + ' · ' + pill + ' · ' + pulls;   // the whole line when the column is narrow
+        ln.type = 'button'; ln.title = 'Åpne leveransen på fanen Kunder';
+        if(HOSTED) ln.addEventListener('click', () => { location.href = '/kunder#' + encodeURIComponent(d.key); });
+      } else {
+        lm.innerHTML = '<span class="goal">' + esc((state.deliveries || []).length ? 'Epics ingen leveranse henger på' : 'Ingen leveranser ennå. De lages på fanen Kunder.') + '</span>';
+      }
+      ll.append(ln, lm);
+      labels.appendChild(ll);
+      const lb = el('div', 'lane-band');
+      lb.style.width = CHART_W + 'px';
+      if(g){
+        const a = Math.max(VIEW_FROM, g.segment.start), b = Math.min(N_MONTHS, g.segment.end);
+        if(b > a){ const sg = el('div', 'group-seg st-' + g.status.code); sg.style.left = x(a) + 'px'; sg.style.width = (x(b) - x(a)) + 'px'; sg.title = g.delivery.name + ' · ' + g.status.text; lb.appendChild(sg); }
+        const pm = g.segment.promised;
+        if(pm >= VIEW_FROM && pm <= N_MONTHS){ const m = el('i', 'promise'); m.style.left = x(pm) + 'px'; m.title = 'Lovet ' + fmtDate(unitToDate(pm)); lb.appendChild(m); }
+      }
+      chart.appendChild(lb);
+      parts.forEach(p => {
+        labels.appendChild(partLabel(p));
+        const row = el('div', 'row part');
+        row.style.width = CHART_W + 'px';
+        if(p.kind === 'epic' && typeof p.lane.goalDate === 'number'){ const gl = el('div', 'goal-line'); gl.style.left = x(p.lane.goalDate) + 'px'; row.appendChild(gl); }
+        const bar = partBar(p);
+        if(bar) row.appendChild(bar);
+        chart.appendChild(row);
+      });
+    });
+  }
   function markTree(){   // R17: a parent with children gets the stub under its name; each group's last child stops the trunk
     const rows = [...labels.children].filter(r => r.classList.contains('lane-label') || r.classList.contains('task-label'));
     rows.forEach((r, i) => {
@@ -1493,7 +1615,7 @@ window.__bootTimeline = function(){
       chips.push('<span class="chip who" title="Sist endret av ' + esc(t.editedBy) + (when ? ' · ' + esc(when) : '') + '">' + esc(initials(t.editedBy)) + '</span>');
     }
     const size = sizeClassText(t);
-    const where = personMode ? (t.lane === BACKLOG ? 'Hylla' : (getLane(t.lane) || {name: t.lane}).name) + ' · ' : '';
+    const where = viewMode === 'person' ? (t.lane === BACKLOG ? 'Hylla' : (getLane(t.lane) || {name: t.lane}).name) + ' · ' : '';
     labelDateRefs[t.id].innerHTML = esc(where + rangeText(t) + (size ? ' · ' + size : '') + (t.kind === 'estimate' && rawLabel(t) ? ' · ' + rawLabel(t) : '')) + chips.join('');
     bar.title = t.label + ' · ' + rangeText(t);
     bar.setAttribute('aria-label', t.label + ', ' + rangeText(t));
@@ -1550,7 +1672,7 @@ window.__bootTimeline = function(){
   /* ================== drag ================== */
   chart.addEventListener('pointerdown', e => {
     const bar = e.target.closest('.bar');
-    if(!bar || personMode) return;   // per person er en lesevisning
+    if(!bar || viewMode !== 'epic') return;   // per person og per leveranse er lesevisninger
     if(linkSource){ completeLink(bar.dataset.id); e.preventDefault(); return; }
     const t = getTask(bar.dataset.id);
     if(!t) return;
@@ -1622,7 +1744,7 @@ window.__bootTimeline = function(){
     if(!t) return;
     if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); if(linkSource){ completeLink(t.id); return; } openEditor(t.id); return; }
     if(e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    if(!mayEdit() || personMode || t.state === 'levert') return;
+    if(!mayEdit() || viewMode !== 'epic' || t.state === 'levert') return;
     e.preventDefault();
     const d = (e.key === 'ArrowRight' ? 1 : -1) * WEEK;
     const s = Math.max(VIEW_FROM, Math.min(N_MONTHS - (t.end - t.start), t.start + d));
@@ -2060,7 +2182,7 @@ window.__bootTimeline = function(){
     document.body.classList.toggle('forum', forumMode);
     const b = $('forumBtn'); b.classList.toggle('on', forumMode); b.setAttribute('aria-pressed', forumMode ? 'true' : 'false');
     if(remember){ try{ localStorage.setItem(FORUM_KEY, forumMode ? '1' : '0'); }catch(e){} }
-    if(forumMode && personMode){ personMode = false; $('personBtn').classList.remove('on'); }   // a read view the forum does not use
+    if(forumMode && viewMode !== 'epic') setView('epic', false);   // read views the forum does not use (the stored choice stays)
     placeCompareBar();
     if(forumMode) ensureForumCompare();
     else if(forumStartedCompare){ forumStartedCompare = false; if(cmp) endCompare(); }
