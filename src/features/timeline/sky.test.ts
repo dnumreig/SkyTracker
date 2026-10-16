@@ -16,6 +16,7 @@ describe("R17: one shared stylesheet", () => {
     expect(css).toMatch(/--text-4:#5fa8d3;/);
     expect(css).toMatch(/--warn:#b45309;/);
     expect(css).toMatch(/--accent-hover:#2f5f8f;/);
+    expect(css).toMatch(/--danger:#dc2626;/);
     expect(css).toContain(".sr-only{");
     expect(css).toContain("button.as-text{");
   });
