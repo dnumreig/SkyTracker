@@ -3061,10 +3061,10 @@ window.__bootTimeline = function(){
       const again = () => pendingSave || putsOut ? afterSave(again) : rereadRelease(key);   // an earlier save's PUT may land first: wait until none waits and none is out, so the one with this edit has landed
       afterSave(again);
     }
-    closeReleaseEditor();
-    if(lines.length) askReason(lines);
+    if(lines.length) askReason(lines);   // ask, then close, as the feature editor does: «Hvorfor?» opened from Lagre gives the focus back to what opened the editor
     save(); render();
     if(!relDrawer.hidden && releaseKey === key) renderReleaseDrawer();
+    closeReleaseEditor();
   });
   $('relDelete').addEventListener('click', async () => {
     const r = getRelease(relEditKey);
