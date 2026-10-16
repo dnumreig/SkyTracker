@@ -2977,8 +2977,14 @@ window.__bootTimeline = function(){
     const r = getRelease(releaseKey); if(!r || r.shippedDate) return;
     const key = r.key, openOf = x => ((x.ado && x.ado.items) || []).filter(i => !releaseItemClosed(i)).map(i => i.id), n = openOf(r).length;
     const msg = 'Marker ' + r.version + ' som sluppet. ' + (!r.ado ? 'Ikke lest fra ADO: det som er åpent, er ikke kjent.' : n ? n + (n === 1 ? ' åpen sak huskes' : ' åpne saker huskes') + ' som åpne ved release.' : 'Alt er lukket.');
-    const day = await askDialog('Marker sluppet', msg, { input: 'date', value: dayKey(new Date()), confirmText: 'Marker sluppet' });
-    if(typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
+    const today = dayKey(new Date());
+    let day, ask = msg;
+    for(;;){   // as R13's «Marker levert …»: a day after today is refused, and the dialog asks again, saying why
+      day = await askDialog('Marker sluppet', ask, { input: 'date', value: today, confirmText: 'Marker sluppet' });
+      if(typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
+      if(day <= today) break;
+      ask = 'Sluppet-datoen kan ikke være frem i tid. ' + msg;
+    }
     const cur = getRelease(key); if(!cur || cur.shippedDate) return;   // the plan may have come back from the server while the dialog was open: write to the release as it is now
     const open = openOf(cur);
     cur.shippedDate = day; if(open.length) cur.openAtShip = open; else delete cur.openAtShip;
