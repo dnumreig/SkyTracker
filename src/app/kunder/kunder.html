@@ -46,7 +46,7 @@
   .pill.w-ingen::before{width:0}
   .checks{display:grid;gap:4px;max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:4px;padding:8px 10px;background:var(--input-bg)}
   .checks label{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--text)}
-  .checks small{color:var(--text-4)}
+  .checks small{color:var(--text-4);font-size:12px}   /* R17: the 12 px floor (a bare <small> is ~11 px) */
   .reason{display:grid;gap:8px;padding:10px 12px;border:1px solid var(--warn);border-radius:4px;background:var(--warn-bg)}
   .reason > span{font-size:12px;font-weight:600;color:var(--warn-fg)}
   .reason select,.reason input{width:100%;font:inherit;font-size:14px;padding:6px 12px;border:1px solid var(--line);border-radius:4px;background:var(--input-bg);color:var(--text)}
