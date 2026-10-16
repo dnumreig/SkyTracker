@@ -2199,6 +2199,7 @@ window.__bootTimeline = function(){
     $('zoomIn').disabled = zoom === ZOOMS[ZOOMS.length - 1];
   }
   function setZoom(z){   // the date in the middle of the view stays in the middle
+    if(drag) return;   // never under a drag: the render would replace the bar that holds the pointer, and the drag would hang
     if(!ZOOMS.includes(z) || z === zoom) return;
     const half = chartScroll.clientWidth / 2, mid = VIEW_FROM + (chartScroll.scrollLeft + half) / MONTH_W;
     zoom = z;
@@ -2208,8 +2209,8 @@ window.__bootTimeline = function(){
     chartScroll.scrollLeft = x(mid) - half;
   }
   const zoomStep = d => setZoom(ZOOMS[ZOOMS.indexOf(zoom) + d]);
-  $('zoomOut').addEventListener('click', () => zoomStep(-1));
-  $('zoomIn').addEventListener('click', () => zoomStep(1));
+  $('zoomOut').addEventListener('click', () => { zoomStep(-1); if($('zoomOut').disabled) $('zoomReset').focus(); });
+  $('zoomIn').addEventListener('click', () => { zoomStep(1); if($('zoomIn').disabled) $('zoomReset').focus(); });   // at 50 % or 200 % the pressed button switches off: the focus moves to the middle, not the page
   $('zoomReset').addEventListener('click', () => setZoom(1));
   chartScroll.addEventListener('keydown', e => {   // + or = in, - out, 0 back to 100 %; with Ctrl/Cmd they stay the browser's own zoom
     if(e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, select, textarea')) return;
@@ -2222,7 +2223,7 @@ window.__bootTimeline = function(){
     const nb = bar && chart.querySelector('.bar:not(.ghost)[data-id="' + CSS.escape(bar.dataset.id) + '"]');
     (nb || chartScroll).focus({ preventScroll: true });
   });
-  matchMedia('(max-width:860px)').addEventListener('change', () => { applyZoom(); render(); });   // a narrow screen's 76 px a month, zoomed too
+  matchMedia('(max-width:860px)').addEventListener('change', () => { if(drag) return; applyZoom(); render(); });   // a narrow screen's 76 px a month, zoomed too; never under a drag
 
   /* ================== forum-visningen (R15): skjermen på veggen ================== */
   const FORUM_KEY = 'sk.forum';
