@@ -15,11 +15,11 @@
     --ok:#16a34a; --warn-dot:#d97706; --bad:#dc2626; --neutral:#94a3b8;
     --likely:#3b76b0;        /* ocean-5: likely part of an estimate */
     --late:#a5d6e6;          /* skyblue-2: uncertain part */
-    --disc-a:#fcd34d;        /* amber-300: discovery stripes */
-    --disc-b:#fef3c7;        /* amber-100 */
-    --disc-edge:rgba(180,83,9,.3);
+    --disc-a:#cbd5e1;        /* R17: slate-300: discovery is a neutral hatch, never the amber of «at risk» */
+    --disc-b:#f8fafc;        /* slate-50 */
+    --disc-edge:rgba(71,85,105,.45);
     --goal:#0d123e;          /* ocean-1 */
-    --today:#ef4444;         /* red-500 */
+    --today:#0d123e;         /* R17: ink: today is never the red of «late» */
     --release:#7c3aed; --release-bg:rgba(124,58,237,.10); --release-fill:rgba(124,58,237,.32);   /* R10: the release band */
     --pace-gronn:rgba(22,163,74,.38); --pace-gul:rgba(217,119,6,.42); --pace-rod:rgba(220,38,38,.38);   /* R11: the tempo colour on the segment's fill */
     --dep:#94a3b8;           /* slate-400 */
@@ -33,11 +33,12 @@
     :root{
       --ok:#4ade80; --warn-dot:#fbbf24; --bad:#f87171; --neutral:#4e94c4;
       --late:#71c4df;
-      --disc-a:rgba(251,191,36,.55); --disc-b:rgba(251,191,36,.18); --disc-edge:rgba(251,191,36,.5);
-      --goal:#71c4df; --today:#f87171; --dep:#4e94c4; --release:#a78bfa; --release-bg:rgba(167,139,250,.14); --release-fill:rgba(167,139,250,.34);
+      --disc-a:rgba(148,163,184,.38); --disc-b:rgba(148,163,184,.08); --disc-edge:rgba(148,163,184,.5);
+      --goal:#71c4df; --today:#ffffff; --dep:#4e94c4; --release:#a78bfa; --release-bg:rgba(167,139,250,.14); --release-fill:rgba(167,139,250,.34);
       --pace-gronn:rgba(74,222,128,.42); --pace-gul:rgba(251,191,36,.42); --pace-rod:rgba(248,113,113,.42);
       --tip-bg:#294285;
     }
+    .chart .today::before{background:rgba(255,255,255,.045)}
   }
   /* ---------- topplinje (som tavlens header) ---------- */
   /* R14: the ADO and Mer menus */
@@ -97,7 +98,7 @@
   .sw.discovery{background:repeating-linear-gradient(45deg,var(--disc-a) 0 4px,var(--disc-b) 4px 8px);box-shadow:inset 0 0 0 1px var(--disc-edge)}
   .sw.likely{background:var(--likely)}
   .sw.late{background:var(--late)}
-  .sw.goal{width:3px;height:16px;background:var(--goal)}
+  .sw.goal{width:0;height:16px;border-left:3px dashed var(--goal);background:none}
   .sw.today{width:2px;height:16px;background:var(--today)}
   .sw.depsw{width:26px;height:0;border-top:1.5px solid var(--dep);position:relative}
   .sw.depsw::after{content:"";position:absolute;right:-1px;top:-4px;border:4px solid transparent;border-left-color:var(--dep)}
@@ -148,8 +149,8 @@
   .chip.st-gronn{background:var(--ok-bg);color:var(--ok-fg)}
   .chip.st-gul{background:var(--warn-bg);color:var(--warn-fg)}
   .chip.st-rod{background:var(--bad-bg);color:var(--bad-fg)}
-  .chip.sig{outline:1px dashed currentColor;outline-offset:-1px}
-  .chip.pinned{background:var(--text);color:var(--surface)}
+  .chip.sig{box-shadow:inset 0 0 0 1px var(--line)}   /* R17: attributes whisper, status speaks */
+  .chip.pinned{background:transparent;color:var(--text-2);box-shadow:inset 0 0 0 1px var(--line)}
   #personBtn.on,#deliveryViewBtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
   /* R15: the forum view: the development lead's tools go, the compare bar goes on top (a class on body, never the hidden attribute: the role rules stay) */
   #forumBtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -174,7 +175,7 @@
   .row.part .part-rel .fill{position:absolute;left:0;top:0;bottom:0;background:var(--release-fill)}
   .row.part .part-rel.pace-gronn .fill{background:var(--pace-gronn)} .row.part .part-rel.pace-gul .fill{background:var(--pace-gul)} .row.part .part-rel.pace-rod .fill{background:var(--pace-rod)}
   .row.part .part-rel.shipped{border-style:solid;opacity:.7}
-  .task-label .chip.queue{background:transparent;border:1px dashed var(--text-3);color:var(--text-2)}
+  .task-label .chip.queue{background:transparent;color:var(--text-2);box-shadow:inset 0 0 0 1px var(--line)}
   .inv-list{margin:0 0 14px;padding-left:18px;font-size:12px}.inv-list li{margin:3px 0}.inv-list ul{padding-left:16px;margin:2px 0}
   .inv-big{font-size:34px;font-weight:700;margin:4px 0;color:var(--text)}
   #invBody h3{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin:14px 0 6px}
@@ -282,17 +283,16 @@
   .grid{position:absolute;inset:0;top:var(--axis-h);pointer-events:none}
   .grid .v{position:absolute;top:0;bottom:0;width:1px;background:var(--line-soft)}
   .grid .v.jan{width:2px;background:var(--text-4);opacity:.6}
-  .chart .today{position:absolute;top:var(--axis-h);bottom:0;width:2px;background:var(--today);z-index:4;pointer-events:none}
-  .chart .today .tl{
-    position:absolute;top:-1px;left:5px;background:var(--today);color:#fff;
-    font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;white-space:nowrap;
-  }
+  /* R17: one meaning per colour: today is ink over a washed past and its label sits in the axis, never the red of «late» */
+  .chart .today{position:absolute;top:var(--axis-h);bottom:0;width:2px;background:var(--today);opacity:.85;z-index:6;pointer-events:none}
+  .chart .today::before{content:"";position:absolute;top:0;bottom:0;right:2px;width:4000px;background:rgba(13,18,62,.045);pointer-events:none}
+  .chart .today .tl{position:absolute;top:-18px;left:-1px;background:var(--today);color:var(--surface);font-size:11px;font-weight:600;padding:1px 7px;border-radius:3px 3px 3px 0;white-space:nowrap;letter-spacing:.02em}
   .lane-band{height:var(--lane-h);border-bottom:1px solid var(--line-soft);background:var(--raised);position:relative}
   .lane-band .goal-lbl{
     position:absolute;top:8px;margin-left:7px;font-size:10px;font-weight:600;color:var(--goal);white-space:nowrap;
     background:var(--surface);padding:1px 6px;border:1px solid var(--goal);border-radius:4px;
   }
-  .goal-line{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--goal);z-index:3;pointer-events:none}
+  .goal-line{position:absolute;top:0;bottom:0;width:0;margin-left:-1px;border-left:2px dashed var(--goal);z-index:3;pointer-events:none}   /* R17: a goal is a target: dashed ink in its own epic */
   .row{height:var(--row-h);position:relative;border-bottom:1px solid var(--line-soft)}
 
   .bar{
@@ -351,8 +351,8 @@
   .ed-kind button{padding:6px 10px}
   .ed-kind button.on[data-c],.ed-kind button.on[data-t],.ed-kind button.on[data-a]{background:var(--accent);border-color:var(--accent);color:#fff}
   .ed-field textarea{resize:vertical}
-  .task-label .chip.fixed{background:var(--text);color:var(--surface)}
-  .ed-kind button.on[data-k=discovery]{background:var(--warn-bg);border-color:var(--warn);color:var(--warn-fg)}
+  .task-label .chip.fixed{background:transparent;color:var(--text-2);box-shadow:inset 0 0 0 1px var(--line)}
+  .ed-kind button.on[data-k=discovery]{background:var(--badge-bg);border-color:var(--text-3);color:var(--text)}
   .ed-kind button.on[data-k=estimate]{background:var(--accent);border-color:var(--accent);color:#fff}
   .ed-check{padding-bottom:8px}
   .ed-deps{display:flex;gap:6px;flex-wrap:wrap}
@@ -410,7 +410,7 @@
   .count{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--warn);color:var(--surface);font-size:10px;font-weight:700;line-height:18px;text-align:center}
   .count[hidden]{display:none}
   .lane-label.ext{background:var(--line-soft)}
-  .chip.ext-chip{background:var(--text);color:var(--surface)}
+  .chip.ext-chip{background:transparent;color:var(--text-2);box-shadow:inset 0 0 0 1px var(--line)}
   .lane-label .metric{color:var(--text-2);overflow:hidden;text-overflow:ellipsis;min-width:0}
 
   /* ---------- sammenligning ---------- */
@@ -437,7 +437,7 @@
   #cmpDate[hidden],#cmpSelect[hidden]{display:none}
   .bar.ghost{opacity:.35;pointer-events:none;z-index:1;cursor:default;filter:none}
   .bar.ghost .h{display:none}
-  .goal-line.ghost{background:none;border-left:2px dashed var(--goal);opacity:.6;z-index:2}
+  .goal-line.ghost{border-left:2px dotted var(--text-3);opacity:.7;z-index:2}
   .task-label.gone .t{text-decoration:line-through;color:var(--text-4)}
   .task-label.gone .d{color:var(--text-4)}
   .row.gone{background:repeating-linear-gradient(135deg,transparent 0 6px,var(--line-soft) 6px 7px)}
@@ -943,7 +943,6 @@ window.__bootTimeline = function(){
   const HOSTED = location.protocol !== 'file:';   // åpnet via SkyTracker → delt lagring + live synk
   const POLL_MS = 10000;
   const ADO_URL = id => 'https://dev.azure.com/SkytaleAS/Skytale/_workitems/edit/' + id;
-  const MND_UP = ['JAN','FEB','MAR','APR','MAI','JUN','JUL','AUG','SEP','OKT','NOV','DES'];
   const MND_S = ['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
   const FV_FIELDS = ['tid','label','deps','meta','state','est','ado','progress'];
   const REASON_CODES = [
@@ -1283,7 +1282,7 @@ window.__bootTimeline = function(){
     today.style.left = x(todayUnit()) + 'px';
     const tn = new Date();
     const spl = sprintLabel(sprintsNow, tn);
-    today.innerHTML = '<span class="tl">I DAG · ' + tn.getDate() + '. ' + MND_UP[tn.getMonth()] + (spl ? ' · ' + spl : '') + '</span>';
+    today.innerHTML = '<span class="tl">I dag · ' + tn.getDate() + '. ' + MND_S[tn.getMonth()] + (spl ? ' · ' + spl : '') + '</span>';
     chart.appendChild(today);
 
     // epics (lanes) og features (rader); i per-person-visningen én virtuell rad per eier (R8)
