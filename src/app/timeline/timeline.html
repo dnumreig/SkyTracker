@@ -3,38 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SkyTracker – Tidslinjen</title>
+<title>Tidslinjen – SkyTracker</title>
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
+<script>/* R17: the shared stylesheet, next to epic-tools.js; from a file it lies next to the page */ document.write('<link rel="stylesheet" href="' + (location.protocol === 'file:' ? 'sky.css' : 'timeline/sky.css') + '">');</script>
 <style>
   /* Fonts, colours and controls follow SkyTracker (src/app/globals.css + the board components):
      Arial, slate greys + the ocean/skyblue palette, white cards with slate-300 borders, 4–6 px radii,
      ocean-5 primary buttons, amber/green/red badges, dark mode via prefers-color-scheme. */
+  /* this page: the shared tokens and controls are in sky.css (R17); these are Tidslinjen's own */
   :root{
-    color-scheme:light;
-    --bg:#f8fafc;            /* slate-50: page background */
-    --surface:#ffffff;       /* cards, header, modals */
-    --raised:#f1f5f9;        /* slate-100: epic rows, hover */
-    --input-bg:#ffffff;
-    --line:#cbd5e1;          /* slate-300: card borders */
-    --line-soft:#e2e8f0;     /* slate-200: dividers, grid */
-    --text:#0d123e;          /* ocean-1 */
-    --text-hover:#0d123e;
-    --text-2:#475569;        /* slate-600: field labels */
-    --text-3:#64748b;        /* slate-500: secondary */
-    --text-4:#94a3b8;        /* slate-400: faint */
-    --accent:#3b76b0;        /* ocean-5 */
-    --accent-hover:#4e94c4;  /* ocean-6 */
-    --accent-text:#3b76b0;
-    --accent-soft:rgba(59,118,176,.2);
-    --danger:#ef4444;        /* red-500 */
-    --danger-hover:#b91c1c;  /* red-700 */
-    --warn:#f59e0b;          /* amber-500 */
     --ok:#16a34a; --warn-dot:#d97706; --bad:#dc2626; --neutral:#94a3b8;
-    --ok-bg:#dcfce7; --ok-fg:#15803d;       /* green-100 / green-700 */
-    --warn-bg:#fef3c7; --warn-fg:#b45309;   /* amber-100 / amber-700 */
-    --bad-bg:#fee2e2; --bad-fg:#b91c1c;     /* red-100 / red-700 */
-    --badge-bg:#f1f5f9; --badge-fg:#475569; /* slate-100 / slate-600 */
-    --ado-bg:#e0f2fe; --ado-fg:#0369a1;     /* sky-100 / sky-700 */
     --likely:#3b76b0;        /* ocean-5: likely part of an estimate */
     --late:#a5d6e6;          /* skyblue-2: uncertain part */
     --disc-a:#fcd34d;        /* amber-300: discovery stripes */
@@ -46,8 +24,6 @@
     --pace-gronn:rgba(22,163,74,.38); --pace-gul:rgba(217,119,6,.42); --pace-rod:rgba(220,38,38,.38);   /* R11: the tempo colour on the segment's fill */
     --dep:#94a3b8;           /* slate-400 */
     --tip-bg:#0d123e; --tip-fg:#ffffff;
-    --backdrop:rgba(0,0,0,.4);
-    --shadow:0 20px 25px -5px rgba(0,0,0,.1),0 8px 10px -6px rgba(0,0,0,.1);
     --month-w:96px;
     --row-h:46px;
     --lane-h:52px;
@@ -55,45 +31,15 @@
   }
   @media (prefers-color-scheme: dark){
     :root{
-      color-scheme:dark;
-      --bg:#0d123e; --surface:#1e2455; --raised:#212d63; --input-bg:#212d63;
-      --line:#294285; --line-soft:#294285;
-      --text:#ffffff; --text-hover:#71c4df; --text-2:#a5d6e6; --text-3:#a5d6e6; --text-4:#4e94c4;
-      --accent-text:#71c4df; --accent-soft:rgba(59,118,176,.35);
-      --danger:#f87171; --danger-hover:#fca5a5; --warn:#fbbf24;
       --ok:#4ade80; --warn-dot:#fbbf24; --bad:#f87171; --neutral:#4e94c4;
-      --ok-bg:rgba(34,197,94,.2); --ok-fg:#86efac;
-      --warn-bg:rgba(245,158,11,.2); --warn-fg:#fcd34d;
-      --bad-bg:rgba(239,68,68,.2); --bad-fg:#fca5a5;
-      --badge-bg:#294285; --badge-fg:#cbd5e1;
-      --ado-bg:#294285; --ado-fg:#a5d6e6;
       --late:#71c4df;
       --disc-a:rgba(251,191,36,.55); --disc-b:rgba(251,191,36,.18); --disc-edge:rgba(251,191,36,.5);
       --goal:#71c4df; --today:#f87171; --dep:#4e94c4; --release:#a78bfa; --release-bg:rgba(167,139,250,.14); --release-fill:rgba(167,139,250,.34);
       --pace-gronn:rgba(74,222,128,.42); --pace-gul:rgba(251,191,36,.42); --pace-rod:rgba(248,113,113,.42);
       --tip-bg:#294285;
-      --backdrop:rgba(0,0,0,.6);
     }
   }
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{
-    background:var(--bg);color:var(--text);
-    font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;
-    -webkit-font-smoothing:antialiased;
-  }
-
   /* ---------- topplinje (som tavlens header) ---------- */
-  .topbar{
-    display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
-    padding:12px 24px;background:var(--surface);border-bottom:1px solid var(--line-soft);
-  }
-  .tb-left,.tb-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
-  /* R14: the three pages' tabs; the active one is the page's name */
-  .tabs{display:flex;gap:2px;align-items:center}
-  .tabs .tab{font-size:14px;font-weight:500;color:var(--text-3);text-decoration:none;padding:6px 10px;border-radius:6px;white-space:nowrap}
-  .tabs .tab:hover{color:var(--text);background:var(--raised)}
-  .tabs .tab.on{color:var(--text);font-weight:600;font-size:18px;letter-spacing:-.01em;padding:4px 10px 4px 0;background:none}
-  .tabs .tab[hidden]{display:none}
   /* R14: the ADO and Mer menus */
   .menu{position:relative}
   .menu > summary{list-style:none;cursor:pointer;font-size:13px;padding:6px 12px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--text-2);white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
@@ -108,37 +54,11 @@
   .menu-list button[hidden],.menu-list .menu-field[hidden]{display:none}
   .menu-list .menu-field{flex-direction:column;align-items:flex-start;gap:4px;cursor:default}
   .menu-list .menu-field select{font-size:12px;padding:3px 6px;width:100%}
-  .whoami{font-size:12px;color:var(--text-3)}
-  .ro-tag{font-size:12px;font-weight:500;color:var(--warn)}
   .badge{font-size:10px;font-weight:500;line-height:1.5;padding:2px 6px;border-radius:4px;background:var(--badge-bg);color:var(--badge-fg);white-space:nowrap}
   .badge.warn{background:var(--warn-bg);color:var(--warn-fg)}
-  .save-note{font-size:11px;color:var(--text-4);min-width:120px;text-align:right}
-  .wrap{padding:16px 24px 40px}
-  .hint{font-size:12px;color:var(--text-3);max-width:90ch;position:relative;padding-right:26px;margin-top:8px}
+  .hint{position:relative;padding-right:26px;margin-top:8px}
   .hint .x{position:absolute;right:0;top:-2px}
-  .hint b{color:var(--text);font-weight:600}
 
-  /* ---------- knapper ---------- */
-  button,.btn{
-    font:inherit;font-size:12px;font-weight:500;line-height:1.3;padding:5px 9px;
-    border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--text-3);
-    cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;
-    transition:color .15s ease,background-color .15s ease,border-color .15s ease;
-  }
-  button:hover,.btn:hover{color:var(--text-hover);border-color:var(--text-4)}
-  button:disabled{opacity:.5;cursor:default;pointer-events:none}
-  button.primary,#dlgYes{background:var(--accent);border-color:var(--accent);color:#fff}
-  button.primary:hover,#dlgYes:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:#fff}
-  button.ghost{background:var(--surface)}
-  button.text{border-color:transparent;background:transparent}
-  button.text:hover{border-color:transparent;background:var(--raised)}
-  button.danger-ghost{border-color:transparent;background:transparent;color:var(--danger)}
-  button.danger-ghost:hover{color:var(--danger-hover);background:var(--bad-bg);border-color:transparent}
-  button.x{border:none;background:none;padding:0 2px;font-size:16px;line-height:1;color:var(--text-4)}
-  button.x:hover{color:var(--text-2);background:none}
-  #dlgYes.danger{background:var(--danger);border-color:var(--danger)}
-  #dlgYes.danger:hover{filter:brightness(1.1)}
-  .modal-foot button{font-size:13px;padding:6px 12px}
 
   /* ---------- lesemodus ---------- */
   .ro-banner{margin:10px 0 0;background:var(--warn-bg);color:var(--warn-fg);border-radius:6px;padding:8px 12px;font-size:12px}
@@ -222,7 +142,8 @@
   }
   .lane-label .ln{font-weight:600;font-size:14px;letter-spacing:-.01em;color:var(--text);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:flex-start;max-width:calc(100% - 34px)}
   .lane-label .ln:hover{text-decoration:underline}
-  .lane-label .lm{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;padding-right:34px}
+  .lane-label .ln,.task-label .t{color:var(--text)}   /* R17: real buttons (button.as-text in sky.css) */
+  .lane-label .lm{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--text-2);white-space:nowrap;overflow:hidden;padding-right:34px}
   .chip{font-size:10px;font-weight:500;line-height:1.5;padding:1px 6px;border-radius:4px;flex:none;background:var(--badge-bg);color:var(--badge-fg)}
   .chip.st-gronn{background:var(--ok-bg);color:var(--ok-fg)}
   .chip.st-gul{background:var(--warn-bg);color:var(--warn-fg)}
@@ -248,7 +169,7 @@
     border-bottom:1px solid var(--line-soft);position:relative;cursor:pointer;transition:background-color .15s ease;
   }
   .task-label:hover{background:var(--raised)}
-  .task-label .t{font-weight:600;font-size:13px;color:var(--text);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:60px}
+  .task-label .t{font-weight:600;font-size:13px;color:var(--text);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 60px)}
   .task-label .d{font-size:11px;color:var(--text-3);margin-top:2px;display:flex;gap:6px;align-items:center;white-space:nowrap;overflow:hidden}
   .task-label .chip.who{background:var(--accent-soft);color:var(--text);font-weight:600;cursor:default}
   .task-label .chip.ado{background:var(--ado-bg);color:var(--ado-fg);text-decoration:none}
@@ -400,26 +321,7 @@
   .drag-tip b{color:#71c4df;font-weight:600}
 
   /* ---------- modaler ---------- */
-  .modal-back{display:none;position:fixed;inset:0;z-index:60;background:var(--backdrop);align-items:center;justify-content:center;padding:24px}
-  .modal-back.open{display:flex}
-  #dlgBack{z-index:80}
-  .modal{background:var(--surface);border:1px solid var(--line);border-radius:8px;width:min(560px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:var(--shadow)}
-  .modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:16px 20px 12px}
-  .modal-head h2{font-size:16px;font-weight:600;color:var(--text)}
-  .modal-head .md{font-size:12px;color:var(--text-3);margin-top:2px}
-  .modal-body{overflow:auto;padding:0}
-  .modal-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 20px;border-top:1px solid var(--line-soft);flex-wrap:wrap}
-  .modal-foot .btns{display:flex;gap:8px;align-items:center}
-  .ed-body{padding:4px 20px 16px;display:grid;gap:14px}
-  .ed-field > span{display:block;font-size:12px;font-weight:500;color:var(--text-2);margin-bottom:4px}
-  .ed-field input[type=text],.ed-field input[type=number],.ed-field input[type=date],.dlg-body input{
-    width:100%;font:inherit;font-size:14px;padding:6px 12px;
-    border:1px solid var(--line);border-radius:4px;background:var(--input-bg);color:var(--text);
-  }
-  .ed-field input:focus,.dlg-body input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-  .ed-field[hidden]{display:none}
-  .ed-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
-  .ed-row .ed-field{flex:1;min-width:140px}
+  .modal{width:min(560px,100%)}
   .ed-tabs{display:flex;gap:2px;border-bottom:1px solid var(--line-soft)}   /* R14: the feature editor in two tabs */
   .ed-tabs button{border:1px solid transparent;border-bottom:2px solid transparent;border-radius:0;background:none;padding:6px 12px;margin-bottom:-1px;color:var(--text-3);font-size:13px}
   .ed-tabs button:hover{color:var(--text);border-color:transparent;border-bottom-color:var(--line);background:none}
@@ -429,13 +331,11 @@
   .ed-kind{display:flex;gap:6px;flex-wrap:wrap}
   .ed-kind button{padding:6px 10px}
   .ed-kind button.on[data-c],.ed-kind button.on[data-t],.ed-kind button.on[data-a]{background:var(--accent);border-color:var(--accent);color:#fff}
-  .ed-field textarea{width:100%;font:inherit;font-size:14px;padding:6px 12px;border:1px solid var(--line);border-radius:4px;background:var(--input-bg);color:var(--text);resize:vertical}
-  .ed-field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .ed-field textarea{resize:vertical}
   .task-label .chip.fixed{background:var(--text);color:var(--surface)}
   .ed-kind button.on[data-k=discovery]{background:var(--warn-bg);border-color:var(--warn);color:var(--warn-fg)}
   .ed-kind button.on[data-k=estimate]{background:var(--accent);border-color:var(--accent);color:#fff}
-  .ed-check{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--text);cursor:pointer;padding-bottom:8px}
-  .ed-check input{accent-color:var(--accent)}
+  .ed-check{padding-bottom:8px}
   .ed-deps{display:flex;gap:6px;flex-wrap:wrap}
   .ed-deps .depchip{display:inline-flex;gap:7px;align-items:center;font-size:12px;background:var(--bad-bg);color:var(--text);padding:3px 8px;border-radius:4px}
   .ed-deps .depchip button{border:none;background:none;padding:0;font-size:13px;color:var(--danger);line-height:1}
@@ -445,7 +345,6 @@
   .dlg-body input{margin-top:12px}
 
   /* ---------- begrunnelse ---------- */
-  #reasonBack{z-index:70}
   .reason-list{margin:0 20px 12px;padding:10px 12px;border:1px solid var(--line-soft);border-radius:6px;background:var(--bg);font-size:13px;color:var(--text);display:grid;gap:4px}
   .reason-codes{display:flex;gap:6px;flex-wrap:wrap;padding:0 20px 12px}
   .reason-codes button.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -462,7 +361,6 @@
   .drop-after{box-shadow:inset 0 -2px 0 var(--accent)}
   .drop-into{box-shadow:inset 0 0 0 2px var(--accent)}
   .dragging-row{opacity:.5}
-  .ed-field select{width:100%;font:inherit;font-size:14px;padding:6px 12px;border:1px solid var(--line);border-radius:4px;background:var(--input-bg);color:var(--text)}
 
   /* ---------- historikk ---------- */
   .drawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--surface);border-left:1px solid var(--line);box-shadow:var(--shadow);z-index:55;display:flex;flex-direction:column}
@@ -485,11 +383,11 @@
   .drawer-foot .btn-link{font-size:13px;padding:6px 12px;border:1px solid var(--line);border-radius:4px;color:var(--text);text-decoration:none;background:var(--surface)}
   .drawer-foot .btn-link:hover{background:var(--raised)}
   #histBtn{position:relative}
-  .count{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--warn);color:#fff;font-size:10px;font-weight:700;line-height:18px;text-align:center}
+  .count{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--warn);color:var(--surface);font-size:10px;font-weight:700;line-height:18px;text-align:center}
   .count[hidden]{display:none}
   .lane-label.ext{background:var(--line-soft)}
   .chip.ext-chip{background:var(--text);color:var(--surface)}
-  .lane-label .metric{color:var(--text-3);overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .lane-label .metric{color:var(--text-2);overflow:hidden;text-overflow:ellipsis;min-width:0}
 
   /* ---------- sammenligning ---------- */
   .cmp-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0 0;padding:8px 12px;border:1px solid var(--accent);border-radius:6px;background:var(--accent-soft);font-size:12px;color:var(--text)}
@@ -590,7 +488,7 @@
     <span class="save-note" id="dirtyNote"></span>
     <span class="whoami" id="whoami"></span>
     <span class="ro-tag" id="roTag" hidden>Lesetilgang</span>
-    <select id="cmpSelect" title="Sammenlign planen med et tidligere punkt"><option value="">Sammenlign med …</option></select>
+    <select id="cmpSelect" aria-label="Sammenlign med et tidligere punkt" title="Sammenlign planen med et tidligere punkt"><option value="">Sammenlign med …</option></select>
     <input id="cmpDate" type="date" hidden title="Planen slik den var om morgenen denne dagen">
     <button id="histBtn" title="Hva har flyttet seg, og hvorfor">Historikk<span class="count" id="histBadge" hidden></span></button>
     <details class="menu" id="adoMenu" hidden>
@@ -617,10 +515,12 @@
     <button id="forumBtn" aria-pressed="false" title="Skjermen på veggen i produktforum: hylla ved siden av diagrammet, «Siden sist» øverst, uten ADO og JSON. Valget huskes i nettleseren.">Forum</button>
     <button id="addReleaseBtn" title="En versjon med måldato. Det som har release-labelen i ADO (bugs og stories), er innholdet.">＋ Release</button>
     <button class="primary" id="addEpicBtn">＋ Epic</button>
+    <a class="btn logout" id="logoutLink" href="/api/auth/signout" title="Logg ut av SkyTracker">Logg ut</a>
   </div>
 </header>
 
 <main class="wrap">
+  <h1 class="sr-only">Tidslinjen</h1>
   <div class="cmp-bar forum-note" id="forumNote" hidden></div>
   <div class="status" id="statusStrip" title="Planen nå, i ord">
     <span id="stEpics">Ingen epics ennå</span>
@@ -754,7 +654,7 @@
   <div class="stage" id="stage">
   <div class="gantt" id="gantt">
     <div class="labels" id="labels"></div>
-    <div class="chart-scroll" id="chartScroll">
+    <div class="chart-scroll" id="chartScroll" tabindex="0" aria-label="Tidslinjen, rull sideveis">
       <div class="chart" id="chart"></div>
     </div>
     <div class="col-resizer" id="colResizer" title="Dra for å justere kolonnebredden · dobbeltklikk for standard"></div>
@@ -1080,6 +980,8 @@ window.__bootTimeline = function(){
   const roBanner = $('roBanner'), dirtyNote = $('dirtyNote');
   const whoami = $('whoami'), roTag = $('roTag');
   $('navTabs').innerHTML = navTabsHtml('timeline', HOSTED);   // R14: the three pages share the tabs; opened from disk only this one shows
+  if(!HOSTED) $('logoutLink').hidden = true;   // R17: «Logg ut» on every page, but not from a file
+  wireDialogs(document);   // R17: modals and drawers as dialogs
   const HINT_KEY = 'sk.hint.timeline';   // R14: the hint closes once per browser
   try{ if(localStorage.getItem(HINT_KEY) === '1') $('hint').hidden = true; }catch(e){}
   $('hintClose').addEventListener('click', () => { $('hint').hidden = true; try{ localStorage.setItem(HINT_KEY, '1'); }catch(e){} });
@@ -1095,6 +997,7 @@ window.__bootTimeline = function(){
   let state = loadState();
   let linkSource = null;          // id under kobling
   let myName = null, canWrite = false, serverReady = false, serverFailed = false, serverVersion = null, applyingRemote = false;
+  const mayEdit = () => !HOSTED || canWrite;   // R17: from a file everything is local; hosted, only writers edit
   let drag = null, colDrag = null, saveTimer = null, pendingSave = false, pushing = false;
   function newNote(){ return { causes: {}, reason: null, reasonCode: null, source: null, lines: [] }; }
   let pendingNote = newNote();   // følger neste lagring: begrunnelse, årsaker (dytt fra avhengighet), kilde (eksempel)
@@ -1278,6 +1181,7 @@ window.__bootTimeline = function(){
         const d = el('div', 'release' + (sg.shipped ? ' shipped' : '') + (sg.overdue ? ' overdue' : '') + (pace ? ' pace-' + pace.code : ''));
         d.style.left = x(a) + 'px'; d.style.width = (x(b) - x(a)) + 'px';
         d.dataset.key = r.key;
+        d.tabIndex = 0; d.setAttribute('role', 'button');
         if(pr.fraction !== null){ const f = el('span', 'fill'); f.style.width = Math.round(pr.fraction * 100) + '%'; d.appendChild(f); }
         const wide = (x(b) - x(a)) >= 120;
         const t = el('span', 't');
@@ -1301,6 +1205,7 @@ window.__bootTimeline = function(){
         if(b > a){
           const seg = el('div', 'seg st-' + st.code);
           seg.dataset.key = d.key;
+          seg.tabIndex = 0; seg.setAttribute('role', 'button');
           seg.style.left = x(a) + 'px'; seg.style.width = (x(b) - x(a)) + 'px';
           const wide = (x(b) - x(a)) >= 260;
           seg.innerHTML = '<span class="t"><b>' + esc(d.name) + '</b> · ' + esc(deliveryCustomersText(d)) + (wide && st.computed ? ' · ' + esc((st.pending ? 'minst ' : 'utregnet ') + fmtDate(unitToDate(dayToUnit(st.computed)))) : '') + '</span>';
@@ -1346,7 +1251,8 @@ window.__bootTimeline = function(){
 
       const ll = el('div', 'lane-label' + (lane.virtual ? ' virtual' : '') + (lane.externalDate ? ' ext' : '') + (lane.state === 'avsluttet' ? ' closed' : lane.state === 'forslag' ? ' proposal' : ''));
       ll.dataset.key = lane.key;
-      const ln = el('span', 'ln', lane.name);
+      const ln = lane.virtual ? el('span', 'ln', lane.name) : el('button', 'ln as-text', lane.name);   // R17: a real button, so Tab reaches it and Enter opens it
+      if(!lane.virtual) ln.type = 'button';
       ln.title = 'Klikk for å redigere epicen';
       if(!lane.virtual) ln.addEventListener('click', () => openEpicEditor(lane.key));
       const lm = el('div', 'lm');
@@ -1366,7 +1272,7 @@ window.__bootTimeline = function(){
       const add = el('button', 'add-feature', '＋');
       add.title = 'Ny feature i denne epicen (utredning eller estimert velges i redigeringen)';
       add.addEventListener('click', e => { e.stopPropagation(); addFeature(lane.key, 'discovery'); });
-      add.hidden = !!lane.virtual;
+      add.hidden = !!lane.virtual || !mayEdit();
       const grip = el('span', 'grip', '⋮⋮');
       grip.title = 'Dra for å endre prioritet';
       grip.draggable = !lane.virtual;
@@ -1427,7 +1333,8 @@ window.__bootTimeline = function(){
       viewTasks(lane).forEach(t => {
         const tl = el('div', 'task-label');
         tl.dataset.id = t.id;
-        const tt = el('span', 't', t.label);
+        const tt = el('button', 't as-text', t.label);
+        tt.type = 'button';
         tt.title = t.label + ' (klikk for å redigere)';
         const dd = el('span', 'd');
         const acts = el('div', 'row-actions');
@@ -1475,6 +1382,7 @@ window.__bootTimeline = function(){
         if(hasGoal){ const gl = el('div', 'goal-line'); gl.style.left = x(lane.goalDate) + 'px'; row.appendChild(gl); }
         const bar = el('div', 'bar ' + t.kind + (t.state === 'levert' ? ' levert' : ''));
         bar.dataset.id = t.id;
+        bar.tabIndex = 0; bar.setAttribute('role', 'button');   // R17: Enter opens it, ← / → moves it a week
         bar.innerHTML = (t.kind === 'estimate' ? '<div class="seg likely"><div class="prog" hidden></div></div><div class="seg late"></div>' : '') +
           '<div class="h l"></div><span class="bl">' + esc(t.label) + '</span>' +
           (t.kind === 'estimate' ? '<div class="h m"></div>' : '') + '<div class="h r"></div>';
@@ -1572,6 +1480,7 @@ window.__bootTimeline = function(){
     const where = personMode ? (t.lane === BACKLOG ? 'Hylla' : (getLane(t.lane) || {name: t.lane}).name) + ' · ' : '';
     labelDateRefs[t.id].innerHTML = esc(where + rangeText(t) + (size ? ' · ' + size : '') + (t.kind === 'estimate' && rawLabel(t) ? ' · ' + rawLabel(t) : '')) + chips.join('');
     bar.title = t.label + ' · ' + rangeText(t);
+    bar.setAttribute('aria-label', t.label + ', ' + rangeText(t));
   }
 
   function drawArrows(){
@@ -1662,7 +1571,7 @@ window.__bootTimeline = function(){
     }
     if(t.kind === 'estimate' && t.lane !== BACKLOG && t.state !== 'levert'){   // dratt foran køen = overstyrt med vilje (logget); tilbake bak gulvet slipper igjen
       if(drag.floor === undefined) drag.floor = queueFloor(state, t.id).floor;
-      if(drag.floor !== null && t.start < drag.floor - 1e-9){ if(!t.pinned){ t.pinned = true; drag.pinnedByDrag = true; } }
+      if(inFrontOfQueue(t, drag.floor)){ if(!t.pinned){ t.pinned = true; drag.pinnedByDrag = true; } }
       else if(drag.pinnedByDrag){ delete t.pinned; drag.pinnedByDrag = false; }
     }
     pushQueue();
@@ -1685,6 +1594,35 @@ window.__bootTimeline = function(){
   }
   chart.addEventListener('pointerup', endDrag);
   chart.addEventListener('pointercancel', endDrag);
+  function inFrontOfQueue(t, floor){   // started before the queue lets it: overstyrt with intent (a drag and a key do the same)
+    return t.kind === 'estimate' && t.lane !== BACKLOG && t.state !== 'levert' && floor !== null && t.start < floor - 1e-9;
+  }
+  chart.addEventListener('keydown', e => {   // R17: the chart from the keyboard: Enter opens, ← / → moves a bar a week (writers, epic view)
+    const seg = e.target.closest && e.target.closest('.axis .release, .axis .delivery .seg');
+    if(seg && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); seg.click(); return; }
+    const bar = e.target.closest && e.target.closest('.bar');
+    if(!bar || bar.classList.contains('ghost')) return;
+    const t = getTask(bar.dataset.id);
+    if(!t) return;
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); if(linkSource){ completeLink(t.id); return; } openEditor(t.id); return; }
+    if(e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    if(!mayEdit() || personMode || t.state === 'levert') return;
+    e.preventDefault();
+    const d = (e.key === 'ArrowRight' ? 1 : -1) * WEEK;
+    const s = Math.max(VIEW_FROM, Math.min(N_MONTHS - (t.end - t.start), t.start + d));
+    if(Math.abs(s - t.start) < 1e-9) return;
+    const before = { t, start0: t.start, likely0: t.endLikely, end0: t.end, moved: true };
+    const floor = queueFloor(state, t.id).floor;
+    shiftTask(t, s - t.start); touch(t, 'tid');
+    if(inFrontOfQueue(t, floor) && !t.pinned){ t.pinned = true; touch(t, 'meta'); }
+    pushQueue();
+    const lines = dragReasonLines(before);
+    if(t.fixedEnd && d > 0) pendingNote.reasonCode = 'ekstern';   // a fixed date moves only for the world outside, as in a drag
+    if(lines.length) askReason(lines);
+    save(); render();
+    const nb = chart.querySelector('.bar[data-id="' + CSS.escape(t.id) + '"]');
+    if(nb) nb.focus();
+  });
   function showTip(e, t){
     tip.style.display = 'block';
     tip.innerHTML = '<b>' + esc(t.label) + '</b>&nbsp;&nbsp;' + esc(rangeText(t));
@@ -2813,6 +2751,8 @@ window.__bootTimeline = function(){
       $('importBtn').hidden = !canWrite;
       $('investorBtn').hidden = false;   // tallene er for alle som er logget inn
       $('mixField').hidden = !canWrite;
+      $('addEpicBtn').hidden = !canWrite;      // R17: a reader's main button created nothing that lasts
+      $('addReleaseBtn').hidden = !canWrite;
       whoami.textContent = myName || '';
       refreshHistoryBadge();
       loadSnapshots();
@@ -2852,6 +2792,7 @@ window.__bootTimeline = function(){
         $('adoImportBtn').hidden = true;
         $('adoMenu').hidden = true;
         $('importBtn').hidden = true;
+        $('addEpicBtn').hidden = true; $('addReleaseBtn').hidden = true;
         afterSaveQueue.length = 0;
         setSaveNote('kun lesetilgang – endringer forblir lokale');
         return;

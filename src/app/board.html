@@ -3,87 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SkyTracker – brettet</title>
+<title>Brettet – SkyTracker</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="timeline/sky.css">
 <style>
-  /* Same palette and controls as the timeline (timeline.html), kept in step by hand. */
-  :root{
-    color-scheme:light;
-    --bg:#f8fafc; --surface:#ffffff; --raised:#f1f5f9; --input-bg:#ffffff;
-    --line:#cbd5e1; --line-soft:#e2e8f0;
-    --text:#0d123e; --text-hover:#0d123e; --text-2:#475569; --text-3:#64748b; --text-4:#94a3b8;
-    --accent:#3b76b0; --accent-hover:#4e94c4; --accent-text:#3b76b0; --accent-soft:rgba(59,118,176,.2);
-    --danger:#ef4444; --danger-hover:#b91c1c; --warn:#f59e0b;
-    --ok-bg:#dcfce7; --ok-fg:#15803d; --warn-bg:#fef3c7; --warn-fg:#b45309; --bad-bg:#fee2e2; --bad-fg:#b91c1c;
-    --badge-bg:#f1f5f9; --badge-fg:#475569; --ado-bg:#e0f2fe; --ado-fg:#0369a1;
-    --backdrop:rgba(0,0,0,.4);
-    --shadow:0 20px 25px -5px rgba(0,0,0,.1),0 8px 10px -6px rgba(0,0,0,.1);
-  }
-  @media (prefers-color-scheme: dark){
-    :root{
-      color-scheme:dark;
-      --bg:#0d123e; --surface:#1e2455; --raised:#212d63; --input-bg:#212d63;
-      --line:#294285; --line-soft:#294285;
-      --text:#ffffff; --text-hover:#71c4df; --text-2:#a5d6e6; --text-3:#a5d6e6; --text-4:#4e94c4;
-      --accent-text:#71c4df; --accent-soft:rgba(59,118,176,.35);
-      --danger:#f87171; --danger-hover:#fca5a5; --warn:#fbbf24;
-      --ok-bg:rgba(34,197,94,.2); --ok-fg:#86efac; --warn-bg:rgba(245,158,11,.2); --warn-fg:#fcd34d; --bad-bg:rgba(239,68,68,.2); --bad-fg:#fca5a5;
-      --badge-bg:#294285; --badge-fg:#cbd5e1; --ado-bg:#294285; --ado-fg:#a5d6e6;
-      --backdrop:rgba(0,0,0,.6);
-    }
-  }
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
-  .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 24px;background:var(--surface);border-bottom:1px solid var(--line-soft)}
-  .tb-left,.tb-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
-  /* R14: the three pages' tabs; the active one is the page's name */
-  .tabs{display:flex;gap:2px;align-items:center}
-  .tabs .tab{font-size:14px;font-weight:500;color:var(--text-3);text-decoration:none;padding:6px 10px;border-radius:6px;white-space:nowrap}
-  .tabs .tab:hover{color:var(--text);background:var(--raised)}
-  .tabs .tab.on{color:var(--text);font-weight:600;font-size:18px;letter-spacing:-.01em;padding:4px 10px 4px 0;background:none}
-  .tabs .tab[hidden]{display:none}
-  .whoami{font-size:12px;color:var(--text-3)}
-  .ro-tag{font-size:12px;font-weight:500;color:var(--warn)}
-  .save-note{font-size:11px;color:var(--text-4);min-width:120px;text-align:right}
-  .wrap{padding:16px 24px 40px}
-  .hint{font-size:12px;color:var(--text-3);max-width:100ch;margin-bottom:12px}
-  .hint b{color:var(--text);font-weight:600}
-  p.hint{position:relative;padding-right:26px}   /* R14: the hint closes once per browser */
-  p.hint .x{position:absolute;right:0;top:-2px;border:none;background:none;padding:0 2px;font-size:14px;line-height:1;color:var(--text-4);cursor:pointer}
-  p.hint .x:hover{color:var(--text-2)}
-  button,.btn{font:inherit;font-size:12px;font-weight:500;line-height:1.3;padding:5px 9px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--text-3);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;transition:color .15s ease,background-color .15s ease,border-color .15s ease}
-  button:hover,.btn:hover{color:var(--text-hover);border-color:var(--text-4)}
-  button:disabled{opacity:.5;cursor:default;pointer-events:none}
-  button.primary,#dlgYes{background:var(--accent);border-color:var(--accent);color:#fff}
-  button.primary:hover,#dlgYes:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:#fff}
-  button.text{border-color:transparent;background:transparent}
-  button.text:hover{border-color:transparent;background:var(--raised)}
-  #dlgYes.danger{background:var(--danger);border-color:var(--danger)}
-  .modal-foot button{font-size:13px;padding:6px 12px}
-  .modal-back{display:none;position:fixed;inset:0;z-index:60;background:var(--backdrop);align-items:center;justify-content:center;padding:24px}
-  .modal-back.open{display:flex}
-  #dlgBack{z-index:80}
-  #reasonBack{z-index:70}
-  .modal{background:var(--surface);border:1px solid var(--line);border-radius:8px;width:min(620px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:var(--shadow)}
-  .modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:16px 20px 12px}
-  .modal-head h2{font-size:16px;font-weight:600;color:var(--text)}
-  .modal-head .md{font-size:12px;color:var(--text-3);margin-top:2px}
-  .modal-body{overflow:auto;padding:0}
-  .modal-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 20px;border-top:1px solid var(--line-soft);flex-wrap:wrap}
-  .modal-foot .btns{display:flex;gap:8px;align-items:center}
-  .ed-body{padding:4px 20px 16px;display:grid;gap:14px}
-  .ed-field > span{display:block;font-size:12px;font-weight:500;color:var(--text-2);margin-bottom:4px}
-  .ed-field input[type=text],.ed-field input[type=date],.ed-field input[type=number],.ed-field select,.ed-field textarea,.dlg-body input{width:100%;font:inherit;font-size:14px;padding:6px 12px;border:1px solid var(--line);border-radius:4px;background:var(--input-bg);color:var(--text)}
+  /* this page: the shared tokens and controls are in timeline/sky.css (R17); what follows is Brettet's own */
+  .hint{max-width:100ch;margin-bottom:12px}
+  p.hint .x{font-size:14px}
+  .modal{width:min(620px,100%)}
   .ed-field textarea{min-height:72px;resize:vertical}
-  .ed-field input:focus,.ed-field select:focus,.ed-field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-  [hidden]{display:none !important}
-  .ed-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
-  .ed-row .ed-field{flex:1;min-width:140px}
   .ed-kind{display:flex;gap:6px;flex-wrap:wrap}
   .ed-kind button{padding:6px 10px}
   .ed-kind button.on{background:var(--accent);border-color:var(--accent);color:#fff}
-  .ed-check{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--text);cursor:pointer}
-  .ed-check input{accent-color:var(--accent)}
-  .md{font-size:12px;color:var(--text-3)}
   .ed-deps{display:flex;gap:6px;flex-wrap:wrap;min-height:22px;margin-bottom:6px}
   .ed-deps .depchip{display:inline-flex;gap:7px;align-items:center;font-size:12px;background:var(--bad-bg);color:var(--text);padding:3px 8px;border-radius:4px}
   .ed-deps .depchip button{border:none;background:none;padding:0;font-size:13px;color:var(--danger);line-height:1;cursor:pointer}
@@ -102,7 +33,7 @@
   .col{background:var(--raised);border-radius:8px;padding:10px;min-height:50vh;border:2px solid transparent}
   .col.over{border-color:var(--accent)}
   .col.no{border-color:var(--danger)}
-  .col h2{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin:2px 4px 10px;display:flex;justify-content:space-between}
+  .col h2{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);margin:2px 4px 10px;display:flex;justify-content:space-between}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:9px 10px;margin-bottom:8px;display:grid;gap:5px;cursor:pointer}
   .card[draggable=true]{cursor:grab}
   .card.dragging{opacity:.5}
@@ -136,13 +67,14 @@
     <span class="ro-tag" id="roTag" hidden>Lesetilgang</span>
     <button id="importCardsBtn" hidden></button>
     <button class="primary" id="registerBtn" hidden title="Et ønske produktforum har sagt ja til: registreres og venter på utredning">＋ Registrer ønske</button>
-    <a class="btn" href="/api/auth/signout" title="Logg ut av SkyTracker">Logg ut</a>
+    <a class="btn logout" id="logoutLink" href="/api/auth/signout" title="Logg ut av SkyTracker">Logg ut</a>
   </div>
 </header>
-<div class="wrap">
+<main class="wrap">
+  <h1 class="sr-only">Brettet</h1>
   <p class="hint" id="hint">Hvert kort er en feature i Tidslinjen, og kolonnene er livssyklusen. Dra et kort til neste kolonne: <b>Utredes</b> spør etter eier og størrelse, <b>Klar for veikart</b> etter byggetiden, <b>Aktiv</b> etter epicen. <b>Levert</b> settes fra ADO; et kort uten ADO-kobling dras til Levert og får dagen. Fra Klar for veikart og Aktiv kan et kort dras tilbake til <b>Utredes</b>. Klikk et kort for å redigere beskrivelse, type, flater, fast dato, epicen det ligger i, estimatet (uker og buffer) og hva den venter på; en utredning får «Klar for veikart …» der. <button class="x" id="hintClose" title="Lukk hintet; det kommer ikke tilbake i denne nettleseren">✕</button></p>
   <div class="cols" id="cols"></div>
-</div>
+</main>
 <div class="note" id="note"></div>
 
 <div class="modal-back" id="startBack"><div class="modal" style="width:min(520px,100%)">
@@ -222,6 +154,7 @@
 <script>
 window.__bootBoard = function(){
   document.getElementById('navTabs').innerHTML = navTabsHtml('board', location.protocol !== 'file:');   // R14: the three pages share the tabs
+  wireDialogs(document);   // R17: modals and drawers as dialogs
   try{ if(localStorage.getItem('sk.hint.board') === '1') document.getElementById('hint').hidden = true; }catch(e){}   // R14: the hint closes once per browser
   document.getElementById('hintClose').addEventListener('click', () => { document.getElementById('hint').hidden = true; try{ localStorage.setItem('sk.hint.board', '1'); }catch(e){} });
   const $ = id => document.getElementById(id);

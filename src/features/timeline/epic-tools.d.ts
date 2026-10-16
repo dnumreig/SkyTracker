@@ -148,3 +148,6 @@ export declare function epicWeight(c: EpicCustomers): { code: "tyngst" | "flere"
 export declare function deliverySegments(plan: Plan, todayDay: string): { delivery: Delivery; start: number; end: number; promised: number; status: DeliveryStatus }[];
 export type DeliveryInvestor = { key: string; name: string; customers: string; owner: string; promised: string; computed: string | null; weeks: number | null; colour: string; code: DeliveryCode; by: string | null; pending: boolean; epicsDone: number; epicsTotal: number; bugsLeft: number; text: string };
 export declare function deliveryInvestor(plan: Plan, d: Delivery, todayDay: string): DeliveryInvestor;
+
+/* R17: modals and drawers as dialogs (browser only) */
+export declare function wireDialogs(doc: Document): void;

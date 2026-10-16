@@ -922,6 +922,49 @@ function deliveryInvestor(plan, d, todayDay) {
     by: s.by ? partName(s.by) : null, pending: s.pending, epicsDone: parts.epics.filter((l) => l.state === "avsluttet").length, epicsTotal: parts.epics.length, bugsLeft: deliveryBugsLeft(plan, d), text: s.text };
 }
 
+/* ---------- R17: modals and drawers as dialogs (browser only; every page calls it once at boot) ---------- */
+/** Role, aria-modal and a label on every `.modal-back .modal` and `aside.drawer`; focus moves in when one opens, Tab stays
+ *  inside a modal, focus returns to what opened it when it closes. A modal opens with the class «open», a drawer by losing «hidden». */
+function wireDialogs(doc) {
+  const SEL = ".modal-back, aside.drawer";
+  const isModal = (b) => b.classList.contains("modal-back");
+  const isOpen = (b) => (isModal(b) ? b.classList.contains("open") : !b.hidden);
+  const box = (b) => (isModal(b) ? b.querySelector(".modal") || b : b);
+  const focusables = (b) => [...box(b).querySelectorAll("button, [href], input, select, textarea, summary, [tabindex]:not([tabindex='-1'])")].filter((x) => !x.disabled && x.offsetParent !== null);
+  const z = (b) => parseInt(getComputedStyle(b).zIndex, 10) || 0;
+  const topModal = () => [...doc.querySelectorAll(".modal-back.open")].sort((a, b) => z(b) - z(a))[0] || null;
+  doc.querySelectorAll(SEL).forEach((b, i) => {
+    const d = box(b), h = d.querySelector("h2");
+    d.setAttribute("role", "dialog");
+    if (isModal(b)) d.setAttribute("aria-modal", "true");
+    if (h) { if (!h.id) h.id = (b.id || "dialog" + i) + "Title"; d.setAttribute("aria-labelledby", h.id); }
+  });
+  const openers = new Map();
+  new MutationObserver((list) => list.forEach((m) => {
+    const b = m.target;
+    if (!b.matches || !b.matches(SEL)) return;
+    if (isOpen(b) && !openers.has(b)) {
+      openers.set(b, doc.activeElement);
+      setTimeout(() => { if (isOpen(b) && !box(b).contains(doc.activeElement)) { const f = focusables(b)[0]; if (f) f.focus(); } }, 30);
+    } else if (!isOpen(b) && openers.has(b)) {
+      let o = openers.get(b); openers.delete(b);
+      if (o && !o.isConnected && o.dataset && o.dataset.id) o = doc.querySelector("[data-id=\"" + CSS.escape(o.dataset.id) + "\"]." + o.classList[0]);
+      if (o && o.isConnected && typeof o.focus === "function" && !topModal()) o.focus();
+    }
+  })).observe(doc.body, { subtree: true, attributes: true, attributeFilter: ["class", "hidden"] });
+  doc.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab") return;
+    const b = topModal();
+    if (!b) return;
+    const f = focusables(b);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1], at = doc.activeElement;
+    if (!box(b).contains(at)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && at === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
+  });
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     BASE_Y, BASE_M, N_MONTHS, WEEK, SCHEMA, OWNER_DEFAULT, STATUS_LABEL,
@@ -934,7 +977,7 @@ if (typeof module !== "undefined") {
     shelfTasks, epicCounts, sizeClass, sizeClassDerived, sizeClassText, bufferLabel, rawLabel, previewPlacement,
     canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
     dayKey, osloDay, osloDate, currentSprint, sprintDay, sprintLabel, navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
-    DELIVERY_OWNER, DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor,
+    DELIVERY_OWNER, DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor, wireDialogs,
     dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
     workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, releaseForecastText, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
     progressFraction, progressSignal, epicProgressSignal, progressText,
