@@ -55,7 +55,7 @@
   .menu-list button[hidden],.menu-list .menu-field[hidden]{display:none}
   .menu-list .menu-field{flex-direction:column;align-items:flex-start;gap:4px;cursor:default}
   .menu-list .menu-field select{font-size:12px;padding:3px 6px;width:100%}
-  .badge{font-size:10px;font-weight:500;line-height:1.5;padding:2px 6px;border-radius:4px;background:var(--badge-bg);color:var(--badge-fg);white-space:nowrap}
+  .badge{font-size:11px;font-weight:500;line-height:1.5;padding:2px 6px;border-radius:4px;background:var(--badge-bg);color:var(--badge-fg);white-space:nowrap}
   .badge.warn{background:var(--warn-bg);color:var(--warn-fg)}
   .hint{position:relative;padding-right:26px;margin-top:8px}
   .hint .x{position:absolute;right:0;top:-2px}
@@ -65,17 +65,12 @@
   .ro-banner{margin:10px 0 0;background:var(--warn-bg);color:var(--warn-fg);border-radius:6px;padding:8px 12px;font-size:12px}
   .ro-banner b{font-weight:600}
 
-  /* ---------- hjelpepanel ---------- */
-  .help{display:none;margin:14px 0 0;border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:16px 18px;position:relative}
-  .help.open{display:block}
-  .help h3{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text)}
-  .help .close-help{position:absolute;top:12px;right:12px}
-  .help-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  /* ---------- hjelp (R17: a drawer, the cards in one column) ---------- */
+  .help-grid{display:grid;grid-template-columns:1fr;gap:10px;padding-top:10px}
   .help-card{border:1px solid var(--line-soft);border-radius:6px;background:var(--bg);padding:12px 14px}
-  .help-card h4{font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text)}
+  .help-card h4{font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text)}
   .help-card p{font-size:12px;color:var(--text-3);line-height:1.5}
   .help-card p b{color:var(--text);font-weight:600}
-  @media (max-width:900px){.help-grid{grid-template-columns:1fr}}
 
   /* ---------- koble-modus ---------- */
   .link-banner{
@@ -120,7 +115,7 @@
     font-size:14px;color:var(--text-3);margin-bottom:16px;
   }
   .empty button{margin:12px 0 8px}
-  .empty .note{display:block;font-size:11px;color:var(--text-4)}
+  .empty .note{display:block;font-size:12px;color:var(--text-3)}
 
   /* ---------- gantt ---------- */
   .gantt{
@@ -135,7 +130,7 @@
   .labels{border-right:1px solid var(--line);min-width:0}
   .labels .corner{
     height:var(--axis-h);border-bottom:1px solid var(--line-soft);display:flex;align-items:flex-end;
-    padding:0 16px 8px;font-size:10px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--text-4);
+    padding:0 16px 8px;font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--text-3);
   }
   .lane-label{
     height:var(--lane-h);display:flex;flex-direction:column;justify-content:center;gap:2px;padding:0 16px;
@@ -144,8 +139,8 @@
   .lane-label .ln{font-weight:600;font-size:14px;letter-spacing:-.01em;color:var(--text);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:flex-start;max-width:calc(100% - 34px)}
   .lane-label .ln:hover{text-decoration:underline}
   .lane-label .ln,.task-label .t{color:var(--text)}   /* R17: real buttons (button.as-text in sky.css) */
-  .lane-label .lm{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--text-2);white-space:nowrap;overflow:hidden;padding-right:34px}
-  .chip{font-size:10px;font-weight:500;line-height:1.5;padding:1px 6px;border-radius:4px;flex:none;background:var(--badge-bg);color:var(--badge-fg)}
+  .lane-label .lm{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text-2);white-space:nowrap;overflow:hidden;padding-right:34px}
+  .chip{font-size:11px;font-weight:500;line-height:1.5;padding:1px 6px;border-radius:4px;flex:none;background:var(--badge-bg);color:var(--badge-fg)}
   .chip.st-gronn{background:var(--ok-bg);color:var(--ok-fg)}
   .chip.st-gul{background:var(--warn-bg);color:var(--warn-fg)}
   .chip.st-rod{background:var(--bad-bg);color:var(--bad-fg)}
@@ -178,19 +173,22 @@
   .task-label .chip.queue{background:transparent;color:var(--text-2);box-shadow:inset 0 0 0 1px var(--line)}
   .inv-list{margin:0 0 14px;padding-left:18px;font-size:12px}.inv-list li{margin:3px 0}.inv-list ul{padding-left:16px;margin:2px 0}
   .inv-big{font-size:34px;font-weight:700;margin:4px 0;color:var(--text)}
-  #invBody h3{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin:14px 0 6px}
+  #invBody h3{font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--text-3);margin:14px 0 6px}
   .lane-label .add-feature{
     position:absolute;right:10px;top:50%;transform:translateY(-50%);
     width:22px;height:22px;padding:0;font-size:14px;line-height:1;
   }
   .lane-label .add-feature:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+  .lane-label .add-feature{opacity:0;transition:opacity .12s}   /* R17: like the feature rows' actions */
+  .lane-label:hover .add-feature,.lane-label:focus-within .add-feature{opacity:1}
+  @media (hover:none){.lane-label .add-feature{opacity:1}}
   .task-label{
     height:var(--row-h);display:flex;flex-direction:column;justify-content:center;padding:0 16px 0 20px;
     border-bottom:1px solid var(--line-soft);position:relative;cursor:pointer;transition:background-color .15s ease;
   }
   .task-label:hover{background:var(--raised)}
   .task-label .t{font-weight:600;font-size:13px;color:var(--text);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 60px)}
-  .task-label .d{font-size:11px;color:var(--text-3);margin-top:2px;display:flex;gap:6px;align-items:center;white-space:nowrap;overflow:hidden}
+  .task-label .d{font-size:12px;color:var(--text-3);margin-top:2px;display:flex;gap:6px;align-items:center;white-space:nowrap;overflow:hidden}
   .task-label .chip.who{background:var(--accent-soft);color:var(--text);font-weight:600;cursor:default}
   .task-label .chip.ado{background:var(--ado-bg);color:var(--ado-fg);text-decoration:none}
   .task-label .chip.ado:hover{text-decoration:underline}
@@ -204,18 +202,18 @@
   .chart-scroll{overflow-x:auto;overscroll-behavior-x:contain}
   .chart{position:relative;width:calc(var(--month-w) * 15)}
   .axis{height:var(--axis-h);border-bottom:1px solid var(--line-soft);position:sticky;top:0;display:flex;background:var(--surface);z-index:5}
-  .axis .mth{width:var(--month-w);flex:none;border-left:1px solid var(--line-soft);padding:10px 0 0 9px}
+  .axis .mth{width:var(--month-w);flex:none;border-left:1px solid var(--line-soft);padding:6px 0 0 9px}
   .axis .mth:first-child{border-left:none}
-  .axis .mth .mm{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2)}
-  .axis .mth .yy{font-size:10px;color:var(--text-4)}
+  .axis .mth .mm{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2)}
+  .axis .mth .yy{font-size:12px;color:var(--text-3)}
   .axis .mth.jan{border-left:2px solid var(--text-4)}
   .axis .sprints{position:absolute;left:0;right:0;bottom:0;height:16px;pointer-events:none}
-  .axis .sprint{position:absolute;bottom:0;height:16px;font-size:9px;line-height:16px;padding-left:4px;border-left:1px solid var(--line);color:var(--text-4);white-space:nowrap;overflow:hidden;pointer-events:auto}
+  .axis .sprint{position:absolute;bottom:0;height:16px;font-size:11px;line-height:16px;padding-left:4px;border-left:1px solid var(--line);color:var(--text-4);white-space:nowrap;overflow:hidden;pointer-events:auto}
   .axis .sprint.alt{background:var(--raised)}
   .axis .sprint.now{color:var(--text);font-weight:600;border-left-color:var(--today)}
   /* R10: the release band, one segment per version, above the sprint ruler */
   .axis .releases{position:absolute;left:0;right:0;bottom:16px;height:18px;pointer-events:none}
-  .axis .release{position:absolute;bottom:1px;height:16px;box-sizing:border-box;font-size:10px;line-height:14px;padding:0 5px;border:1px solid var(--release);border-left-style:dashed;border-radius:3px 0 0 3px;background:var(--release-bg);color:var(--text-2);white-space:nowrap;overflow:hidden;pointer-events:auto;cursor:pointer}
+  .axis .release{position:absolute;bottom:1px;height:16px;box-sizing:border-box;font-size:11px;line-height:14px;padding:0 5px;border:1px solid var(--release);border-left-style:dashed;border-radius:3px 0 0 3px;background:var(--release-bg);color:var(--text-2);white-space:nowrap;overflow:hidden;pointer-events:auto;cursor:pointer}
   .axis .release:hover{filter:brightness(.96)}
   .axis .release .fill{position:absolute;left:0;top:0;bottom:0;background:var(--release-fill)}
   .axis .release .t{position:relative;font-weight:600}
@@ -228,18 +226,14 @@
   /* R16: the delivery band, one row per delivery above the release band */
   .axis .deliveries{position:absolute;left:0;right:0;top:40px;height:calc(var(--axis-h) - 76px);pointer-events:none}
   .axis .delivery{position:absolute;left:0;right:0;height:18px}
-  .axis .delivery .seg{position:absolute;top:1px;height:15px;box-sizing:border-box;font-size:10px;line-height:13px;padding:0 5px;border:1px solid var(--neutral);border-radius:3px;background:var(--badge-bg);color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:auto;cursor:pointer}
-  .axis .delivery .seg:hover{filter:brightness(.96)}
-  .axis .delivery .seg .t{position:relative;z-index:2;background:inherit;padding:0 2px;margin:0 -2px;border-radius:2px}   /* the text sits above the promise marker */
-  .axis .delivery .seg b{font-weight:600;color:var(--text)}
-  .axis .delivery .seg.st-gronn{border-color:var(--ok);background:var(--ok-bg)}
-  .axis .delivery .seg.st-gul{border-color:var(--warn-dot);background:var(--warn-bg)}
-  .axis .delivery .seg.st-rod{border-color:var(--bad);background:var(--bad-bg)}
-  .axis .delivery .promise{position:absolute;top:0;width:2px;height:17px;background:var(--text);opacity:.7;pointer-events:auto;z-index:1}
-  .sw.delivery{width:16px;height:10px;border:1px solid var(--ok);background:var(--ok-bg);border-radius:3px}
+  .axis .delivery .pmark{position:absolute;top:3px;width:11px;height:11px;margin-left:-5px;transform:rotate(45deg);border-radius:2px;border:1px solid var(--neutral);background:var(--badge-bg);pointer-events:auto;cursor:pointer}
+  .axis .delivery .pmark.st-gronn{border-color:var(--ok);background:var(--ok-bg)}
+  .axis .delivery .pmark.st-gul{border-color:var(--warn-dot);background:var(--warn-bg)}
+  .axis .delivery .pmark.st-rod{border-color:var(--bad);background:var(--bad)}
+  .sw.delivery{width:10px;height:10px;transform:rotate(45deg);border:1px solid var(--ok);background:var(--ok-bg);border-radius:2px}
   .lane-label .chip.cust{background:var(--accent-soft);color:var(--text)}
   .chart .release-line{position:absolute;top:var(--axis-h);bottom:0;width:0;border-left:2px dashed var(--release);opacity:.55;z-index:3;pointer-events:none}
-  .chart .release-line::after{content:attr(data-v);position:absolute;bottom:2px;left:4px;font-size:10px;line-height:14px;font-weight:600;color:var(--text-3);background:var(--surface);padding:0 4px;border-radius:3px;white-space:nowrap}   /* R14: the version at the bottom too */
+  .chart .release-line::after{content:attr(data-v);position:absolute;bottom:2px;left:4px;font-size:11px;line-height:14px;font-weight:600;color:var(--text-2);background:var(--surface);padding:0 4px;border-radius:3px;white-space:nowrap}   /* R14: the version at the bottom too */
   .chart .release-line.shipped{border-left-style:solid;opacity:.35}
   .chart .release-line.edge::after{left:auto;right:4px}   /* a release at the axis end: the label hangs to the left of its line */
   .sw.release{width:16px;height:10px;border:1px solid var(--release);border-left-style:dashed;background:var(--release-bg)}
@@ -247,13 +241,13 @@
   .rel-h .cnt{font-weight:400;color:var(--text-4)}
   .rel-row{display:grid;grid-template-columns:52px 1fr 70px 44px 90px;gap:8px;align-items:baseline;padding:5px 0;border-top:1px solid var(--line-soft);font-size:13px;color:var(--text);text-decoration:none}
   .rel-row:hover .ti{text-decoration:underline}
-  .rel-row .id{font-size:11px;color:var(--text-4)}
-  .rel-row .st,.rel-row .pt,.rel-row .who{font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rel-row .id{font-size:12px;color:var(--text-4)}
+  .rel-row .st,.rel-row .pt,.rel-row .who{font-size:12px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rel-row.done .ti{color:var(--text-3)}
   .rel-row.done .st{color:var(--ok-fg)}
   .rel-note{font-size:13px;color:var(--text);margin:8px 0 2px;white-space:pre-wrap}
   .rel-scope{font-size:12px;color:var(--text-3);margin:6px 0 4px}
-  .rel-scope code{font-size:11px;background:var(--raised);padding:1px 5px;border-radius:3px}
+  .rel-scope code{font-size:12px;background:var(--raised);padding:1px 5px;border-radius:3px}
   /* R11: the drawer's progress block: the tempo line, the items by state, sprint against release, the burndown */
   .rel-pace{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-2);margin:8px 0 2px;line-height:1.4}
   .rel-pace .chip{margin-top:1px}
@@ -266,13 +260,13 @@
   .burn .pt{fill:var(--release);stroke:var(--surface);stroke-width:2}
   .burn .fc{stroke:var(--release);stroke-width:1.5;stroke-dasharray:4 4;fill:none;opacity:.7}
   .burn .now{stroke:var(--today);stroke-width:1}
-  .burn text{font-size:10px;fill:var(--text-3);font-variant-numeric:tabular-nums}
+  .burn text{font-size:11px;fill:var(--text-3);font-variant-numeric:tabular-nums}
   .burn .ttl{font-size:11px;fill:var(--text-2);font-weight:600}
   /* R12: the chance the release is done by its target day */
   .rel-fc{margin:8px 0 2px}
   .rel-fc .chip{font-variant-numeric:tabular-nums}
   .rel-fc-detail{font-size:12px;color:var(--text-3);margin:4px 0 2px}
-  .rel-basis{font-size:11px;color:var(--text-4);margin:2px 0 4px;line-height:1.4}
+  .rel-basis{font-size:12px;color:var(--text-4);margin:2px 0 4px;line-height:1.4}
   .rel-fc-missing{font-size:12px;color:var(--text-3);margin:8px 0 2px;line-height:1.4}
   .rel-table{font-size:12px;color:var(--text-3);margin:2px 0 8px}
   .rel-table summary{cursor:pointer}
@@ -286,10 +280,10 @@
   /* R17: one meaning per colour: today is ink over a washed past and its label sits in the axis, never the red of «late» */
   .chart .today{position:absolute;top:var(--axis-h);bottom:0;width:2px;background:var(--today);opacity:.85;z-index:6;pointer-events:none}
   .chart .today::before{content:"";position:absolute;top:0;bottom:0;right:2px;width:4000px;background:rgba(13,18,62,.045);pointer-events:none}
-  .chart .today .tl{position:absolute;top:-18px;left:-1px;background:var(--today);color:var(--surface);font-size:11px;font-weight:600;padding:1px 7px;border-radius:3px 3px 3px 0;white-space:nowrap;letter-spacing:.02em}
+  .chart .today .tl{position:absolute;top:-18px;left:-1px;background:var(--today);color:var(--surface);font-size:12px;font-weight:600;padding:1px 7px;border-radius:3px 3px 3px 0;white-space:nowrap;letter-spacing:.02em}
   .lane-band{height:var(--lane-h);border-bottom:1px solid var(--line-soft);background:var(--raised);position:relative}
   .lane-band .goal-lbl{
-    position:absolute;top:8px;margin-left:7px;font-size:10px;font-weight:600;color:var(--goal);white-space:nowrap;
+    position:absolute;top:8px;margin-left:7px;font-size:11px;font-weight:600;color:var(--goal);white-space:nowrap;
     background:var(--surface);padding:1px 6px;border:1px solid var(--goal);border-radius:4px;
   }
   .goal-line{position:absolute;top:0;bottom:0;width:0;margin-left:-1px;border-left:2px dashed var(--goal);z-index:3;pointer-events:none}   /* R17: a goal is a target: dashed ink in its own epic */
@@ -311,7 +305,6 @@
   .bar .seg.late{right:0;background:var(--late);border-radius:0 4px 4px 0}
   .bar .seg.likely .prog{position:absolute;left:0;top:0;bottom:0;background:rgba(255,255,255,.3);border-right:2px solid rgba(255,255,255,.95);border-radius:4px 0 0 4px}
   .bar.levert{opacity:.55}
-  .bar .bl{position:relative;z-index:1;padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
   .bar .h{position:absolute;top:0;bottom:0;width:9px;cursor:ew-resize;opacity:0;transition:opacity .12s ease;z-index:2}
   .bar .h::after{content:"";position:absolute;top:7px;bottom:7px;width:3px;border-radius:2px;background:rgba(255,255,255,.85)}
   .bar.discovery .h::after{background:rgba(13,18,62,.5)}
@@ -321,9 +314,9 @@
   .bar:hover .h{opacity:1}
   .range-lbl{
     position:absolute;top:0;height:var(--row-h);display:flex;align-items:center;padding-left:8px;
-    font-size:11px;font-weight:500;color:var(--text-2);white-space:nowrap;pointer-events:none;z-index:1;
+    font-size:12px;font-weight:500;color:var(--text-2);white-space:nowrap;pointer-events:none;z-index:1;
   }
-  .range-lbl.date{color:var(--accent-text);font-weight:600}
+  .range-lbl.date{color:var(--text-2);font-weight:500}
 
   svg.deps{position:absolute;left:0;top:0;pointer-events:none;z-index:6;overflow:visible}
   svg.deps path.vis{fill:none;stroke:var(--dep);stroke-width:1.5;marker-end:url(#arrow)}
@@ -334,7 +327,7 @@
 
   .drag-tip{
     position:fixed;z-index:100;pointer-events:none;display:none;
-    background:var(--tip-bg);color:var(--tip-fg);font-size:11px;
+    background:var(--tip-bg);color:var(--tip-fg);font-size:12px;
     padding:6px 10px;border-radius:4px;white-space:nowrap;box-shadow:var(--shadow);
   }
   .drag-tip b{color:#71c4df;font-weight:600}
@@ -396,10 +389,13 @@
   .hist-cs{margin-top:14px;padding-top:10px;border-top:1px solid var(--line-soft);display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--text-3)}
   .hist-cs:first-child{border-top:none;margin-top:4px}
   .hist-cs .when{font-weight:600;color:var(--text)}
-  .hist-cs .reason{background:var(--ok-bg);color:var(--ok-fg);white-space:normal}
-  .hist-cs .reason.missing{background:var(--warn-bg);color:var(--warn-fg)}
+  .hist-cs .reason-line{flex-basis:100%;font-size:13px;color:var(--text)}
+  .hist-cs .reason-line.missing{color:var(--warn)}
+  .hist-cs .reason-line .add-reason{padding:0 2px;font-size:13px;color:var(--accent-text)}
+  .cmp-list .chip.reason{background:var(--ok-bg);color:var(--ok-fg);white-space:normal}
+  .cmp-list .chip.reason.missing{background:var(--warn-bg);color:var(--warn-fg)}
   .hist-ev{display:grid;gap:2px;padding:5px 0 5px 10px;border-left:2px solid var(--line-soft);margin-top:6px;font-size:13px}
-  .hist-ev .where{font-size:11px;color:var(--text-3)}
+  .hist-ev .where{font-size:12px;color:var(--text-3)}
   .hist-ev .sum{color:var(--text)}
   .hist-ev .chip.cause{background:var(--warn-bg);color:var(--warn-fg);margin-left:6px}
   .hist-empty{padding:24px 0;color:var(--text-4);font-size:13px;text-align:center}
@@ -407,7 +403,7 @@
   .drawer-foot .btn-link{font-size:13px;padding:6px 12px;border:1px solid var(--line);border-radius:4px;color:var(--text);text-decoration:none;background:var(--surface)}
   .drawer-foot .btn-link:hover{background:var(--raised)}
   #histBtn{position:relative}
-  .count{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--warn);color:var(--surface);font-size:10px;font-weight:700;line-height:18px;text-align:center}
+  .count{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--warn);color:var(--surface);font-size:11px;font-weight:700;line-height:18px;text-align:center}
   .count[hidden]{display:none}
   .lane-label.ext{background:var(--line-soft)}
   .chip.ext-chip{background:transparent;color:var(--text-2);box-shadow:inset 0 0 0 1px var(--line)}
@@ -425,15 +421,16 @@
   .ado-list .ado-row .what{flex:1;min-width:200px;color:var(--text-2)}
   .sprint-goal{cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
   .sprint-goal:hover{text-decoration:underline}
-  #dlgMsg.pre{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;text-align:left;max-height:50vh;overflow:auto}
+  #dlgMsg.pre{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;text-align:left;max-height:50vh;overflow:auto}
   .cmp-list{margin:8px 0 0;border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:10px 14px;font-size:13px}
   .cmp-list[hidden]{display:none}
   .cmp-list h4{font-size:12px;font-weight:600;margin:10px 0 4px;color:var(--text)}
   .cmp-list h4:first-child{margin-top:0}
   .cmp-list .row{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:2px 0 2px 10px;border-left:2px solid var(--line-soft)}
-  .cmp-list .row .who{font-size:11px;color:var(--text-3)}
+  .cmp-list .row .who{font-size:12px;color:var(--text-3)}
   .cmp-list .empty{color:var(--text-4)}
   #cmpSelect,#cmpDate{font:inherit;font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:4px;background:var(--input-bg);color:var(--text);max-width:240px}
+  #cmpSelect{appearance:none;-webkit-appearance:none;font-size:13px;padding:6px 26px 6px 12px;color:var(--text-2);max-width:150px;text-overflow:ellipsis;background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E") no-repeat right 10px center}   /* R17: a quiet menu button like ADO and Mer */
   #cmpDate[hidden],#cmpSelect[hidden]{display:none}
   .bar.ghost{opacity:.35;pointer-events:none;z-index:1;cursor:default;filter:none}
   .bar.ghost .h{display:none}
@@ -448,25 +445,25 @@
   .shelf[hidden]{display:none}
   .shelf-head{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer}
   .shelf-head h3{font-size:14px;font-weight:600;flex:1;color:var(--text)}
-  .shelf-head .cnt{font-size:11px;color:var(--text-3)}
+  .shelf-head .cnt{font-size:12px;color:var(--text-3)}
   .shelf-body{display:grid;gap:4px;padding:0 10px 10px}
   .shelf.closed .shelf-body{display:none}
   .shelf-row{display:flex;align-items:center;gap:10px;padding:6px 8px 6px 20px;border-radius:4px;position:relative;font-size:13px}
   .shelf-row:hover{background:var(--raised)}
   .shelf-row .nm{font-weight:600;color:var(--text);cursor:pointer}
   .shelf-row .nm:hover{text-decoration:underline}
-  .shelf-row .st{font-size:11px;color:var(--text-3);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .shelf-row .st{font-size:12px;color:var(--text-3);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .shelf-row .acts{display:flex;gap:4px;opacity:0}
   .shelf-row:hover .acts{opacity:1}
   .shelf-row .grip{opacity:1}
   .import-list{padding:4px 0 8px}
   .import-row{display:grid;grid-template-columns:auto 110px 1fr auto;gap:4px 12px;align-items:center;padding:7px 20px;border-bottom:1px solid var(--line-soft);font-size:13px;cursor:pointer}
   .import-row:hover{background:var(--surface-2,rgba(0,0,0,.03))}
-  .import-row .typ{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--text-3)}
+  .import-row .typ{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--text-3)}
   .import-row .ttl{font-weight:600;color:var(--text)}
   .import-row .ttl .md{font-weight:400;color:var(--text-3)}
-  .import-row .map{font-size:11px;color:var(--text-2);text-align:right;white-space:nowrap}
-  .shelf-group{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);padding:8px 8px 2px}
+  .import-row .map{font-size:12px;color:var(--text-2);text-align:right;white-space:nowrap}
+  .shelf-group{font-size:12px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--text-3);padding:8px 8px 2px}
   .shelf-empty{padding:0 14px 12px;font-size:12px;color:var(--text-4)}
   /* R15: in the forum view the shelf stands beside the chart, sticky, with the rows on two lines and the actions always shown */
   .shelf-tip{display:none;padding:4px 14px 12px;font-size:12px;color:var(--text-4)}
@@ -477,7 +474,7 @@
   body.forum .stage.with-shelf .shelf-row .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   body.forum .stage.with-shelf .shelf-row .st{flex-basis:100%;white-space:normal;padding-left:22px}
   body.forum .stage.with-shelf .shelf-row .acts{opacity:1;flex-basis:100%;flex-wrap:wrap;padding-left:22px}
-  body.forum .stage.with-shelf .shelf-row .acts button{font-size:11px;padding:3px 7px}
+  body.forum .stage.with-shelf .shelf-row .acts button{font-size:12px;padding:3px 7px}
   body.forum .shelf-tip:not([hidden]){display:block}
   @media (max-width:1200px){   /* a laptop, not the wall: the panel goes under the chart, still with its rows and tip */
     body.forum .stage.with-shelf{display:block}
@@ -488,12 +485,11 @@
   .lane-label .chip.preview-chip{background:var(--accent);color:#fff}
   .lane-label.closed{opacity:.55}
   .lane-label.closed .ln{text-decoration:line-through}
-  .lane-label.proposal .ln{font-style:italic}
   .chip.st-forslag{background:var(--badge-bg);color:var(--badge-fg);border:1px dashed var(--text-4)}
 
   footer{
     margin-top:24px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
-    font-size:11px;color:var(--text-4);border-top:1px solid var(--line-soft);padding-top:12px;
+    font-size:12px;color:var(--text-3);border-top:1px solid var(--line-soft);padding-top:12px;
   }
   @media (max-width:860px){
     :root{--label-w:200px;--month-w:76px}
@@ -512,7 +508,7 @@
     <span class="save-note" id="dirtyNote"></span>
     <span class="whoami" id="whoami"></span>
     <span class="ro-tag" id="roTag" hidden>Lesetilgang</span>
-    <select id="cmpSelect" aria-label="Sammenlign med et tidligere punkt" title="Sammenlign planen med et tidligere punkt"><option value="">Sammenlign med …</option></select>
+    <select id="cmpSelect" aria-label="Sammenlign med et tidligere punkt" title="Sammenlign planen med et tidligere punkt"><option value="">Sammenlign</option></select>
     <input id="cmpDate" type="date" hidden title="Planen slik den var om morgenen denne dagen">
     <button id="histBtn" title="Hva har flyttet seg, og hvorfor">Historikk<span class="count" id="histBadge" hidden></span></button>
     <details class="menu" id="adoMenu" hidden>
@@ -554,8 +550,7 @@
     <a class="ado-link" id="adoStatus" hidden href="#"></a>
   </div>
   <p class="hint" id="hint">
-    Én rad per epic. Utredning er stripet med en sluttdato, estimater er et spenn: mørk del = sannsynlig,
-    lys del = usikker. Statusen regnes ut fra spennet mot måldatoen. Trykk <b>Mer › Hjelp</b> for bruk.
+    Stripet = utredning · mørk del = sannsynlig · lys del = usikker. <b>Mer › Hjelp</b> forklarer resten.
     <button class="x" id="hintClose" title="Lukk hintet; det kommer ikke tilbake i denne nettleseren">✕</button>
   </p>
 
@@ -563,88 +558,6 @@
 
   <div class="ado-list" id="adoList" hidden></div>
 
-  <div class="help" id="helpPanel">
-    <h3>Slik bruker du tidslinjen</h3>
-    <button class="x close-help" id="helpClose" title="Lukk">✕</button>
-    <div class="help-grid">
-      <div class="help-card"><h4>Epic, måltall og måldato</h4>
-        <p>Hver uthevet rad er en <b>epic</b>: et resultat ledelsen vil ha, eid av PM + CTO. Klikk navnet for å sette navn,
-        <b>måltall</b>, måldato (eller foreløpig mål), <b>ekstern dato</b> og prioritet. <b>＋ Epic</b> øverst lager en ny. Måldatoen tegnes som en
-        loddrett strek i raden; «Leveres uke 49–51» er vinduet spennene gir.</p></div>
-      <div class="help-card"><h4>Utredning og estimat</h4>
-        <p><b>＋</b> på epic-raden legger til en feature. I redigeringen velger du <b>Utredning</b> (stripet, med sluttdato)
-        eller <b>Estimert</b> (spenn: sannsynlig i uker + senest i uker). Klikk et feature-navn for å redigere. Utredning tar utviklertid og vises derfor.</p></div>
-      <div class="help-card"><h4>Status</h4>
-        <p>Regnes ut, aldri skrevet inn: <b>grønn</b> = hele spennet før måldato, <b>gul</b> = måldatoen inne i spennet,
-        <b>rød</b> = hele spennet etter. <b>Venter på utredning</b> så lenge en feature utredes.</p></div>
-      <div class="help-card"><h4>Flytt og juster</h4>
-        <p><b>Dra en linje</b> for å flytte den i tid. Dra i <b>venstre ende</b> for start, <b>høyre ende</b> for senest,
-        og i <b>skillet</b> mellom mørk og lys del for sannsynlig. Dra fester til uke; datoer du skriver inn i redigeringen beholdes eksakt.</p></div>
-      <div class="help-card"><h4>Avhengigheter</h4>
-        <p>Klikk <b>⇢</b> på featuren som må bli <b>ferdig først</b>, deretter på den som venter. Sprekker en blokker,
-        flyttes alt som venter på den, og epicen kan skifte farge. Klikk pilen for å fjerne koblingen.</p></div>
-      <div class="help-card"><h4>Lagring og deling</h4>
-        <p>Alt du gjør <b>autolagres for alle</b> (☁-status øverst), og andres endringer dukker opp innen ~10 sekunder.
-        Endringer flettes egenskap for egenskap, så dere kan jobbe samtidig. Lesetilgang gir en lokal, flyktig kopi.</p></div>
-      <div class="help-card"><h4>Historikk og begrunnelser</h4>
-        <p>Hver lagring logges: hvem, når, hva. Flytter du en måldato, utvider et spenn, flytter en feature senere eller endrer
-        prioritet, spør siden <b>hvorfor</b>. Svaret følger endringen i <b>Historikk</b>. Du kan lagre uten begrunnelse; de mangler da i
-        tellingen på knappen til du fyller dem inn.</p></div>
-      <div class="help-card"><h4>Hylla og livssyklusen</h4>
-        <p>Et ønske forumet har sagt ja til <b>registreres</b> på hylla «Klar for veikart». <b>Start utredning</b> gir det én eier og en
-        sluttdato. <b>Klar for veikart</b> setter byggetiden fra utredningen. <b>Legg i epic</b> viser prisen først: fargen epicen får.
-        Da blir featuren aktiv med et lovet spenn. Epics er <b>forslag</b> til forumet velger dem, og kan <b>avsluttes</b> med et utfall.
-        En utredning kan <b>legges i en epic</b> med én gang, en estimert feature kan gå <b>tilbake til utredning</b>, og en feature uten
-        ADO-kobling <b>markeres levert</b> for hånd («Levert» kommer ellers fra ADO). Leverte features ligger på Brettet, ikke på hylla.
-        <b>Forum</b> øverst gjør siden til skjermen på veggen: hylla ved siden av diagrammet, «Siden sist» øverst, uten ADO og JSON. Valget huskes i nettleseren; for lesere er det standard.</p></div>
-      <div class="help-card"><h4>Buffer og rått estimat</h4>
-        <p>Spennet på linjen er det planlagte: utredningens tall pluss forumets <b>buffer</b> («4–6 uker + 1 uke buffer»). Det
-        rå estimatet står urørt, så gjennomføringsevnen måles mot det som ble lovet. Antall aktive epics er et tall, ikke en grense:
-        kapasiteten er planleggernes vurdering.</p></div>
-      <div class="help-card"><h4>Prioritet</h4>
-        <p>Rekkefølgen på epicene er prioriteten produktforum har satt; rekkefølgen i en epic er byggerekkefølgen. Dra i <b>⋮⋮</b>
-        for å flytte en rad, eller sett tallet i redigeringen. Dra en feature til en annen epic for å flytte den dit. En utredning
-        som har passert sluttdatoen sin merkes <b>Utredning forsinket</b>. <b>Per person</b> viser én rad per eier med utredninger og features i rekkefølge: en utredning opptar eieren, så eierens features og senere utredninger legges etter den («i kø bak utredning …»). Nålen overstyrer. <b>Vis epics</b> øverst i lista går tilbake.</p></div>
-      <div class="help-card"><h4>ADO og sprinter</h4>
-        <p>Tidslinjen eier epics, features, estimater og avhengigheter; ADO speiler dem. <b>Lagre og push til ADO</b> i redigeringen oppretter
-        eller oppdaterer epicen/featuren (tittel, beskrivelse, tilstand, parent, datoer, avhengigheter) og en discovery-story med eier og sluttdato
-        mens featuren utredes. <b>Hent fra ADO</b> lister epics og features som allerede ligger i ADO og tar de valgte inn i planen uten å skrive noe til ADO. <b>Oppdater fra ADO</b> leser tilbake stories, poeng, sprint og det som er lukket («Levert»). Endres et felt i ADO
-        etter siste push, listes det som <b>konflikt</b> øverst og overskrives aldri uten at du ber om det. Sprintene på aksen kommer fra ADO;
-        «Sprint 71 · dag 4» står på dagens strek, og sprintmålet i statusstripen under topplinjen. Alt som leser fra eller skriver til ADO ligger i menyen <b>ADO</b>. Mangler tilgangen, ber siden deg logge inn på nytt.</p></div>
-      <div class="help-card"><h4>Releaser</h4>
-        <p>En release er verken en epic eller en feature: en <b>versjon med måldato</b> på båndet over sprintlinjalen, med en stiplet
-        linje ned gjennom diagrammet. Sprintene er takten, releasene er versjonene. Innholdet er det som har <b>release-labelen i ADO</b>
-        (feltet «Release» på bugs og stories, satt av utviklingsleder i sprintplanleggingen): «Oppdater fra ADO» leser dem inn, fyllingen
-        i segmentet er poeng levert, og skuffen lister alt. En feilrettingsrelease er bare et segment; en feature-release er segmentet pluss
-        featurene som ender på linjen under sine egne epics. Bugs blir aldri features. Sett «Skippet» når den er ute. <b>Fargen i segmentet er tempoet</b>:
-        grønn når dagens tempo (poeng levert per arbeidsdag siden start) rekker måldatoen, gul inntil tre arbeidsdager etter, rød senere; før noe
-        er levert etter start gjelder den rette linjen fra start til mål, med én arbeidsdags slakk. Klokka starter ved den eldste sprinten blant itemene,
-        men aldri før første lesing som fant labelen: innholdet fantes ikke før det. Skuffen viser burndown for hver arbeidsdag (fra dagen ADO sier
-        hvert item ble løst, så en dag uten lesing gir ikke hull), itemene per tilstand og sprint mot release. <b>Sjansen</b> («44 % sjanse»)
-        regnes fra Capacity i ADO (Development-timer per dag og fridager for hver person, 7,5 t = full dag) og hver persons poeng per
-        arbeidsdag i de to siste avsluttede sprintene: 20 000 simuleringer av dagene fram til målet, der hver dag er en ekte dag fra før.
-        Hver lesing lagrer dagens sjanse, så tabellen under burndownen viser prognosen ved siden av det som skjedde. For skrivere
-        leses labelene på nytt ved innlasting når siste lesing er eldre enn seks timer.</p></div>
-      <div class="help-card"><h4>Leveranser</h4>
-        <p>COOs lag over epics og releaser: en <b>leveranse</b> har kunder (eller alle), en <b>lovet dato</b> og det den henger på: epics og
-        releaser. Båndet øverst viser hver leveranse fram til <b>utregnet dato</b>: det seneste av epicenes sene ende og releasenes forventede
-        ferdig; streken er lovet dato. Grønn til og med lovet, gul inntil tre arbeidsdager etter, rød senere. Epic-raden viser hvor mange kunder
-        som venter. Fanen <b>Kunder</b> har én rad per kunde og sier hva som drar; der oppretter COO leveransene. Ingen varsel, ingenting i ADO.
-        <b>Mer › Per leveranse</b> viser hver leveranse som en gruppe med det den henger på under, i den rekkefølgen delene blir ferdige: den siste drar datoen.</p></div>
-      <div class="help-card"><h4>Fremdrift og sprintrapport</h4>
-        <p><b>Fremdrift</b> skrives inn i redigeringen på dag 10 (poeng gjort av totalt, eller prosent) og tegnes som en fylling i den mørke
-        delen av spennet; har featuren stories med poeng i ADO, tar ADO over ved «Oppdater fra ADO». Chippen <i>fremdrift 60 % · tid 75 %</i> er
-        et <b>andre signal</b> (fremdrift mot tid i det sannsynlige vinduet, 10 % slingringsmonn): grønn, gul eller rød. Det endrer ikke epicens
-        farge. «Levert» kommer fra ADO. Velg sprintens baseline under <b>Sammenlign med</b> og trykk <b>Sprintrapport</b> for dag 10-rapporten:
-        levert, fremdrift per feature, utredninger som kom videre og spenn som endret seg.</p></div>
-      <div class="help-card"><h4>Kø og kapasitet</h4>
-        <p>En aktiv feature <b>starter når den kan</b>: etter blokkerne sine og etter eierens tidligere arbeid, i prioritert rekkefølge
-        (epic-rekkefølgen, så rekkefølgen i epicen). Drar du en feature foran køen, blir den <b>overstyrt</b> (merket, logget) og står
-        til du slår på «Følger køen» igjen. <b>Sprintmiksen</b> under <b>Mer</b> sier hvor stor del av en sprint som går til features
-        (overgang 55 %, normal 60 %): rå uker fra utredningen ganges med 1,82 eller 1,67 når featuren settes på tidslinjen.
-        Prisen i «Legg i epic» viser vinduet featuren får og hva den dytter. Antall aktive epics er fortsatt bare et tall.</p></div>
-    </div>
-  </div>
 
   <div class="link-banner" id="linkBanner">
     <span id="linkText"></span>
@@ -731,6 +644,90 @@
     <button id="relEdit" title="Versjon, måldato, skippet, ADO-label og notat">Rediger…</button>
     <button id="relRefresh" hidden title="Les bugs og stories med denne releasens label fra ADO; resten av planen røres ikke">Oppdater fra ADO</button>
     <a id="relOpen" class="btn-link" href="#" target="_blank" rel="noopener" title="Samme spørring i ADO">Åpne i ADO ↗</a>
+  </div>
+</aside>
+
+<aside class="drawer help-drawer" id="helpPanel" hidden>
+  <div class="drawer-head"><h2>Slik bruker du tidslinjen</h2><button class="x" id="helpClose" title="Lukk">✕</button></div>
+  <div class="drawer-body">
+    <div class="help-grid">
+      <div class="help-card"><h4>Epic, måltall og måldato</h4>
+        <p>Hver uthevet rad er en <b>epic</b>: et resultat ledelsen vil ha, eid av PM + CTO. Klikk navnet for å sette navn,
+        <b>måltall</b>, måldato (eller foreløpig mål), <b>ekstern dato</b> og prioritet. <b>＋ Epic</b> øverst lager en ny. Måldatoen tegnes som en
+        loddrett strek i raden; «Leveres uke 49–51» er vinduet spennene gir.</p></div>
+      <div class="help-card"><h4>Utredning og estimat</h4>
+        <p><b>＋</b> på epic-raden legger til en feature. I redigeringen velger du <b>Utredning</b> (stripet, med sluttdato)
+        eller <b>Estimert</b> (spenn: sannsynlig i uker + senest i uker). Klikk et feature-navn for å redigere. Utredning tar utviklertid og vises derfor.</p></div>
+      <div class="help-card"><h4>Status</h4>
+        <p>Regnes ut, aldri skrevet inn: <b>grønn</b> = hele spennet før måldato, <b>gul</b> = måldatoen inne i spennet,
+        <b>rød</b> = hele spennet etter. <b>Venter på utredning</b> så lenge en feature utredes.</p></div>
+      <div class="help-card"><h4>Flytt og juster</h4>
+        <p><b>Dra en linje</b> for å flytte den i tid. Dra i <b>venstre ende</b> for start, <b>høyre ende</b> for senest,
+        og i <b>skillet</b> mellom mørk og lys del for sannsynlig. Dra fester til uke; datoer du skriver inn i redigeringen beholdes eksakt.</p></div>
+      <div class="help-card"><h4>Avhengigheter</h4>
+        <p>Klikk <b>⇢</b> på featuren som må bli <b>ferdig først</b>, deretter på den som venter. Sprekker en blokker,
+        flyttes alt som venter på den, og epicen kan skifte farge. Klikk pilen for å fjerne koblingen.</p></div>
+      <div class="help-card"><h4>Lagring og deling</h4>
+        <p>Alt du gjør <b>autolagres for alle</b> (☁-status øverst), og andres endringer dukker opp innen ~10 sekunder.
+        Endringer flettes egenskap for egenskap, så dere kan jobbe samtidig. Lesetilgang gir en lokal, flyktig kopi.</p></div>
+      <div class="help-card"><h4>Historikk og begrunnelser</h4>
+        <p>Hver lagring logges: hvem, når, hva. Flytter du en måldato, utvider et spenn, flytter en feature senere eller endrer
+        prioritet, spør siden <b>hvorfor</b>. Svaret følger endringen i <b>Historikk</b>. Du kan lagre uten begrunnelse; de mangler da i
+        tellingen på knappen til du fyller dem inn.</p></div>
+      <div class="help-card"><h4>Hylla og livssyklusen</h4>
+        <p>Et ønske forumet har sagt ja til <b>registreres</b> på hylla «Klar for veikart». <b>Start utredning</b> gir det én eier og en
+        sluttdato. <b>Klar for veikart</b> setter byggetiden fra utredningen. <b>Legg i epic</b> viser prisen først: fargen epicen får.
+        Da blir featuren aktiv med et lovet spenn. Epics er <b>forslag</b> til forumet velger dem, og kan <b>avsluttes</b> med et utfall.
+        En utredning kan <b>legges i en epic</b> med én gang, en estimert feature kan gå <b>tilbake til utredning</b>, og en feature uten
+        ADO-kobling <b>markeres levert</b> for hånd («Levert» kommer ellers fra ADO). Leverte features ligger på Brettet, ikke på hylla.
+        <b>Forum</b> øverst gjør siden til skjermen på veggen: hylla ved siden av diagrammet, «Siden sist» øverst, uten ADO og JSON. Valget huskes i nettleseren; for lesere er det standard.</p></div>
+      <div class="help-card"><h4>Buffer og rått estimat</h4>
+        <p>Spennet på linjen er det planlagte: utredningens tall pluss forumets <b>buffer</b> («4–6 uker + 1 uke buffer»). Det
+        rå estimatet står urørt, så gjennomføringsevnen måles mot det som ble lovet. Antall aktive epics er et tall, ikke en grense:
+        kapasiteten er planleggernes vurdering.</p></div>
+      <div class="help-card"><h4>Prioritet</h4>
+        <p>Rekkefølgen på epicene er prioriteten produktforum har satt; rekkefølgen i en epic er byggerekkefølgen. Dra i <b>⋮⋮</b>
+        for å flytte en rad, eller sett tallet i redigeringen. Dra en feature til en annen epic for å flytte den dit. En utredning
+        som har passert sluttdatoen sin merkes <b>Utredning forsinket</b>. <b>Per person</b> viser én rad per eier med utredninger og features i rekkefølge: en utredning opptar eieren, så eierens features og senere utredninger legges etter den («i kø bak utredning …»). Nålen overstyrer. <b>Vis epics</b> øverst i lista går tilbake.</p></div>
+      <div class="help-card"><h4>ADO og sprinter</h4>
+        <p>Tidslinjen eier epics, features, estimater og avhengigheter; ADO speiler dem. <b>Lagre og push til ADO</b> i redigeringen oppretter
+        eller oppdaterer epicen/featuren (tittel, beskrivelse, tilstand, parent, datoer, avhengigheter) og en discovery-story med eier og sluttdato
+        mens featuren utredes. <b>Hent fra ADO</b> lister epics og features som allerede ligger i ADO og tar de valgte inn i planen uten å skrive noe til ADO. <b>Oppdater fra ADO</b> leser tilbake stories, poeng, sprint og det som er lukket («Levert»). Endres et felt i ADO
+        etter siste push, listes det som <b>konflikt</b> øverst og overskrives aldri uten at du ber om det. Sprintene på aksen kommer fra ADO;
+        «Sprint 71 · dag 4» står på dagens strek, og sprintmålet i statusstripen under topplinjen. Alt som leser fra eller skriver til ADO ligger i menyen <b>ADO</b>. Mangler tilgangen, ber siden deg logge inn på nytt.</p></div>
+      <div class="help-card"><h4>Releaser</h4>
+        <p>En release er verken en epic eller en feature: en <b>versjon med måldato</b> på båndet over sprintlinjalen, med en stiplet
+        linje ned gjennom diagrammet. Sprintene er takten, releasene er versjonene. Innholdet er det som har <b>release-labelen i ADO</b>
+        (feltet «Release» på bugs og stories, satt av utviklingsleder i sprintplanleggingen): «Oppdater fra ADO» leser dem inn, fyllingen
+        i segmentet er poeng levert, og skuffen lister alt. En feilrettingsrelease er bare et segment; en feature-release er segmentet pluss
+        featurene som ender på linjen under sine egne epics. Bugs blir aldri features. Sett «Skippet» når den er ute. <b>Fargen i segmentet er tempoet</b>:
+        grønn når dagens tempo (poeng levert per arbeidsdag siden start) rekker måldatoen, gul inntil tre arbeidsdager etter, rød senere; før noe
+        er levert etter start gjelder den rette linjen fra start til mål, med én arbeidsdags slakk. Klokka starter ved den eldste sprinten blant itemene,
+        men aldri før første lesing som fant labelen: innholdet fantes ikke før det. Skuffen viser burndown for hver arbeidsdag (fra dagen ADO sier
+        hvert item ble løst, så en dag uten lesing gir ikke hull), itemene per tilstand og sprint mot release. <b>Sjansen</b> («44 % sjanse»)
+        regnes fra Capacity i ADO (Development-timer per dag og fridager for hver person, 7,5 t = full dag) og hver persons poeng per
+        arbeidsdag i de to siste avsluttede sprintene: 20 000 simuleringer av dagene fram til målet, der hver dag er en ekte dag fra før.
+        Hver lesing lagrer dagens sjanse, så tabellen under burndownen viser prognosen ved siden av det som skjedde. For skrivere
+        leses labelene på nytt ved innlasting når siste lesing er eldre enn seks timer.</p></div>
+      <div class="help-card"><h4>Leveranser</h4>
+        <p>COOs lag over epics og releaser: en <b>leveranse</b> har kunder (eller alle), en <b>lovet dato</b> og det den henger på: epics og
+        releaser. Båndet øverst viser hver leveranse fram til <b>utregnet dato</b>: det seneste av epicenes sene ende og releasenes forventede
+        ferdig; streken er lovet dato. Grønn til og med lovet, gul inntil tre arbeidsdager etter, rød senere. Epic-raden viser hvor mange kunder
+        som venter. Fanen <b>Kunder</b> har én rad per kunde og sier hva som drar; der oppretter COO leveransene. Ingen varsel, ingenting i ADO.
+        <b>Mer › Per leveranse</b> viser hver leveranse som en gruppe med det den henger på under, i den rekkefølgen delene blir ferdige: den siste drar datoen.</p></div>
+      <div class="help-card"><h4>Fremdrift og sprintrapport</h4>
+        <p><b>Fremdrift</b> skrives inn i redigeringen på dag 10 (poeng gjort av totalt, eller prosent) og tegnes som en fylling i den mørke
+        delen av spennet; har featuren stories med poeng i ADO, tar ADO over ved «Oppdater fra ADO». Chippen <i>fremdrift 60 % · tid 75 %</i> er
+        et <b>andre signal</b> (fremdrift mot tid i det sannsynlige vinduet, 10 % slingringsmonn): grønn, gul eller rød. Det endrer ikke epicens
+        farge. «Levert» kommer fra ADO. Velg sprintens baseline under <b>Sammenlign med</b> og trykk <b>Sprintrapport</b> for dag 10-rapporten:
+        levert, fremdrift per feature, utredninger som kom videre og spenn som endret seg.</p></div>
+      <div class="help-card"><h4>Kø og kapasitet</h4>
+        <p>En aktiv feature <b>starter når den kan</b>: etter blokkerne sine og etter eierens tidligere arbeid, i prioritert rekkefølge
+        (epic-rekkefølgen, så rekkefølgen i epicen). Drar du en feature foran køen, blir den <b>overstyrt</b> (merket, logget) og står
+        til du slår på «Følger køen» igjen. <b>Sprintmiksen</b> under <b>Mer</b> sier hvor stor del av en sprint som går til features
+        (overgang 55 %, normal 60 %): rå uker fra utredningen ganges med 1,82 eller 1,67 når featuren settes på tidslinjen.
+        Prisen i «Legg i epic» viser vinduet featuren får og hva den dytter. Antall aktive epics er fortsatt bare et tall.</p></div>
+    </div>
   </div>
 </aside>
 
@@ -1235,28 +1232,25 @@ window.__bootTimeline = function(){
       });
       axis.appendChild(layer);
     }
-    // leveranser (R16): COO's band above the releases, one row per delivery; click → Kunder
-    const dsegs = viewMode === 'leveranse' ? [] : deliverySegments(state, dayKey(new Date()));   // R17: in «Per leveranse» the groups say it
-    gantt.style.setProperty('--axis-h', (76 + 18 * dsegs.length) + 'px');
+    // leveranser (R16 → R17): one row of promised-date markers; the full rows live in «Mer › Per leveranse»
+    const dsegs = viewMode === 'leveranse' ? [] : deliverySegments(state, dayKey(new Date()));
+    gantt.style.setProperty('--axis-h', (76 + (dsegs.length ? 18 : 0)) + 'px');
     if(dsegs.length){
-      const layer = el('div', 'deliveries');
-      dsegs.forEach((sg, i) => {
-        const row = el('div', 'delivery'); row.style.top = (18 * i) + 'px';
-        const a = Math.max(VIEW_FROM, sg.start), b = Math.min(N_MONTHS, sg.end), d = sg.delivery, st = sg.status;
-        if(b > a){
-          const seg = el('div', 'seg st-' + st.code);
-          seg.dataset.key = d.key;
-          seg.tabIndex = 0; seg.setAttribute('role', 'button');
-          seg.style.left = x(a) + 'px'; seg.style.width = (x(b) - x(a)) + 'px';
-          const wide = (x(b) - x(a)) >= 260;
-          seg.innerHTML = '<span class="t"><b>' + esc(d.name) + '</b> · ' + esc(deliveryCustomersText(d)) + (wide && st.computed ? ' · ' + esc((st.pending ? 'minst ' : 'utregnet ') + fmtDate(unitToDate(dayToUnit(st.computed)))) : '') + '</span>';
-          seg.title = 'Leveranse ' + d.name + ' · ' + deliveryCustomersText(d) + ' · lovet ' + fmtDate(unitToDate(sg.promised)) + '\n' + st.text + (HOSTED ? '\nKlikk for fanen Kunder' : '');
-          if(HOSTED) seg.addEventListener('click', () => { location.href = '/kunder#' + encodeURIComponent(d.key); });
-          row.appendChild(seg);
-        }
-        if(sg.promised >= VIEW_FROM && sg.promised <= N_MONTHS){ const pm = el('i', 'promise'); pm.style.left = x(sg.promised) + 'px'; pm.title = 'Lovet ' + fmtDate(unitToDate(sg.promised)) + ' · ' + d.name; row.appendChild(pm); }
-        layer.appendChild(row);
+      const layer = el('div', 'deliveries'), row = el('div', 'delivery');
+      let last = -Infinity;
+      dsegs.slice().sort((a, b) => a.promised - b.promised).forEach(sg => {
+        if(sg.promised < VIEW_FROM || sg.promised > N_MONTHS) return;
+        const d = sg.delivery, st = sg.status, left = Math.max(x(sg.promised), last + 14);   // two promises on one day stand side by side
+        last = left;
+        const m = el('i', 'pmark st-' + st.code);
+        m.dataset.key = d.key;
+        m.style.left = left + 'px'; m.tabIndex = 0; m.setAttribute('role', 'button');
+        m.title = 'Leveranse ' + d.name + ' · ' + deliveryCustomersText(d) + ' · lovet ' + fmtDate(unitToDate(sg.promised)) + '\n' + st.text + (HOSTED ? '\nKlikk for fanen Kunder' : '');
+        m.setAttribute('aria-label', d.name + ', lovet ' + fmtDate(unitToDate(sg.promised)) + ', ' + st.text);
+        if(HOSTED) m.addEventListener('click', () => { location.href = '/kunder#' + encodeURIComponent(d.key); });
+        row.appendChild(m);
       });
+      layer.appendChild(row);
       axis.appendChild(layer);
     }
     chart.appendChild(axis);
@@ -1426,7 +1420,7 @@ window.__bootTimeline = function(){
         bar.dataset.id = t.id;
         bar.tabIndex = 0; bar.setAttribute('role', 'button');   // R17: Enter opens it, ← / → moves it a week
         bar.innerHTML = (t.kind === 'estimate' ? '<div class="seg likely"><div class="prog" hidden></div></div><div class="seg late"></div>' : '') +
-          '<div class="h l"></div><span class="bl">' + esc(t.label) + '</span>' +
+          '<div class="h l"></div>' +
           (t.kind === 'estimate' ? '<div class="h m"></div>' : '') + '<div class="h r"></div>';
         if(cmp){
           const bt = cmp.tasks[t.id];
@@ -1581,14 +1575,15 @@ window.__bootTimeline = function(){
       bar.querySelector('.seg.likely').style.width = lw + 'px';
       bar.querySelector('.seg.late').style.width = Math.max(0, width - lw) + 'px';
       bar.querySelector('.h.m').style.left = lw + 'px';
-      bar.querySelector('.bl').style.maxWidth = lw + 'px';   // hvit tekst holder seg på den mørke delen
       const pf = progressFraction(t.progress), prog = bar.querySelector('.prog');
       if(prog){ prog.hidden = pf === null; prog.style.width = (pf === null ? 0 : lw * pf) + 'px'; }
     }
     const rl = rangeRefs[t.id];
     rl.style.left = (left + width) + 'px';
-    rl.textContent = t.kind === 'estimate' ? bufferLabel(t) + ' → ' + windowLabel(t) : 'til ' + fmtDate(unitToDate(t.end));
-    rl.className = 'range-lbl ' + (t.kind === 'estimate' ? 'weeks' : 'date');
+    rl.textContent = t.kind === 'estimate'   // R17: the dates once, after the bar, where the eye already is
+      ? fmtDate(unitToDate(t.start)) + ' → ' + fmtDate(unitToDate(t.endLikely)) + ' · senest ' + fmtDate(unitToDate(t.end))
+      : 'til ' + fmtDate(unitToDate(t.end));
+    rl.className = 'range-lbl ' + (t.kind === 'estimate' ? 'span' : 'date');
     const chips = [];
     if(t.adoId){
       const conflict = t.ado && t.ado.conflicts && t.ado.conflicts.length, stale = !conflict && t.ado && t.editedAt && t.ado.pushedAt < t.editedAt;
@@ -1613,10 +1608,9 @@ window.__bootTimeline = function(){
       const when = t.editedAt ? new Date(t.editedAt).toLocaleString('nb-NO', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
       chips.push('<span class="chip who" title="Sist endret av ' + esc(t.editedBy) + (when ? ' · ' + esc(when) : '') + '">' + esc(initials(t.editedBy)) + '</span>');
     }
-    const size = sizeClassText(t);
-    const where = viewMode === 'person' ? (t.lane === BACKLOG ? 'Hylla' : (getLane(t.lane) || {name: t.lane}).name) + ' · ' : '';
-    labelDateRefs[t.id].innerHTML = esc(where + rangeText(t) + (size ? ' · ' + size : '') + (t.kind === 'estimate' && rawLabel(t) ? ' · ' + rawLabel(t) : '')) + chips.join('');
-    bar.title = t.label + ' · ' + rangeText(t);
+    const size = sizeClassText(t), lead = viewMode === 'person' ? (t.lane === BACKLOG ? 'Hylla' : (getLane(t.lane) || {name: t.lane}).name) : '';
+    labelDateRefs[t.id].innerHTML = esc([lead, t.kind === 'discovery' ? 'Utredning' : '', size, t.kind === 'estimate' ? rawLabel(t) : ''].filter(Boolean).join(' · ')) + chips.join('');   // R17: the list's second line is status, the dates sit after the bar
+    bar.title = t.label + ' · ' + rangeText(t) + (t.kind === 'estimate' ? ' · ' + bufferLabel(t) : '');
     bar.setAttribute('aria-label', t.label + ', ' + rangeText(t));
   }
 
@@ -1661,8 +1655,12 @@ window.__bootTimeline = function(){
     rel.hidden = !nx;
     if(!nx) rel.innerHTML = '';   // a hidden part must not keep its words: the strip's text is read as a whole
     if(nx){
-      rel.title = 'Neste release: hvor langt unna, andel levert, tempo-fargen og sjansen for å bli ferdig til målet';
-      rel.innerHTML = (nx.code ? '<i class="st-' + nx.code + '"></i>' : '') + esc(nx.text + (nfc && nfc.short ? ' · ' + nfc.short : ''));
+      const r = nx.release, pr = releaseProgress(r), n = calendarDays(dayKey(new Date()), r.targetDate);   // R17: the chance first; the tempo colour stays in the drawer
+      const when = n > 0 ? 'om ' + n + (n === 1 ? ' dag' : ' dager') : n === 0 ? 'i dag' : -n + (n === -1 ? ' dag' : ' dager') + ' på overtid';
+      const target = fmtDate(unitToDate(dayToUnit(r.targetDate)));
+      rel.title = 'Neste release: sjansen for å bli ferdig til målet; tempo-fargen står i skuffen';
+      rel.textContent = 'Neste release ' + r.version + ' · ' + (nfc && nfc.short ? nfc.short + ' til ' + target : 'mål ' + target) + ' · ' +
+        (pr.fraction === null ? 'ikke lest fra ADO' : Math.round(pr.fraction * 100) + ' % levert') + ' · ' + when;
     }
     $('mixSelect').value = (state.capacity && state.capacity.mode) || 'transition';
     renderSprintGoal();
@@ -1735,7 +1733,7 @@ window.__bootTimeline = function(){
     return t.kind === 'estimate' && t.lane !== BACKLOG && t.state !== 'levert' && floor !== null && t.start < floor - 1e-9;
   }
   chart.addEventListener('keydown', e => {   // R17: the chart from the keyboard: Enter opens, ← / → moves a bar a week (writers, epic view)
-    const seg = e.target.closest && e.target.closest('.axis .release, .axis .delivery .seg');
+    const seg = e.target.closest && e.target.closest('.axis .release, .axis .delivery .pmark');
     if(seg && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); seg.click(); return; }
     const bar = e.target.closest && e.target.closest('.bar');
     if(!bar || bar.classList.contains('ghost')) return;
@@ -2005,9 +2003,9 @@ window.__bootTimeline = function(){
       hist.lastCs = cs.id;
       const head = el('div', 'hist-cs');
       const reason = cs.reasonCode && cs.reasonCode !== 'ingen'
-        ? '<span class="chip reason">' + esc(REASON_LABEL[cs.reasonCode] || cs.reasonCode) + (cs.reason ? ' – ' + esc(cs.reason) : '') + '</span>'
+        ? '<span class="reason-line">' + esc(REASON_LABEL[cs.reasonCode] || cs.reasonCode) + (cs.reason ? ': ' + esc(cs.reason) : '') + '</span>'   // R17: a sentence, not a 10 px chip
         : cs.reasonCode === 'ingen'
-          ? '<span class="chip reason missing">Begrunnelse mangler</span>' + (canWrite ? '<button class="text add-reason" data-cs="' + esc(cs.id) + '" data-when="' + esc(fmtWhen(cs.at || e.at)) + '">Legg til</button>' : '')
+          ? '<span class="reason-line missing">Begrunnelse mangler' + (canWrite ? ' – <button class="text add-reason" data-cs="' + esc(cs.id) + '" data-when="' + esc(fmtWhen(cs.at || e.at)) + '">legg til</button>' : '') + '</span>'
           : '';
       head.innerHTML = '<span class="when">' + esc(fmtWhen(cs.at || e.at)) + '</span><span>' + esc(cs.editor || 'system') + '</span>' + reason;
       histList.appendChild(head);
@@ -2056,7 +2054,7 @@ window.__bootTimeline = function(){
       snapshots = (await r.json()).snapshots; snapshotsLoaded = true;
       const list = snapshots.filter(s => s.kind === 'baseline' || s.kind === 'sprint');   // sprintstart-baselinene (etappe 4) kan også sammenlignes med
       const cur = cmp ? cmp.id : '';
-      cmpSelect.innerHTML = '<option value="">Sammenlign med …</option>' +
+      cmpSelect.innerHTML = '<option value="">Sammenlign</option>' +
         list.map(s => '<option value="' + esc(s.id) + '">' + esc(s.label) + ' · ' + esc(fmtDate(new Date(s.at))) + '</option>').join('') +
         '<option value="__date">Dato …</option>';
       cmpSelect.value = cur;
@@ -3258,8 +3256,8 @@ window.__bootTimeline = function(){
     pendingNote.source = 'fil';
     save(); render();
   });
-  $('helpBtn').addEventListener('click', () => helpPanel.classList.toggle('open'));
-  $('helpClose').addEventListener('click', () => helpPanel.classList.remove('open'));
+  $('helpBtn').addEventListener('click', () => { helpPanel.hidden = !helpPanel.hidden; });   // R17: help in a drawer, not above the chart
+  $('helpClose').addEventListener('click', () => { helpPanel.hidden = true; });
 
   const colResizer = $('colResizer');
   const LABELW_DEFAULT = cssNum('--label-w');
@@ -3300,7 +3298,7 @@ window.__bootTimeline = function(){
     else if(!histDrawer.hidden) histDrawer.hidden = true;
     else if(!relDrawer.hidden) relDrawer.hidden = true;
     else if(linkSource) cancelLink();
-    else if(helpPanel.classList.contains('open')) helpPanel.classList.remove('open');
+    else if(!helpPanel.hidden) helpPanel.hidden = true;
   });
   window.addEventListener('resize', drawArrows);
 

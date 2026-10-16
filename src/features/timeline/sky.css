@@ -50,7 +50,7 @@ body{background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-ser
 .ro-tag{font-size:12px;font-weight:500;color:var(--warn)}
 .save-note{font-size:12px;color:var(--text-3);min-width:120px;text-align:right}
 .wrap{padding:16px 24px 40px}
-.hint{font-size:12px;color:var(--text-3);max-width:90ch}
+.hint{font-size:12px;color:var(--text-3);max-width:90ch;width:fit-content}   /* R17: the ✕ sits right after a short hint */
 .hint b{color:var(--text);font-weight:600}
 p.hint{position:relative;padding-right:26px}
 p.hint .x{position:absolute;right:0;top:-2px}
