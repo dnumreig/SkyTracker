@@ -6,7 +6,7 @@ import {
   shelfTasks, epicCounts, sizeClass, bufferLabel, rawLabel, previewPlacement,
   currentSprint, sprintDay, sprintLabel, progressFraction, progressSignal, epicProgressSignal, progressText,
   resolveQueue, queueFloor, capacityFactor, elapsedWeeks, wishesByStatus, WISH_STATUS_LABEL, WISH_SOURCE_LABEL, sizeClassDerived, sizeClassText, FEATURE_TYPE_LABEL, AREAS,
-  dayToUnit, releaseSegments, releaseProgress, releaseScope,
+  dayToUnit, releaseSegments, releaseProgress, releaseScope, releaseItemDone, releaseItemClosed,
   workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, dayKey,
   releaseForecastText, focusKey, restoreFocus,
   BACKLOG, canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
@@ -1202,5 +1202,27 @@ describe("R17 review: the focus helpers never break a render", () => {
     const doc = { querySelector: () => { throw new SyntaxError("unsupported selector"); }, activeElement: { id: "", closest: () => { throw new Error("detached"); } } };
     expect(() => restoreFocus(doc as never, ":nth-child(1 of tr)")).not.toThrow();
     expect(focusKey(doc as never)).toBeNull();
+  });
+});
+
+describe("R18: developed and closed by category", () => {
+  it("category first, the old names without one", () => {
+    const i = (state: string, category?: string) => ({ id: 1, type: "Bug", title: "", state, points: 1, assignee: null, ...(category ? { category } : {}) }) as never;
+    expect(releaseItemDone(i("QA", "Resolved"))).toBe(true);
+    expect(releaseItemDone(i("Codereview", "InProgress"))).toBe(false);
+    expect(releaseItemClosed(i("QA", "Resolved"))).toBe(false);
+    expect(releaseItemClosed(i("Closed", "Completed"))).toBe(true);
+    expect(releaseItemDone(i("Resolved"))).toBe(true);
+    expect(releaseItemClosed(i("Resolved"))).toBe(false);
+  });
+  it("the state counts carry the category and come in its order; the normaliser keeps the fallback flag", () => {
+    const it2 = (id: number, state: string, category: string) => ({ id, type: "Bug", title: "", state, category, points: 1, assignee: null });
+    const r = normalizePlan({ lanes: [], tasks: [], releases: [{ key: "r1", version: "2.0.1", targetDate: "2026-10-27", ado: { at: "x", label: "2.0.1", statesMissing: true,
+      items: [it2(1, "Closed", "Completed"), it2(2, "QA", "Resolved"), it2(3, "Codereview", "InProgress"), it2(4, "Develop", "Resolved"), it2(5, "New", "Proposed"), it2(6, "QA", "Resolved")] } }] }).releases![0];
+    expect(releaseStateCounts(r)).toEqual([
+      { state: "New", category: "Proposed", count: 1 }, { state: "Codereview", category: "InProgress", count: 1 },
+      { state: "Develop", category: "Resolved", count: 1 }, { state: "QA", category: "Resolved", count: 2 }, { state: "Closed", category: "Completed", count: 1 },
+    ]);
+    expect(r.ado!.statesMissing).toBe(true);
   });
 });

@@ -53,7 +53,9 @@ export type Wish = {
 };
 /** What the last push wrote to ADO, field by field, so a refresh can tell «changed in ADO» from «changed here». */
 /** A release (R10): a version with a target day, shipped once out; its scope is the release label in ADO. Versioned like a lane (`v`). */
-export type ReleaseItem = { id: number; type: "Bug" | "User Story"; title: string; state: string; points: number; assignee: string | null; iteration?: string; delivered?: string };
+export type ReleaseItem = { id: number; type: "Bug" | "User Story"; title: string; state: string; points: number; assignee: string | null; iteration?: string; delivered?: string;
+  /** R18: ADO's category of the state (none on items read before R18, or when the states were not found); `closed` is the day it was closed. */
+  category?: "Proposed" | "InProgress" | "Resolved" | "Completed"; closed?: string };
 /** One reading per day (R11): what the label held and how much of it was done, for the burndown and the tempo. */
 export type ReleaseHistoryPoint = { day: string; pointsDone: number; pointsTotal: number; done: number; total: number; forecast?: { p: number; mean: number } };
 /** R12: the chance the release is done by its target day, from ADO's Capacity and each person's pace in the two last finished sprints. */
@@ -63,7 +65,9 @@ export type ReleaseForecast =
   | { day: string; missing: "capacity"; sprints: string[]; unplanned: number }
   | { day: string; missing: "history" };
 /** Written by the server (refresh), never by the page: the bugs and stories carrying the label, the daily readings and the sprints' unlabelled counts. */
-export type ReleaseAdo = { at: string; label: string; items: ReleaseItem[]; history?: ReleaseHistoryPoint[]; sprints?: { name: string; unlabelled: number }[]; forecast?: ReleaseForecast };
+export type ReleaseAdo = { at: string; label: string; items: ReleaseItem[]; history?: ReleaseHistoryPoint[]; sprints?: { name: string; unlabelled: number }[]; forecast?: ReleaseForecast;
+  /** R18: ADO's states were not found on the last read, so the items were counted by the names Resolved and Closed. */
+  statesMissing?: true };
 export type Release = {
   key: string;
   v?: number;

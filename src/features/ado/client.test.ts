@@ -53,6 +53,12 @@ describe("createAdoClient", () => {
     expect(String(f.mock.calls[1][0])).toBe("https://dev.azure.com/SkytaleAS/Skytale/Dev%20Team/_apis/work/teamsettings/iterations/e3e86111-5688-4555-b348-01be7b153370/teamdaysoff?api-version=7.1");
     expect(await c.capacities("x")).toEqual({ members: [row], teamDaysOff: [] });
   });
+  it("reads a work item type's states with their categories on the project url (R18)", async () => {
+    const f = vi.fn().mockResolvedValue(res(200, { count: 1, value: [{ name: "QA", color: "009ccc", category: "Resolved" }] }));
+    expect(await client(f).states("User Story")).toEqual([{ name: "QA", color: "009ccc", category: "Resolved" }]);
+    expect(String(f.mock.calls[0][0])).toBe("https://dev.azure.com/SkytaleAS/Skytale/_apis/wit/workitemtypes/User%20Story/states?api-version=7.1");
+    expect(f.mock.calls[0][1].method).toBe("GET");
+  });
   it("turns a sign-in page or a 401 into AdoRequestError 401 and other failures into their status", async () => {
     const f = vi.fn().mockResolvedValueOnce(res(200, null, "<!DOCTYPE html><html>sign in</html>")).mockResolvedValueOnce(res(401, { message: "no" })).mockResolvedValueOnce(res(400, { message: "bad field" }));
     const c = client(f);

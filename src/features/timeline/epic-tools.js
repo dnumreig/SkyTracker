@@ -91,6 +91,7 @@ function normalizePlan(plan) {
     if (r.ado && typeof r.ado === "object" && typeof r.ado.at === "string" && Array.isArray(r.ado.items)) {
       out.ado = { at: r.ado.at, label: typeof r.ado.label === "string" && r.ado.label ? r.ado.label : out.label || out.version, items: r.ado.items.filter((i) => i && typeof i === "object" && typeof i.id === "number").map((i) => ({
         id: i.id, type: i.type === "Bug" ? "Bug" : "User Story", title: typeof i.title === "string" ? i.title.slice(0, 200) : "", state: typeof i.state === "string" && i.state ? i.state : "New", points: Math.max(0, num(i.points, 0)), assignee: typeof i.assignee === "string" && i.assignee ? i.assignee : null, ...(typeof i.iteration === "string" && i.iteration ? { iteration: i.iteration } : {}), ...(validDay(i.delivered) ? { delivered: i.delivered } : {}),
+        ...(CATEGORY_ORDER.includes(i.category) ? { category: i.category } : {}), ...(validDay(i.closed) ? { closed: i.closed } : {}),   // R18: ADO's category of the state, the day it was closed
       })) };
       const hist = new Map();   // R11: one reading per day, the day's last wins, the latest kept
       const chance = (f) => (f && typeof f === "object" && Number.isFinite(f.p) && f.p >= 0 && f.p <= 1 && Number.isFinite(f.mean) && f.mean >= 0 ? { forecast: { p: f.p, mean: f.mean } } : {});   // R12: the day's chance
@@ -100,6 +101,7 @@ function normalizePlan(plan) {
       if (sprints.length) out.ado.sprints = sprints;
       const fc = forecastOf(r.ado.forecast, validDay);
       if (fc) out.ado.forecast = fc;
+      if (r.ado.statesMissing === true) out.ado.statesMissing = true;   // R18: ADO's states were not found, the items were counted by the names
     }
     return out;
   }).sort((a, b) => releaseEnd(a) - releaseEnd(b) || a.version.localeCompare(b.version));
@@ -544,7 +546,7 @@ function epicProgressSignal(plan, laneKey, today) {
 function progressText(t, s) { return "fremdrift " + Math.round(s.done * 100) + " % · tid " + Math.round(s.elapsed * 100) + " %"; }
 
 /* ---------- releases (R10): the band above the sprint ruler ---------- */
-const RELEASE_DONE_STATES = ["Resolved", "Closed"];   // what ADO calls done for a bug or a story
+const RELEASE_DONE_STATES = ["Resolved", "Closed"];   // done by name, for an item without a category (read before R18, or ADO's states not found)
 /** The chart unit of a YYYY-MM-DD day (local midnight), shared by the sprint ruler and the release band. */
 function dayToUnit(day) { const q = String(day).split("-").map(Number); return dateToUnit(new Date(q[0], q[1] - 1, q[2])); }
 /** The release label in ADO (`Custom.Release`): the version unless overridden. */
@@ -568,8 +570,9 @@ function releaseSegments(plan, todayUnit) {
     return { release: r, start, end, shipped: !!r.shippedDate, overdue: !r.shippedDate && typeof todayUnit === "number" && end < todayUnit };
   });
 }
-const releaseItemDone = (i) => RELEASE_DONE_STATES.includes(i.state);
-/** Points Resolved/Closed over all points (items by count when nobody pointed them), with the counts in words. */
+const releaseItemDone = (i) => (i.category ? i.category === "Resolved" || i.category === "Completed" : RELEASE_DONE_STATES.includes(i.state));   // R18: developed
+const releaseItemClosed = (i) => (i.category ? i.category === "Completed" : i.state === "Closed");   // R18: through QA
+/** Points developed (R18: by the state's category; Resolved/Closed without one) over all points (items by count when nobody pointed them), with the counts in words. */
 function releaseProgress(r) {
   const a = r && r.ado;
   if (!a || !Array.isArray(a.items)) return { fraction: null, text: "ikke lest fra ADO", bugs: 0, stories: 0, done: 0, total: 0, pointsDone: 0, pointsTotal: 0 };
@@ -698,12 +701,19 @@ function nextReleaseText(plan, todayDay) {
   return { text: "Neste release " + r.version + " " + when + " · " + (pr.fraction === null ? "ikke lest fra ADO" : pct(pr.fraction)) + (pace ? " · " + PACE_WORD[pace.code] : ""), code: pace ? pace.code : null, release: r };
 }
 const STATE_ORDER = ["New", "Active", "Resolved", "Closed"];
-/** The items by state, ADO's order first, then whatever else the process has. */
+const CATEGORY_ORDER = ["Proposed", "InProgress", "Resolved", "Completed"];
+/** The items by state in ADO's category order (Ny · Codereview · Develop · QA · Closed); without a category, ADO's old order. */
 function releaseStateCounts(r) {
   const counts = new Map();
-  ((r && r.ado && r.ado.items) || []).forEach((i) => counts.set(i.state, (counts.get(i.state) || 0) + 1));
+  ((r && r.ado && r.ado.items) || []).forEach((i) => {
+    const c = counts.get(i.state) || { state: i.state, count: 0 };
+    c.count++;
+    if (i.category && !c.category) c.category = i.category;
+    counts.set(i.state, c);
+  });
   const rank = (s) => { const k = STATE_ORDER.indexOf(s); return k < 0 ? STATE_ORDER.length : k; };
-  return [...counts.entries()].map(([state, count]) => ({ state, count })).sort((a, b) => rank(a.state) - rank(b.state) || a.state.localeCompare(b.state));
+  const cat = (c) => (c.category ? CATEGORY_ORDER.indexOf(c.category) : rank(c.state));   // New ~ Proposed, Active ~ InProgress, …
+  return [...counts.values()].sort((a, b) => cat(a) - cat(b) || rank(a.state) - rank(b.state) || a.state.localeCompare(b.state));
 }
 /** «16 items i 2.0.1: 15 i Sprint 71, 1 i Sprint 72 · Sprint 71 har 3 items uten release-label» */
 function releaseSprintText(r) {
@@ -1053,7 +1063,7 @@ if (typeof module !== "undefined") {
     canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
     dayKey, osloDay, osloDate, currentSprint, sprintDay, sprintLabel, navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
     DELIVERY_OWNER, DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor, deliveryRows, wireDialogs,
-    dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
+    dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, releaseItemClosed, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
     workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, releaseForecastText, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
     progressFraction, progressSignal, epicProgressSignal, progressText,
     MIX, MIX_LABEL, capacityFactor, elapsedWeeks, queueFloor, resolveQueue,

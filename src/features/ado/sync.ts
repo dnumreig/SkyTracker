@@ -3,6 +3,7 @@ import type { Sprint } from "@/features/timeline/merge";
 import type { AdoWorkItem, IterationNode } from "./client";
 import { ADO_CHILD_REL, ADO_PROJECT } from "./config";
 import { relTarget } from "./plan-mappers";
+import { isDeveloped, type StateMap } from "./states";
 
 /** The dated «Sprint N» nodes as calendar days, sorted by start; names without dates (e.g. «After MVP») are skipped. */
 export function parseSprints(root: IterationNode): Sprint[] {
@@ -16,8 +17,9 @@ export const DONE_STATES = ["Resolved", "Closed"];
 const sprintNo = (p: string) => parseInt(/Sprint (\d+)/.exec(p)?.[1] ?? "0", 10);
 const points = (w: AdoWorkItem) => Number(w.fields["Microsoft.VSTS.Scheduling.StoryPoints"] ?? 0) || 0;
 
-/** The User Stories under a feature (the discovery story excluded): count, points, points done, the latest sprint named. */
-export function readStories(feature: AdoWorkItem, byId: Map<number, AdoWorkItem>, discoveryStoryId?: number): { count: number; pointsTotal: number; pointsDone: number; iteration: string | null } {
+/** The User Stories under a feature (the discovery story excluded): count, points, points done, the latest sprint named. R18: done is
+ *  developed by the state's category (Develop and QA count); without the states, the names Resolved and Closed. */
+export function readStories(feature: AdoWorkItem, byId: Map<number, AdoWorkItem>, discoveryStoryId?: number, states: StateMap | null = null): { count: number; pointsTotal: number; pointsDone: number; iteration: string | null } {
   const stories = (feature.relations ?? [])
     .filter((r) => r.rel === ADO_CHILD_REL)
     .map(relTarget)
@@ -31,7 +33,7 @@ export function readStories(feature: AdoWorkItem, byId: Map<number, AdoWorkItem>
   return {
     count: stories.length,
     pointsTotal: stories.reduce((s, w) => s + points(w), 0),
-    pointsDone: stories.filter((w) => DONE_STATES.includes(String(w.fields["System.State"]))).reduce((s, w) => s + points(w), 0),
+    pointsDone: stories.filter((w) => isDeveloped(states, "User Story", String(w.fields["System.State"]))).reduce((s, w) => s + points(w), 0),
     iteration: iter ? iter.split("\\").pop()! : null,
   };
 }
