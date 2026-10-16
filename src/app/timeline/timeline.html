@@ -476,6 +476,18 @@
   body.forum .stage.with-shelf .shelf-row .acts{opacity:1;flex-basis:100%;flex-wrap:wrap;padding-left:22px}
   body.forum .stage.with-shelf .shelf-row .acts button{font-size:12px;padding:3px 7px}
   body.forum .shelf-tip:not([hidden]){display:block}
+  /* R17: wall mode: the plan, larger, without the desk's write chrome; the shelf keeps its placing actions (R15) */
+  :root.forum{--row-h:54px;--lane-h:62px;--month-w:112px}   /* on the root, where cssNum() reads them */
+  body.forum #addEpicBtn,body.forum #addReleaseBtn,body.forum #registerBtn,body.forum .lane-label .add-feature,body.forum .lane-label .grip,body.forum .task-label .grip,body.forum #hint,body.forum #dirtyNote,body.forum #roBanner{display:none !important}
+  body.forum .lane-label .ln{font-size:17px}
+  body.forum .task-label .t{font-size:15px}
+  body.forum .lane-label .lm,body.forum .task-label .d,body.forum .range-lbl,body.forum .status,body.forum .legend{font-size:14px}
+  body.forum .chip,body.forum .badge{font-size:12.5px}
+  body.forum .axis .mth .mm,body.forum .axis .mth .yy{font-size:13px}
+  body.forum .bar{top:10px;height:34px}
+  body.forum #roTag{color:var(--text-3);font-weight:500}
+  body.forum .cmp-bar{font-size:16px;background:var(--surface);border-color:var(--line);border-left:4px solid var(--accent)}
+  body.forum .bar.ghost{opacity:.55;outline:1px dashed var(--text-3);outline-offset:-1px}
   @media (max-width:1200px){   /* a laptop, not the wall: the panel goes under the chart, still with its rows and tip */
     body.forum .stage.with-shelf{display:block}
     body.forum .stage.with-shelf .shelf{position:static;max-height:none;margin-top:14px}
@@ -931,7 +943,8 @@ window.__bootTimeline = function(){
   "use strict";
 
   /* ================== konstanter ================== */
-  const MONTH_W = cssNum('--month-w'), ROW_H = cssNum('--row-h'), LANE_H = cssNum('--lane-h');
+  let MONTH_W = cssNum('--month-w'), ROW_H = cssNum('--row-h'), LANE_H = cssNum('--lane-h');
+  function readMetrics(){ MONTH_W = cssNum('--month-w'); ROW_H = cssNum('--row-h'); LANE_H = cssNum('--lane-h'); }   // R17: the wall changes them
   let VIEW_FROM = 2, VIEW_MONTHS = N_MONTHS - VIEW_FROM, CHART_W = VIEW_MONTHS * MONTH_W;   // regnes ut i viewWindow() ved hver tegning
   let scrolledToToday = false;
   const SNAP = WEEK, MIN_DUR = WEEK;
@@ -1755,7 +1768,7 @@ window.__bootTimeline = function(){
     if(t.fixedEnd && d > 0) pendingNote.reasonCode = 'ekstern';   // a fixed date moves only for the world outside, as in a drag
     if(lines.length) askReason(lines);
     save(); render();
-    const nb = chart.querySelector('.bar[data-id="' + CSS.escape(t.id) + '"]');
+    const nb = chart.querySelector('.bar:not(.ghost)[data-id="' + CSS.escape(t.id) + '"]');   // compare mode draws a ghost with the same id
     if(nb) nb.focus();
   });
   function showTip(e, t){
@@ -2177,6 +2190,8 @@ window.__bootTimeline = function(){
   function setForum(on, remember){
     forumMode = !!on;
     document.body.classList.toggle('forum', forumMode);
+    document.documentElement.classList.toggle('forum', forumMode);
+    readMetrics();   // R17: wall mode grows the size tokens; drags and rows follow
     const b = $('forumBtn'); b.classList.toggle('on', forumMode); b.setAttribute('aria-pressed', forumMode ? 'true' : 'false');
     if(remember){ try{ localStorage.setItem(FORUM_KEY, forumMode ? '1' : '0'); }catch(e){} }
     if(forumMode && viewMode !== 'epic') setView('epic', false);   // read views the forum does not use (the stored choice stays)

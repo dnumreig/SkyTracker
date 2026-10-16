@@ -982,7 +982,7 @@ function wireDialogs(doc) {
       setTimeout(() => { if (isOpen(b) && !box(b).contains(doc.activeElement)) { const f = focusables(b)[0]; if (f) f.focus(); } }, 30);
     } else if (!isOpen(b) && openers.has(b)) {
       let o = openers.get(b); openers.delete(b);
-      if (o && !o.isConnected && o.dataset && o.dataset.id) o = doc.querySelector("[data-id=\"" + CSS.escape(o.dataset.id) + "\"]." + o.classList[0]);
+      if (o && !o.isConnected && o.dataset && o.dataset.id) o = doc.querySelector("[data-id=\"" + CSS.escape(o.dataset.id) + "\"]." + o.classList[0] + ":not(.ghost)");   // a re-render replaced it; never its ghost
       if (o && o.isConnected && typeof o.focus === "function" && !topModal()) o.focus();
     }
   })).observe(doc.body, { subtree: true, attributes: true, attributeFilter: ["class", "hidden"] });
