@@ -29,7 +29,7 @@ function releaseLines(plan: Plan, path: PathEvent[], todayDay: string): string[]
     const pace = releasePace(plan, r, todayDay);
     const fc = releaseForecastText(r, todayDay), f = r.ado?.forecast;   // R12: the chance, when Capacity gave one
     const chance = fc?.short && f && "p" in f ? " · " + fc.short + " (forventet " + f.mean + " av " + f.need + " SP)" : "";
-    return "- " + r.version + ": " + (r.shippedDate ? "skippet " + dayWords(r.shippedDate) : "mål " + dayWords(r.targetDate)) + " · " + releaseProgress(r).text + (pace ? " · " + pace.text + " · " + COLOUR[pace.code] : "") + chance;
+    return "- " + r.version + ": " + (r.shippedDate ? "sluppet " + dayWords(r.shippedDate) : (r.qaDate ? "klar for QA " + dayWords(r.qaDate) + " · release " : "mål ") + dayWords(r.targetDate)) + " · " + releaseProgress(r).text + (pace ? " · " + pace.text + " · " + COLOUR[pace.code] : "") + chance;
   });
 }
 

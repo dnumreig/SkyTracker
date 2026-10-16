@@ -93,7 +93,7 @@ export declare function releaseScope(r: Release): string;
 export declare function releaseSegments(plan: Plan, todayUnit?: number): { release: Release; start: number; end: number; shipped: boolean; overdue: boolean }[];
 export declare function releaseItemDone(item: { state: string; category?: string }): boolean;
 export declare function releaseItemClosed(item: { state: string; category?: string }): boolean;
-export declare function releaseProgress(r: Release): { fraction: number | null; text: string; bugs: number; stories: number; done: number; total: number; pointsDone: number; pointsTotal: number };
+export declare function releaseProgress(r: Release): { fraction: number | null; text: string; bugs: number; stories: number; done: number; total: number; pointsDone: number; pointsTotal: number; closed: number; pointsClosed: number; closedFraction: number | null };
 export declare function releaseWiql(label: string): string;
 export declare function releaseQueryUrl(label: string): string;
 
@@ -109,10 +109,15 @@ export declare function calendarDays(a: string, b: string): number;
 export declare function releaseStartDay(plan: Plan, r: Release): string;
 export type ReleasePace = { code: PaceCode; text: string; done: number; elapsed: number; startDay: string; elapsedDays: number; totalDays: number; tempo: number | null; forecastDay: string | null; deltaDays: number | null; readings: number };
 export declare function releasePace(plan: Plan, r: Release, todayDay: string): ReleasePace | null;
-export declare function nextReleaseText(plan: Plan, todayDay: string): { text: string; code: PaceCode | null; release: Release } | null;
+export declare function nextReleaseText(plan: Plan, todayDay: string): { text: string; code: PaceCode | null; release: Release; phase: "utvikling" | "qa" | "sluppet" } | null;
 export declare function releaseStateCounts(r: Release): { state: string; count: number; category?: ReleaseItem["category"]; type?: "Bug" | "User Story" }[];
 export declare function releaseSprintText(r: Release): string;
-export declare function releaseBurndownData(plan: Plan, r: Release, todayDay: string): { startDay: string; axisStart: string; targetDay: string; endDay: string; todayDay: string; total: number; unit: "SP" | "items"; actual: { day: string; remaining: number }[]; forecastDay: string | null; firstScope: { day: string; total: number } | null; chances: { day: string; p: number; mean: number }[] } | null;
+export declare function releaseBurndownData(plan: Plan, r: Release, todayDay: string): { startDay: string; axisStart: string; targetDay: string; releaseDay: string; qaDay: string | null; endDay: string; todayDay: string; total: number; unit: "SP" | "items"; actual: { day: string; remaining: number }[]; closedActual: { day: string; remaining: number }[]; forecastDay: string | null; firstScope: { day: string; total: number } | null; chances: { day: string; p: number; mean: number }[] } | null;
+/* R18: a release in two phases */
+export declare function releaseDevTarget(r: Release): string;
+export declare function releasePhase(r: Release): "utvikling" | "qa" | "sluppet";
+export declare function releaseExpected(plan: Plan, r: Release, todayDay: string): string;
+export declare function releaseQaText(r: Release, todayDay: string): string;
 /* R12: the chance a release is done by its target day */
 export declare function releaseForecastText(r: Release, todayDay: string): { short: string | null; text: string; detail?: string; basis?: string; people?: { name: string; days: number; pace: number; expected: number }[] } | null;
 export declare function sprintUnlabelledWiql(iterationPath: string): string;

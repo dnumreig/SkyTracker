@@ -80,15 +80,15 @@ describe("refreshReleases (R10 + R11)", () => {
       { id: 4769, type: "Bug", title: "Group call drop", state: "Resolved", points: 5, assignee: null, iteration: "Sprint 72", delivered: "2026-10-11" },
       { id: 4804, type: "User Story", title: "Receipts", state: "New", points: 3, assignee: null, iteration: "Sprint 71" },
       { id: 4817, type: "User Story", title: "Otel", state: "Closed", points: 3, assignee: null, iteration: "Sprint 71", delivered: "2026-10-09", closed: "2026-10-12" },   // delivered is the resolved day, when the work was done; closed is the closed day (R18)
-    ], history: [{ day: DAY, pointsDone: 8, pointsTotal: 19, done: 2, total: 4 }], sprints: [{ name: "Sprint 71", unlabelled: 1 }, { name: "Sprint 72", unlabelled: 0 }],
+    ], history: [{ day: DAY, pointsDone: 8, pointsTotal: 19, done: 2, total: 4, closedPoints: 3, closed: 1 }], sprints: [{ name: "Sprint 71", unlabelled: 1 }, { name: "Sprint 72", unlabelled: 0 }],
       forecast: { day: DAY, missing: "capacity", sprints: ["Sprint 71"], unplanned: 0 } });   // R12: Sprint 71 has no Capacity in this fake
     expect(a.v).toBe(2);
-    expect(r.plan.releases![1].ado).toEqual({ at: NOW.toISOString(), label: "2.0.2", items: [{ id: 4999, type: "Bug", title: "Other", state: "New", points: 2, assignee: null }], history: [{ day: DAY, pointsDone: 0, pointsTotal: 2, done: 0, total: 1 }], sprints: [{ name: "Sprint 71", unlabelled: 1 }],
+    expect(r.plan.releases![1].ado).toEqual({ at: NOW.toISOString(), label: "2.0.2", items: [{ id: 4999, type: "Bug", title: "Other", state: "New", points: 2, assignee: null }], history: [{ day: DAY, pointsDone: 0, pointsTotal: 2, done: 0, total: 1, closedPoints: 0, closed: 0 }], sprints: [{ name: "Sprint 71", unlabelled: 1 }],
       forecast: { day: DAY, missing: "capacity", sprints: ["Sprint 71"], unplanned: 13 } });   // 26.10–11.11 lies in no sprint
     expect(r.read).toEqual({ releases: 2, items: 5 });
     expect(r.events.map((e) => [e.code, e.targetType, e.targetId, e.targetLabel, e.cause, e.summary])).toEqual([
-      ["release.lest", "release", "r1", "Release 2.0.1", "ado", "Lest fra ADO: 2 bugs, 2 stories · 8/19 SP levert"],
-      ["release.lest", "release", "r2", "Release 2.0.2", "ado", "Lest fra ADO: 1 bug, 0 stories · 0/2 SP levert"],
+      ["release.lest", "release", "r1", "Release 2.0.1", "ado", "Lest fra ADO: 2 bugs, 2 stories · 8/19 SP utviklet"],
+      ["release.lest", "release", "r2", "Release 2.0.2", "ado", "Lest fra ADO: 1 bug, 0 stories · 0/2 SP utviklet"],
     ]);
     expect(calls.filter((c) => c.startsWith("SELECT")).length).toBe(4);   // two labels, two sprint paths (the current sprint's count is shared by both releases)
   });
@@ -108,7 +108,7 @@ describe("refreshReleases (R10 + R11)", () => {
     const r = await refreshReleases(plan(), client, NOW);
     const a = r.plan.releases![0].ado!;   // 11 SP left; GO does 2 a day and has eight days (12.–21.10)
     expect(a.forecast).toEqual({ day: DAY, need: 11, days: 8, p: 1, mean: 16, p10: 16, p90: 16, people: [{ name: "Gjermund Østby", days: 8, pace: 2, expected: 16 }], basis: ["Sprint 70"], capacity: ["Sprint 71"] });
-    expect(a.history).toEqual([{ day: DAY, pointsDone: 8, pointsTotal: 19, done: 2, total: 4, forecast: { p: 1, mean: 16 } }]);
+    expect(a.history).toEqual([{ day: DAY, pointsDone: 8, pointsTotal: 19, done: 2, total: 4, closedPoints: 3, closed: 1, forecast: { p: 1, mean: 16 } }]);
     expect(calls.filter((c) => /ResolvedDate/.test(c)).length).toBe(1);   // the past is read once for both releases
     const again = await refreshReleases(r.plan, client, new Date("2026-10-12T15:00:00.000Z"));
     expect(again.plan.releases![0].v).toBe(r.plan.releases![0].v);   // the same data gives the same number: nothing to bump

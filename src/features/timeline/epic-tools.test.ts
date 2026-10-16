@@ -8,7 +8,7 @@ import {
   resolveQueue, queueFloor, capacityFactor, elapsedWeeks, wishesByStatus, WISH_STATUS_LABEL, WISH_SOURCE_LABEL, sizeClassDerived, sizeClassText, FEATURE_TYPE_LABEL, AREAS,
   dayToUnit, releaseSegments, releaseProgress, releaseScope, releaseItemDone, releaseItemClosed,
   workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, dayKey,
-  releaseForecastText, focusKey, restoreFocus,
+  releaseForecastText, focusKey, restoreFocus, releaseDevTarget, releasePhase, releaseExpected, releaseQaText,
   BACKLOG, canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
   navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
   osloDay, osloDate,
@@ -583,9 +583,9 @@ describe("releases (R10): the normaliser, the band segments and the progress tex
       { id: 3, type: "User Story", title: "c", state: "Resolved", points: 2, assignee: null },
     ];
     const r = normalizePlan({ lanes: [], tasks: [], releases: [rel({ ado: { at: "2026-10-12T20:00:00.000Z", label: "2.0.1", items } })] }).releases![0];
-    expect(releaseProgress(r)).toMatchObject({ fraction: 0.7, text: "2 bugs, 1 story · 7/10 SP levert", bugs: 2, stories: 1, done: 2, total: 3, pointsDone: 7, pointsTotal: 10 });
+    expect(releaseProgress(r)).toMatchObject({ fraction: 0.7, text: "2 bugs, 1 story · 7/10 SP utviklet", bugs: 2, stories: 1, done: 2, total: 3, pointsDone: 7, pointsTotal: 10 });
     const noPoints = normalizePlan({ lanes: [], tasks: [], releases: [rel({ ado: { at: "x", label: "2.0.1", items: items.map((i) => ({ ...i, points: 0 })) } })] }).releases![0];
-    expect(releaseProgress(noPoints)).toMatchObject({ fraction: 2 / 3, text: "2 bugs, 1 story · 2 av 3 levert" });
+    expect(releaseProgress(noPoints)).toMatchObject({ fraction: 2 / 3, text: "2 bugs, 1 story · 2 av 3 utviklet" });
     expect(releaseProgress(normalizePlan({ lanes: [], tasks: [], releases: [rel({})] }).releases![0])).toMatchObject({ fraction: null, text: "ikke lest fra ADO" });
     expect(releaseScope(rel({ label: "2.0.1+ota.2" }) as never)).toBe("2.0.1+ota.2");
     expect(releaseScope(rel({}) as never)).toBe("2.0.1");
@@ -649,14 +649,14 @@ describe("R11: the tempo of a release", () => {
   it("day one of a short release is green with nothing delivered: the straight line allows one working day, at least 10 %", () => {
     const c = mk({ items: items([], [82]), history: hist(["2026-10-13"]) });   // 13.10–22.10: eight working days
     expect(releasePace(c.p, c.r, "2026-10-13")).toMatchObject({ code: "gronn", startDay: "2026-10-13", elapsedDays: 1, totalDays: 8, tempo: null });
-    expect(releasePace(c.p, c.r, "2026-10-13")!.text).toBe("0 % levert · 13 % av tiden brukt · ingenting levert ennå");
+    expect(releasePace(c.p, c.r, "2026-10-13")!.text).toBe("0 % utviklet · 13 % av tiden brukt · ingenting utviklet ennå");
     expect(releasePace(c.p, c.r, "2026-10-14")!.code).toBe("gul");   // two days in, nothing delivered
   });
   it("the straight line until something is delivered after the start: green when delivered keeps up with the time used, yellow behind, red past the target", () => {
     const today = "2026-10-12";   // 6 of 14 working days from 5.10 to 22.10
     const g = mk({ items: items([30], [49], "2026-10-02"), history: hist(["2026-10-05"]) });   // 38 % delivered, all of it before the start; 43 % of the time
     expect(releasePace(g.p, g.r, today)).toMatchObject({ code: "gronn", tempo: null, forecastDay: null, elapsedDays: 6, totalDays: 14, startDay: "2026-10-05" });
-    expect(releasePace(g.p, g.r, today)!.text).toBe("38 % levert · 43 % av tiden brukt · ingenting levert siden 5. okt");
+    expect(releasePace(g.p, g.r, today)!.text).toBe("38 % utviklet · 43 % av tiden brukt · ingenting utviklet siden 5. okt");
     const y = mk({ items: items([10], [69], "2026-10-02"), history: hist(["2026-10-05"]) });   // 13 % delivered
     expect(releasePace(y.p, y.r, today)!.code).toBe("gul");
     expect(releasePace(y.p, y.r, "2026-10-23")!.code).toBe("rod");   // the target day is past
@@ -669,10 +669,10 @@ describe("R11: the tempo of a release", () => {
     const lp = releasePace(late.p, late.r, today)!;
     expect(lp).toMatchObject({ code: "rod", readings: 1, forecastDay: "2026-12-09", deltaDays: 34 });
     expect(lp.tempo).toBeCloseTo(10 / 6);
-    expect(lp.text).toBe("13 % levert · 43 % av tiden brukt · med dagens tempo ferdig 9. des, 34 arbeidsdager etter målet");
+    expect(lp.text).toBe("13 % utviklet · 43 % av tiden brukt · med dagens tempo ferdig 9. des, 34 arbeidsdager etter målet");
     const ok = mk({ items: items([42], [37]), history: two });   // 7/day: 37 left → 6 more → 20 Oct, two days before
     expect(releasePace(ok.p, ok.r, today)).toMatchObject({ code: "gronn", forecastDay: "2026-10-20", deltaDays: -2 });
-    expect(releasePace(ok.p, ok.r, today)!.text).toBe("53 % levert · 43 % av tiden brukt · med dagens tempo ferdig 20. okt, to arbeidsdager før målet");
+    expect(releasePace(ok.p, ok.r, today)!.text).toBe("53 % utviklet · 43 % av tiden brukt · med dagens tempo ferdig 20. okt, to arbeidsdager før målet");
     const yel = mk({ items: items([30], [49]), history: two });   // 5/day: 49 left → 10 more → 26 Oct, two days after
     expect(releasePace(yel.p, yel.r, today)).toMatchObject({ code: "gul", forecastDay: "2026-10-26", deltaDays: 2 });
     const three = mk({ items: items([28], [51]), history: two }); // 4.67/day: 51 left → 11 more → 27 Oct, three days after: still yellow
@@ -700,9 +700,9 @@ describe("R11: the tempo of a release", () => {
     expect(releasePace(empty.p, empty.r, "2026-10-12")).toBeNull();
     const all = mk({ items: items([79], []), history: hist(["2026-10-05", "2026-10-12"]) });
     expect(releasePace(all.p, all.r, "2026-10-12")).toMatchObject({ code: "gronn", forecastDay: null });
-    expect(releasePace(all.p, all.r, "2026-10-12")!.text).toBe("100 % levert · 43 % av tiden brukt · alt levert · sett «Skippet» når den er ute");
+    expect(releasePace(all.p, all.r, "2026-10-12")!.text).toBe("100 % utviklet · 43 % av tiden brukt · alt utviklet · sett «Sluppet» når den er ute");
     const none = mk({ items: items([], [79]), history: hist(["2026-10-05", "2026-10-12"]) });
-    expect(releasePace(none.p, none.r, "2026-10-12")!.text).toBe("0 % levert · 43 % av tiden brukt · ingenting levert ennå");
+    expect(releasePace(none.p, none.r, "2026-10-12")!.text).toBe("0 % utviklet · 43 % av tiden brukt · ingenting utviklet ennå");
   });
   it("nextReleaseText: the first unshipped release by target day, calendar days away, the share delivered and the colour in words", () => {
     const p = normalizePlan({ lanes: [], tasks: [], sprints, releases: [
@@ -714,7 +714,7 @@ describe("R11: the tempo of a release", () => {
     expect(nextReleaseText(p, "2026-10-22")!.text).toBe("Neste release 2.0.1 i dag · 38 % · gul");
     expect(nextReleaseText(p, "2026-10-25")!.text).toBe("Neste release 2.0.1 3 dager på overtid · 38 % · rød");
     const unread = normalizePlan({ lanes: [], tasks: [], releases: [{ key: "c", version: "2.0.2", targetDate: "2026-11-13" }] });
-    expect(nextReleaseText(unread, "2026-11-12")).toEqual({ text: "Neste release 2.0.2 om 1 dag · ikke lest fra ADO", code: null, release: unread.releases![0] });
+    expect(nextReleaseText(unread, "2026-11-12")).toEqual({ text: "Neste release 2.0.2 om 1 dag · ikke lest fra ADO", code: null, release: unread.releases![0], phase: "utvikling" });
     expect(nextReleaseText(normalizePlan({ lanes: [], tasks: [] }), "2026-10-12")).toBeNull();
   });
   it("releaseStateCounts and releaseSprintText: ADO's states in order, the items per sprint and the sprint's unlabelled items", () => {
@@ -738,8 +738,9 @@ describe("R11: the tempo of a release", () => {
     ];
     const h = [{ day: "2026-10-05", pointsDone: 0, pointsTotal: 70, done: 0, total: 2 }, { day: today, pointsDone: 10, pointsTotal: 79, done: 2, total: 3 }];
     const a = mk({ items: its, history: h });
-    expect(releaseBurndownData(a.p, a.r, today)).toEqual({ startDay: "2026-10-05", axisStart: "2026-10-05", targetDay: "2026-10-22", endDay: "2026-10-22", todayDay: today, total: 79, unit: "SP",
+    expect(releaseBurndownData(a.p, a.r, today)).toEqual({ startDay: "2026-10-05", axisStart: "2026-10-05", targetDay: "2026-10-22", releaseDay: "2026-10-22", qaDay: null, endDay: "2026-10-22", todayDay: today, total: 79, unit: "SP",
       actual: [{ day: "2026-10-05", remaining: 79 }, { day: "2026-10-06", remaining: 79 }, { day: "2026-10-07", remaining: 75 }, { day: "2026-10-08", remaining: 75 }, { day: "2026-10-09", remaining: 69 }, { day: today, remaining: 69 }],
+      closedActual: [{ day: "2026-10-05", remaining: 75 }, { day: "2026-10-06", remaining: 75 }, { day: "2026-10-07", remaining: 75 }, { day: "2026-10-08", remaining: 75 }, { day: "2026-10-09", remaining: 75 }, { day: today, remaining: 75 }],   // R18: the Closed bug has no closed day, so it counts from the start
       forecastDay: "2026-12-09", firstScope: { day: "2026-10-05", total: 70 }, chances: [] });
     expect(releaseBurndownData(a.p, a.r, "2026-10-30")!.endDay).toBe("2026-10-30");
     const same = mk({ items: its, history: [{ ...h[0], pointsTotal: 79 }] });
@@ -783,7 +784,7 @@ describe("R11: a release whose clock starts after today (items in a coming sprin
   it("says where the tempo counts from instead of «ingenting levert ennå», and stays green", () => {
     const pace = releasePace(p, p.releases![0], "2026-10-13")!;
     expect(pace).toMatchObject({ code: "gronn", elapsedDays: 0, tempo: null, startDay: "2026-10-26" });
-    expect(pace.text).toBe("31 % levert · 0 % av tiden brukt · tempo regnes fra 26. okt");
+    expect(pace.text).toBe("31 % utviklet · 0 % av tiden brukt · tempo regnes fra 26. okt");
   });
   it("the burndown's axis starts at the earlier of the clock's start and the first reading", () => {
     const d = releaseBurndownData(p, p.releases![0], "2026-10-13")!;
@@ -1236,5 +1237,61 @@ describe("R18: developed and closed by category", () => {
     ]);
     expect(releaseItemDone(counts[1])).toBe(false);
     expect(releaseItemDone(counts[2])).toBe(true);
+  });
+});
+
+describe("R18: a release in two phases", () => {
+  const TODAY = "2026-10-16";
+  const it_ = (id: number, state: string, category: string, points: number, delivered?: string, closed?: string) =>
+    ({ id, type: "User Story", title: "s" + id, state, category, points, assignee: null, ...(delivered ? { delivered } : {}), ...(closed ? { closed } : {}) });
+  const rel = (over: Record<string, unknown> = {}, items = [it_(1, "Develop", "Resolved", 3, "2026-10-12"), it_(2, "Codereview", "InProgress", 5), it_(3, "Closed", "Completed", 2, "2026-10-08", "2026-10-14")]) =>
+    normalizePlan({ lanes: [], tasks: [], sprints: { at: "", items: [{ name: "Sprint 71", path: "Skytale\\Sprint 71", start: "2026-10-05", finish: "2026-10-23" }] },
+      releases: [{ key: "r1", version: "2.0.1", targetDate: "2026-10-27", qaDate: "2026-10-20", ado: { at: TODAY + "T08:00:00Z", label: "2.0.1", items, history: [] }, ...over }] }).releases![0];
+
+  it("the normaliser keeps «Klar for QA» as a valid day and the open ids only while «Sluppet» is set", () => {
+    expect(rel().qaDate).toBe("2026-10-20");
+    expect(rel({ qaDate: "2026-02-30" }).qaDate).toBeUndefined();
+    expect(rel({ shippedDate: "2026-10-27", openAtShip: [2, 2, -1, "x"] }).openAtShip).toEqual([2]);
+    expect(rel({ openAtShip: [2] }).openAtShip).toBeUndefined();
+  });
+  it("progress counts developed and closed apart; the dev target is «Klar for QA», else «Release»", () => {
+    const pr = releaseProgress(rel());
+    expect(pr).toMatchObject({ pointsDone: 5, pointsTotal: 10, pointsClosed: 2 });
+    expect(pr.closedFraction).toBeCloseTo(0.2, 9);
+    expect(releaseDevTarget(rel())).toBe("2026-10-20");
+    expect(releaseDevTarget(rel({ qaDate: undefined }))).toBe("2026-10-27");
+  });
+  it("the phase: development while something is not developed, QA when all is, sluppet once out", () => {
+    expect(releasePhase(rel())).toBe("utvikling");
+    expect(releasePhase(rel({}, [it_(1, "QA", "Resolved", 3, "2026-10-12"), it_(2, "Closed", "Completed", 5, "2026-10-13", "2026-10-15")]))).toBe("qa");
+    expect(releasePhase(rel({ shippedDate: "2026-10-27" }))).toBe("sluppet");
+  });
+  it("a late handover pushes the expected release by the same working days; on time it is the release date", () => {
+    const p = (r: unknown) => normalizePlan({ lanes: [], tasks: [], releases: [r] });
+    const onTime = rel({}, [it_(1, "QA", "Resolved", 3, "2026-10-12")]);
+    expect(releaseExpected(p(onTime), onTime, TODAY)).toBe("2026-10-27");
+    // «Klar for QA» passed, a story in review, no tempo (nothing developed since the clock started 12.10):
+    // development runs at least to today, two working days late (15, 16) → 27.10 + 2
+    const stalled = rel({ qaDate: "2026-10-14" }, [it_(2, "Codereview", "InProgress", 5), it_(3, "Closed", "Completed", 2, "2026-10-08", "2026-10-09")]);
+    expect(releaseExpected(p(stalled), stalled, TODAY)).toBe("2026-10-29");
+    // with a tempo (3 SP in the five working days since 12.10) development ends on the tempo's day 29.10,
+    // eleven working days after 14.10 → 27.10 + 11
+    const late = rel({ qaDate: "2026-10-14" });
+    expect(releaseExpected(p(late), late, TODAY)).toBe("2026-11-11");
+  });
+  it("the tempo aims at «Klar for QA» and says «utviklet»", () => {
+    const late = rel({ qaDate: "2026-10-14" });
+    expect(releasePace(normalizePlan({ lanes: [], tasks: [], releases: [late] }), late, TODAY)!.text)
+      .toBe("50 % utviklet · 100 % av tiden brukt · med dagens tempo klar for QA 29. okt, elleve arbeidsdager etter");
+  });
+  it("the QA sentence per phase", () => {
+    expect(releaseQaText(rel(), TODAY)).toBe("Klar for QA 20. okt · release 27. okt");
+    expect(releaseQaText(rel({}, [it_(1, "QA", "Resolved", 3, "2026-10-12"), it_(2, "Closed", "Completed", 5, "2026-10-13", "2026-10-15")]), TODAY)).toBe("I QA: 1 av 2 lukket · release 27. okt");
+    expect(releaseQaText(rel({ shippedDate: "2026-10-27", openAtShip: [2] }), TODAY)).toBe("Sluppet 27. okt · 1 åpen ved release");
+  });
+  it("the burndown carries a second series (not closed yet) and the QA day", () => {
+    const d = releaseBurndownData(normalizePlan({ lanes: [], tasks: [], releases: [rel()] }), rel(), TODAY)!;
+    expect(d).toMatchObject({ qaDay: "2026-10-20", targetDay: "2026-10-20", releaseDay: "2026-10-27" });   // the ideal line ends at «Klar for QA»
+    expect(d.closedActual.at(-1)).toEqual({ day: TODAY, remaining: 8 });   // 10 SP, 2 closed
   });
 });

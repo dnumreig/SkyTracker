@@ -85,7 +85,7 @@ export async function refreshReleases(plan: Plan, client: Pick<AdoClient, "wiql"
       console.warn("release forecast skipped:", e instanceof Error ? e.message : e);   // e.g. no access to the team's Capacity: the release is still read
     }
     const chance = forecast && "p" in forecast ? { forecast: { p: forecast.p, mean: forecast.mean } } : {};
-    const history = historyWith(r.ado?.history, { day: osloDay(now), pointsDone: pr.pointsDone, pointsTotal: pr.pointsTotal, done: pr.done, total: pr.total, ...chance });
+    const history = historyWith(r.ado?.history, { day: osloDay(now), pointsDone: pr.pointsDone, pointsTotal: pr.pointsTotal, done: pr.done, total: pr.total, closedPoints: pr.pointsClosed, closed: pr.closed, ...chance });   // R18: what is closed too
     const next: ReleaseAdo = { at: now.toISOString(), label, items: list, history, ...(sprints.length ? { sprints } : {}), ...(forecast ? { forecast } : {}), ...(states ? {} : { statesMissing: true }) };
     const itemsKey = (a?: ReleaseAdo) => JSON.stringify(a ? { label: a.label, items: a.items } : null);
     const dataKey = (a?: ReleaseAdo) => JSON.stringify(a ? { label: a.label, items: a.items, history: a.history ?? [], sprints: a.sprints ?? [], forecast: a.forecast ?? null } : null);

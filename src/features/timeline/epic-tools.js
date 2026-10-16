@@ -85,7 +85,9 @@ function normalizePlan(plan) {
   const validDay = (d) => { if (!isDay(d)) return false; const q = d.split("-").map(Number), dt = new Date(q[0], q[1] - 1, q[2]); return dt.getFullYear() === q[0] && dt.getMonth() === q[1] - 1 && dt.getDate() === q[2]; };   // a real calendar day, not just the shape
   p.releases = (Array.isArray(p.releases) ? p.releases : []).filter((r) => r && typeof r === "object" && typeof r.key === "string" && r.key && text(r.version, 40) && validDay(r.targetDate)).map((r) => {
     const out = { key: r.key, v: num(r.v, 0), version: text(r.version, 40), targetDate: r.targetDate };
+    if (validDay(r.qaDate)) out.qaDate = r.qaDate;   // R18: «Klar for QA», the development lead's date (the editor keeps it on or before «Release»)
     if (validDay(r.shippedDate)) out.shippedDate = r.shippedDate;
+    if (out.shippedDate && Array.isArray(r.openAtShip)) { const ids = [...new Set(r.openAtShip.filter((n) => Number.isInteger(n) && n > 0))]; if (ids.length) out.openAtShip = ids; }   // R18: what was not closed at «Sluppet»
     const note = text(r.note, 2000); if (note) out.note = note;
     const label = text(r.label, 60); if (label && label !== out.version) out.label = label;
     if (r.ado && typeof r.ado === "object" && typeof r.ado.at === "string" && Array.isArray(r.ado.items)) {
@@ -95,7 +97,8 @@ function normalizePlan(plan) {
       })) };
       const hist = new Map();   // R11: one reading per day, the day's last wins, the latest kept
       const chance = (f) => (f && typeof f === "object" && Number.isFinite(f.p) && f.p >= 0 && f.p <= 1 && Number.isFinite(f.mean) && f.mean >= 0 ? { forecast: { p: f.p, mean: f.mean } } : {});   // R12: the day's chance
-      (Array.isArray(r.ado.history) ? r.ado.history : []).forEach((h) => { if (h && typeof h === "object" && validDay(h.day)) hist.set(h.day, { day: h.day, pointsDone: Math.max(0, num(h.pointsDone, 0)), pointsTotal: Math.max(0, num(h.pointsTotal, 0)), done: Math.max(0, num(h.done, 0)), total: Math.max(0, num(h.total, 0)), ...chance(h.forecast) }); });
+      const closedOf = (h) => ({ ...(Number.isFinite(h.closedPoints) && h.closedPoints >= 0 ? { closedPoints: h.closedPoints } : {}), ...(Number.isFinite(h.closed) && h.closed >= 0 ? { closed: h.closed } : {}) });   // R18: what was closed that day
+      (Array.isArray(r.ado.history) ? r.ado.history : []).forEach((h) => { if (h && typeof h === "object" && validDay(h.day)) hist.set(h.day, { day: h.day, pointsDone: Math.max(0, num(h.pointsDone, 0)), pointsTotal: Math.max(0, num(h.pointsTotal, 0)), done: Math.max(0, num(h.done, 0)), total: Math.max(0, num(h.total, 0)), ...closedOf(h), ...chance(h.forecast) }); });
       if (hist.size) out.ado.history = [...hist.values()].sort((x, y) => (x.day < y.day ? -1 : 1)).slice(-RELEASE_HISTORY_MAX);
       const sprints = (Array.isArray(r.ado.sprints) ? r.ado.sprints : []).filter((s) => s && typeof s === "object" && typeof s.name === "string" && s.name).map((s) => ({ name: s.name, unlabelled: Math.max(0, num(s.unlabelled, 0)) }));
       if (sprints.length) out.ado.sprints = sprints;
@@ -572,18 +575,23 @@ function releaseSegments(plan, todayUnit) {
 }
 const releaseItemDone = (i) => (i.category ? i.category === "Resolved" || i.category === "Completed" : RELEASE_DONE_STATES.includes(i.state));   // R18: developed
 const releaseItemClosed = (i) => (i.category ? i.category === "Completed" : i.state === "Closed");   // R18: through QA
-/** Points developed (R18: by the state's category; Resolved/Closed without one) over all points (items by count when nobody pointed them), with the counts in words. */
+/** Points developed (R18: by the state's category; Resolved/Closed without one) over all points (items by count when nobody pointed them), with the counts in words;
+ *  R18: and what is closed (through QA), the same way. */
 function releaseProgress(r) {
   const a = r && r.ado;
-  if (!a || !Array.isArray(a.items)) return { fraction: null, text: "ikke lest fra ADO", bugs: 0, stories: 0, done: 0, total: 0, pointsDone: 0, pointsTotal: 0 };
-  const items = a.items, doneItems = items.filter(releaseItemDone);
-  const pointsTotal = items.reduce((s, i) => s + (i.points || 0), 0), pointsDone = doneItems.reduce((s, i) => s + (i.points || 0), 0);
-  const bugs = items.filter((i) => i.type === "Bug").length, stories = items.length - bugs, done = doneItems.length, total = items.length;
+  if (!a || !Array.isArray(a.items)) return { fraction: null, text: "ikke lest fra ADO", bugs: 0, stories: 0, done: 0, total: 0, pointsDone: 0, pointsTotal: 0, closed: 0, pointsClosed: 0, closedFraction: null };
+  const items = a.items, doneItems = items.filter(releaseItemDone), closedItems = items.filter(releaseItemClosed);
+  const points = (list) => list.reduce((s, i) => s + (i.points || 0), 0);
+  const pointsTotal = points(items), pointsDone = points(doneItems), pointsClosed = points(closedItems);
+  const bugs = items.filter((i) => i.type === "Bug").length, stories = items.length - bugs, done = doneItems.length, total = items.length, closed = closedItems.length;
   const n = (c, one, many) => c + " " + (c === 1 ? one : many);
   const fraction = pointsTotal > 0 ? pointsDone / pointsTotal : total ? done / total : 0;
-  const text = !total ? "ingenting med labelen i ADO" : n(bugs, "bug", "bugs") + ", " + n(stories, "story", "stories") + " · " + (pointsTotal > 0 ? pointsDone + "/" + pointsTotal + " SP levert" : done + " av " + total + " levert");
-  return { fraction, text, bugs, stories, done, total, pointsDone, pointsTotal };
+  const closedFraction = pointsTotal > 0 ? pointsClosed / pointsTotal : total ? closed / total : 0;
+  const text = !total ? "ingenting med labelen i ADO" : n(bugs, "bug", "bugs") + ", " + n(stories, "story", "stories") + " · " + (pointsTotal > 0 ? pointsDone + "/" + pointsTotal + " SP utviklet" : done + " av " + total + " utviklet");
+  return { fraction, text, bugs, stories, done, total, pointsDone, pointsTotal, closed, pointsClosed, closedFraction };
 }
+/** R18: where development aims: «Klar for QA» when it is set, else «Release». */
+function releaseDevTarget(r) { return r.qaDate || r.targetDate; }
 
 /* ---------- R12: the chance a release is done by its target day (computed by the server from ADO's Capacity) ---------- */
 /** A stored forecast as the normaliser keeps it, or null: the computed kind with its numbers, or what is missing. */
@@ -658,19 +666,25 @@ function releaseStartDay(plan, r) {
 function releaseDoneBy(r, day, usePoints) {
   return ((r.ado && r.ado.items) || []).filter((i) => releaseItemDone(i) && (!i.delivered || i.delivered <= day)).reduce((s, i) => s + (usePoints ? i.points || 0 : 1), 0);
 }
+/** R18: the same for what is closed (through QA) on or before `day`; a closed item without a closed day counts from the start. */
+function releaseClosedBy(r, day, usePoints) {
+  return ((r.ado && r.ado.items) || []).filter((i) => releaseItemClosed(i) && (!i.closed || i.closed <= day)).reduce((s, i) => s + (usePoints ? i.points || 0 : 1), 0);
+}
 const PACE_WORDS = ["null", "én", "to", "tre", "fire", "fem", "seks", "sju", "åtte", "ni", "ti", "elleve", "tolv"];
 const daysWords = (n) => (n <= 12 ? PACE_WORDS[n] : String(n)) + " arbeidsdag" + (n === 1 ? "" : "er");
 const dayWords = (day) => fmtDate(dayOf(day));
 const pct = (f) => Math.round(f * 100) + " %";
-/** The tempo signal of a release that is not out yet: the colour its segment wears and the sentence the drawer, the strip and the report say. */
+/** The tempo signal of a release that is not out yet: the colour its segment wears and the sentence the drawer, the strip and the report say.
+ *  R18: measured against development's target (`releaseDevTarget`); the clock's start is unchanged (its fallback, the segment, ends at «Release»). */
 function releasePace(plan, r, todayDay) {
   if (!r || r.shippedDate || !r.ado) return null;
   const pr = releaseProgress(r);
   if (!pr.total) return null;
+  const target = releaseDevTarget(r);
   const units = pr.pointsTotal > 0 ? { done: pr.pointsDone, total: pr.pointsTotal } : { done: pr.done, total: pr.total };
   const startDay = releaseStartDay(plan, r);
-  const elapsedDays = workDays(startDay, todayDay), totalDays = workDays(startDay, r.targetDate);
-  const elapsed = totalDays > 0 ? Math.max(0, Math.min(1, elapsedDays / totalDays)) : todayDay >= r.targetDate ? 1 : 0;
+  const elapsedDays = workDays(startDay, todayDay), totalDays = workDays(startDay, target);
+  const elapsed = totalDays > 0 ? Math.max(0, Math.min(1, elapsedDays / totalDays)) : todayDay >= target ? 1 : 0;
   const done = pr.fraction;
   const readings = new Set((r.ado.history || []).map((h) => h.day)).size;
   const usePoints = pr.pointsTotal > 0;
@@ -678,27 +692,58 @@ function releasePace(plan, r, todayDay) {
   const since = units.done - releaseDoneBy(r, dayKey(dayBefore), usePoints);   // delivered after the clock started
   const tempo = elapsedDays > 0 && since > 0 ? since / elapsedDays : null;
   const forecastDay = tempo !== null && done < 1 ? addWorkDays(todayDay, Math.ceil((units.total - units.done) / tempo)) : null;
-  const deltaDays = forecastDay ? (forecastDay > r.targetDate ? workDaysBetween(r.targetDate, forecastDay) : -workDaysBetween(forecastDay, r.targetDate)) : null;
-  const past = todayDay > r.targetDate;
+  const deltaDays = forecastDay ? (forecastDay > target ? workDaysBetween(target, forecastDay) : -workDaysBetween(forecastDay, target)) : null;
+  const past = todayDay > target;
   let code;
   if (done >= 1) code = "gronn";
   else if (deltaDays !== null) code = deltaDays <= 0 ? "gronn" : deltaDays <= PACE_LATE_DAYS ? "gul" : "rod";
   else code = past ? "rod" : done + Math.max(PACE_SLACK, totalDays > 0 ? 1 / totalDays : 0) >= elapsed ? "gronn" : "gul";   // the straight line allows a working day, at least 10 %
-  const head = pct(done) + " levert · " + pct(elapsed) + " av tiden brukt";
-  const tail = done >= 1 ? "alt levert · sett «Skippet» når den er ute"
-    : forecastDay ? "med dagens tempo ferdig " + dayWords(forecastDay) + (deltaDays === 0 ? ", på målet" : deltaDays > 0 ? ", " + daysWords(deltaDays) + " etter målet" : ", " + daysWords(-deltaDays) + " før målet")
+  const qa = !!r.qaDate, ref = qa ? "" : " målet";   // R18: with a QA date the sentence aims at it
+  const head = pct(done) + " utviklet · " + pct(elapsed) + " av tiden brukt";
+  const tail = done >= 1 ? (qa ? "alt utviklet · QA tar over" : "alt utviklet · sett «Sluppet» når den er ute")
+    : forecastDay ? "med dagens tempo " + (qa ? "klar for QA " : "ferdig ") + dayWords(forecastDay) +
+      (deltaDays === 0 ? (qa ? ", på dagen" : ", på målet") : deltaDays > 0 ? ", " + daysWords(deltaDays) + " etter" + ref : ", " + daysWords(-deltaDays) + " før" + ref)
     : startDay > todayDay ? "tempo regnes fra " + dayWords(startDay)   // the clock has not started: the items sit in a coming sprint
-    : units.done === 0 ? "ingenting levert ennå" : "ingenting levert siden " + dayWords(startDay);
+    : units.done === 0 ? "ingenting utviklet ennå" : "ingenting utviklet siden " + dayWords(startDay);
   return { code, text: head + " · " + tail, done, elapsed, startDay, elapsedDays, totalDays, tempo, forecastDay, deltaDays, readings };
 }
-/** The legend's status strip: the next release not yet out, how far away it is, the share delivered and the tempo colour in words. */
+/** The legend's status strip: the next release not yet out, how far away it is, the share developed and the tempo colour in words; R18: and its phase. */
 function nextReleaseText(plan, todayDay) {
   const r = ((plan && plan.releases) || []).filter((x) => !x.shippedDate).sort((a, b) => (a.targetDate < b.targetDate ? -1 : a.targetDate > b.targetDate ? 1 : 0))[0];
   if (!r) return null;
   const n = calendarDays(todayDay, r.targetDate);
   const when = n > 0 ? "om " + n + (n === 1 ? " dag" : " dager") : n === 0 ? "i dag" : -n + (n === -1 ? " dag" : " dager") + " på overtid";
   const pr = releaseProgress(r), pace = releasePace(plan, r, todayDay);
-  return { text: "Neste release " + r.version + " " + when + " · " + (pr.fraction === null ? "ikke lest fra ADO" : pct(pr.fraction)) + (pace ? " · " + PACE_WORD[pace.code] : ""), code: pace ? pace.code : null, release: r };
+  return { text: "Neste release " + r.version + " " + when + " · " + (pr.fraction === null ? "ikke lest fra ADO" : pct(pr.fraction)) + (pace ? " · " + PACE_WORD[pace.code] : ""), code: pace ? pace.code : null, release: r, phase: releasePhase(r) };
+}
+
+/* ---------- R18: a release in two phases: development until «Klar for QA», QA until «Release», «Sluppet» by hand ---------- */
+/** «utvikling» while some item is not developed (or nothing carries the label yet), «qa» when everything is, «sluppet» once out. */
+function releasePhase(r) {
+  if (r.shippedDate) return "sluppet";
+  const items = (r.ado && r.ado.items) || [];
+  return items.length && items.every(releaseItemDone) ? "qa" : "utvikling";
+}
+/** The expected release day: «Release» plus the working days development runs past «Klar for QA» (the day everything was developed
+ *  in phase QA, else the tempo's day, else at least today); without a QA date the tempo's day, else «Release». Never before today while not out. */
+function releaseExpected(plan, r, todayDay) {
+  if (r.shippedDate) return r.shippedDate;
+  const pace = releasePace(plan, r, todayDay);
+  if (!r.qaDate) return laterDay((pace && pace.forecastDay) || r.targetDate, todayDay);
+  const items = (r.ado && r.ado.items) || [];
+  const finished = releasePhase(r) === "qa" ? items.map((i) => i.delivered).filter(Boolean).sort().pop() || todayDay : null;
+  const devEnd = finished || (pace && pace.forecastDay) || laterDay(todayDay, r.qaDate);
+  const slip = devEnd > r.qaDate ? workDaysBetween(r.qaDate, devEnd) : 0;
+  return laterDay(addWorkDays(r.targetDate, slip), todayDay);
+}
+/** The QA section's sentence: «Klar for QA 20. okt · release 27. okt» · «I QA: 5 av 9 lukket · release 27. okt» · «Sluppet 27. okt · 2 åpne ved release».
+ *  Called with today's day like its siblings (the d.ts declares it), which it does not read: the sentence names only the release's own dates. */
+function releaseQaText(r) {
+  const phase = releasePhase(r), items = (r.ado && r.ado.items) || [];
+  if (phase === "sluppet") { const n = (r.openAtShip || []).length; return "Sluppet " + dayWords(r.shippedDate) + (n ? " · " + n + (n === 1 ? " åpen" : " åpne") + " ved release" : ""); }
+  if (phase === "qa") return "I QA: " + items.filter(releaseItemClosed).length + " av " + items.length + " lukket · release " + dayWords(r.targetDate);
+  const s = (r.qaDate ? "Klar for QA " + dayWords(r.qaDate) + " · " : "") + "release " + dayWords(r.targetDate);
+  return s[0].toUpperCase() + s.slice(1);   // «Release 27. okt» without a QA date
 }
 const STATE_ORDER = ["New", "Active", "Resolved", "Closed"];
 const CATEGORY_ORDER = ["Proposed", "InProgress", "Resolved", "Completed"];
@@ -734,7 +779,8 @@ function releaseSprintText(r) {
 }
 /** The burndown's numbers: today's scope left on every working day from the axis start to today (or the shipped day), from
  *  each item's delivered day, so a day nobody opened the page leaves no hole; the ideal line's ends, the day the tempo
- *  points at, and the scope the first reading found when it differs from today's. */
+ *  points at, and the scope the first reading found when it differs from today's. R18: the ideal line ends at development's
+ *  target (`targetDay`), «Release» and «Klar for QA» come as `releaseDay` and `qaDay`, and `closedActual` is what is not closed yet. */
 function releaseBurndownData(plan, r, todayDay) {
   const a = r && r.ado;
   if (!a || !Array.isArray(a.items) || !a.items.length) return null;
@@ -745,12 +791,16 @@ function releaseBurndownData(plan, r, todayDay) {
   const startDay = pace ? pace.startDay : releaseStartDay(plan, r);
   const axisStart = history.length && history[0].day < startDay ? history[0].day : startDay;   // readings before the clock's start (items moved to a later sprint) stay on the chart
   const lastDay = r.shippedDate && r.shippedDate < todayDay ? r.shippedDate : todayDay;
-  const actual = [];
-  for (const c = dayOf(axisStart); dayKey(c) <= lastDay; c.setDate(c.getDate() + 1)) if (isWorkDay(c)) actual.push({ day: dayKey(c), remaining: total - releaseDoneBy(r, dayKey(c), usePoints) });
+  const actual = [], closedActual = [];
+  for (const c = dayOf(axisStart); dayKey(c) <= lastDay; c.setDate(c.getDate() + 1)) if (isWorkDay(c)) {
+    const day = dayKey(c);
+    actual.push({ day, remaining: total - releaseDoneBy(r, day, usePoints) });
+    closedActual.push({ day, remaining: total - releaseClosedBy(r, day, usePoints) });   // R18: what is not closed yet
+  }
   const endDay = [r.targetDate, r.shippedDate || todayDay, ...history.map((h) => h.day)].sort().pop();
   const first = history.find((h) => h.total > 0), firstTotal = first ? (usePoints ? first.pointsTotal : first.total) : null;
   const chances = history.filter((h) => h.forecast).map((h) => ({ day: h.day, p: h.forecast.p, mean: h.forecast.mean }));   // R12: each reading's chance, next to what happened
-  return { startDay, axisStart, targetDay: r.targetDate, endDay, todayDay, total, unit, actual, forecastDay: pace ? pace.forecastDay : null, firstScope: first && firstTotal !== total ? { day: first.day, total: firstTotal } : null, chances };
+  return { startDay, axisStart, targetDay: releaseDevTarget(r), releaseDay: r.targetDate, qaDay: r.qaDate || null, endDay, todayDay, total, unit, actual, closedActual, forecastDay: pace ? pace.forecastDay : null, firstScope: first && firstTotal !== total ? { day: first.day, total: firstTotal } : null, chances };
 }
 /** The sprint's open bugs and stories that carry no release label at all: what sprint planning still has to stamp. */
 function sprintUnlabelledWiql(iterationPath) {
@@ -830,19 +880,20 @@ function deliveryParts(plan, d) {
 const partName = (p) => (p.kind === "epic" ? "«" + p.name + "»" : "release " + p.name);
 const laterDay = (a, b) => (a > b ? a : b);
 /** The day a part ({ kind, lane } or { kind, release }) is expected to finish, never before today: an epic's open features'
- *  latest end, a release's tempo forecast (else its target). Null when it no longer pulls: «avsluttet», nothing open, shipped. */
+ *  latest end, a release's expected release (`releaseExpected`: R18, a late «Klar for QA» pushes it; without one, the tempo's
+ *  forecast, else the target). Null when it no longer pulls: «avsluttet», nothing open, shipped. */
 function deliveryPartDay(plan, part, todayDay) {
   if (part.kind === "release") {
     const r = part.release;
     if (r.shippedDate) return null;
-    const pace = releasePace(plan, r, todayDay);
-    return laterDay((pace && pace.forecastDay) || r.targetDate, todayDay);
+    return releaseExpected(plan, r, todayDay);
   }
   if (part.lane.state === "avsluttet") return null;
   const tasks = plan.tasks.filter((t) => t.lane === part.lane.key && t.state !== "levert");
   return tasks.length ? laterDay(dayKey(unitToDate(Math.max(...tasks.map((t) => t.end)))), todayDay) : null;
 }
-/** The computed date: the latest of the open epics' late ends and the open releases' expected finish (never before today); who gives it; whether a discovery still runs. */
+/** The computed date: the latest of the open epics' late ends and the open releases' expected release, never before today;
+ *  who gives it; whether a discovery still runs. */
 function deliveryComputed(plan, d, todayDay) {
   const parts = deliveryParts(plan, d);
   let day = null, by = null, pending = false, open = 0;
@@ -883,10 +934,10 @@ function deliveryUnlabelled(plan, d) {
   deliveryParts(plan, d).releases.forEach((r) => ((r.ado && r.ado.sprints) || []).forEach((s) => per.set(s.name, Math.max(per.get(s.name) || 0, s.unlabelled || 0))));
   let n = 0; per.forEach((v) => { n += v; }); return n;
 }
-/** Distinct open bugs across the delivery's releases. */
+/** Distinct open bugs across the delivery's releases (R18: open = not closed; a developed bug still waits for QA). */
 function deliveryBugsLeft(plan, d) {
   const ids = new Set();
-  deliveryParts(plan, d).releases.forEach((r) => ((r.ado && r.ado.items) || []).forEach((i) => { if (i.type === "Bug" && !releaseItemDone(i)) ids.add(i.id); }));
+  deliveryParts(plan, d).releases.forEach((r) => ((r.ado && r.ado.items) || []).forEach((i) => { if (i.type === "Bug" && !releaseItemClosed(i)) ids.add(i.id); }));
   return ids.size;
 }
 /** «Release 2.0.1 · release 2.0.2 · FileVault · 3 uten release-label», or «ingenting ennå». */
@@ -1069,6 +1120,7 @@ if (typeof module !== "undefined") {
     DELIVERY_OWNER, DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor, deliveryRows, wireDialogs,
     dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, releaseItemClosed, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
     workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, releaseForecastText, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
+    releaseDevTarget, releasePhase, releaseExpected, releaseQaText,
     progressFraction, progressSignal, epicProgressSignal, progressText,
     MIX, MIX_LABEL, capacityFactor, elapsedWeeks, queueFloor, resolveQueue,
     focusKey, restoreFocus,

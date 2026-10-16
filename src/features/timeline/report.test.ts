@@ -62,7 +62,7 @@ describe("sprintReportMarkdown", () => {
       { key: "r2", version: "2.0.2", targetDate: "2026-11-12" },
     ] }).releases;
     const md = sprintReportMarkdown({ title: "Sprintrapport Sprint 71", strip: STRIP, path: path(), plan: p, laneName, todayUnit: TODAY, todayDay: "2026-10-12" });
-    expect(md).toContain("## Releaser\n- 2.0.1: mål 22. okt · 1 bug, 1 story · 10/79 SP levert · 13 % levert · 43 % av tiden brukt · med dagens tempo ferdig 9. des, 34 arbeidsdager etter målet · rød · 44 % sjanse (forventet 64 av 69 SP)\n- 2.0.2: mål 12. nov · ikke lest fra ADO\n");
+    expect(md).toContain("## Releaser\n- 2.0.1: mål 22. okt · 1 bug, 1 story · 10/79 SP utviklet · 13 % utviklet · 43 % av tiden brukt · med dagens tempo ferdig 9. des, 34 arbeidsdager etter målet · rød · 44 % sjanse (forventet 64 av 69 SP)\n- 2.0.2: mål 12. nov · ikke lest fra ADO\n");
     expect(md).not.toContain("2.0.0");   // out before the period
     const order = ["## Fremdrift per feature", "## Releaser", "## Utredninger som kom videre"].map((h) => md.indexOf(h));
     expect(order).toEqual([...order].sort((a, b) => a - b));

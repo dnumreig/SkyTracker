@@ -15,7 +15,7 @@ export const EVENT_CODES = [
   "feature.fremdrift", "feature.ko", "plan.kapasitet",
   "onske.registrert", "onske.besluttet", "onske.slettet",
   "feature.beskrivelse", "feature.type", "feature.flater", "feature.fastdato", "feature.klasse",
-  "release.ny", "release.slettet", "release.versjon", "release.maldato", "release.skippet", "release.notat", "release.scope", "release.lest",
+  "release.ny", "release.slettet", "release.versjon", "release.maldato", "release.qa", "release.skippet", "release.notat", "release.scope", "release.lest",
   "leveranse.ny", "leveranse.slettet", "leveranse.navn", "leveranse.lovet", "leveranse.kunder", "leveranse.epics", "leveranse.releaser", "leveranse.eier", "leveranse.notat",
 ] as const;
 export type EventCode = (typeof EVENT_CODES)[number];
@@ -266,7 +266,7 @@ export function diffPlans(before: Plan, after: Plan, opts: DiffOptions = {}): Pl
   }
   for (const b of before.wishes ?? []) if (!aw.has(b.id)) ev.push({ ...wbase(b), code: "onske.slettet", before: { status: b.status ?? "ubehandlet" }, summary: "Ønske slettet: «" + b.title + "»" });
 
-  // ----- releases (R10): the version, the target day (a reason, like an epic's goal), shipped, note, the ADO label -----
+  // ----- releases (R10): the version, the target day (a reason, like an epic's goal), «Klar for QA» (R18: a reason when later), shipped, note, the ADO label -----
   const br = new Map((before.releases ?? []).map((r) => [r.key, r])), ar = new Map((after.releases ?? []).map((r) => [r.key, r]));
   const rbase = (r: Release) => ({ targetType: "release" as const, targetId: r.key, targetLabel: "Release " + r.version, laneKey: null, cause: dc });
   const dayWords = (d: string) => date(dayToUnit(d));
@@ -274,9 +274,14 @@ export function diffPlans(before: Plan, after: Plan, opts: DiffOptions = {}): Pl
     const b = br.get(r.key);
     if (!b) { ev.push({ ...rbase(r), code: "release.ny", after: { version: r.version, targetDate: r.targetDate }, summary: "Ny release " + r.version + " · mål " + dayWords(r.targetDate) }); continue; }
     if (b.version !== r.version) ev.push({ ...rbase(r), code: "release.versjon", before: b.version, after: r.version, summary: "Versjon: " + q(b.version) + " → " + q(r.version) });
-    if (b.targetDate !== r.targetDate) ev.push({ ...rbase(r), code: "release.maldato", before: { date: b.targetDate }, after: { date: r.targetDate }, summary: "Måldato: " + dayWords(b.targetDate) + " → " + dayWords(r.targetDate) });
-    if ((b.shippedDate ?? null) !== (r.shippedDate ?? null))
-      ev.push({ ...rbase(r), code: "release.skippet", before: b.shippedDate ?? null, after: r.shippedDate ?? null, summary: r.shippedDate ? "Skippet " + dayWords(r.shippedDate) : "Skippet-dato fjernet" });
+    if (b.targetDate !== r.targetDate) ev.push({ ...rbase(r), code: "release.maldato", before: { date: b.targetDate }, after: { date: r.targetDate }, summary: "Release: " + dayWords(b.targetDate) + " → " + dayWords(r.targetDate) });
+    if ((b.qaDate ?? null) !== (r.qaDate ?? null)) ev.push({ ...rbase(r), code: "release.qa", before: b.qaDate ? { date: b.qaDate } : null, after: r.qaDate ? { date: r.qaDate } : null,
+      summary: !b.qaDate ? "Klar for QA satt: " + dayWords(r.qaDate!) : !r.qaDate ? "Klar for QA fjernet" : "Klar for QA: " + dayWords(b.qaDate) + " → " + dayWords(r.qaDate) });   // R18: the development lead's date
+    if ((b.shippedDate ?? null) !== (r.shippedDate ?? null)) {
+      const open = r.openAtShip?.length ?? 0;   // R18: what was not closed when it went out
+      ev.push({ ...rbase(r), code: "release.skippet", before: b.shippedDate ?? null, after: r.shippedDate ?? null,
+        summary: r.shippedDate ? "Sluppet " + dayWords(r.shippedDate) + (open ? " · " + n(open, "åpen", "åpne") + " ved release" : "") : "Sluppet-dato fjernet" });
+    }
     if ((b.note ?? "") !== (r.note ?? "")) ev.push({ ...rbase(r), code: "release.notat", before: b.note ?? null, after: r.note ?? null, summary: textChange("Notat", b.note, r.note) });
     if (releaseScope(b) !== releaseScope(r)) ev.push({ ...rbase(r), code: "release.scope", before: releaseScope(b), after: releaseScope(r), summary: "ADO-label: " + q(releaseScope(b)) + " → " + q(releaseScope(r)) });
   }
@@ -319,6 +324,7 @@ export function needsReason(e: PlanEvent): boolean {
     case "release.maldato":
     case "leveranse.lovet":
     case "feature.epic": return true;
+    case "release.qa": { const b = e.before as { date: string } | null, a = e.after as { date: string } | null; return !!b && !!a && a.date > b.date; }   // R18 (D8): later asks why; set the first time, removed or earlier does not
     case "feature.spenn": { const b = e.before as { likely: number; late: number }, a = e.after as { likely: number; late: number }; return a.late > b.late || a.likely > b.likely; }
     case "feature.flyttet": return (e.after as { start: number }).start - (e.before as { start: number }).start >= WEEK - 1e-9;
     case "feature.utredning-slutt": return (e.after as { end: number }).end > (e.before as { end: number }).end + 1e-9;

@@ -339,17 +339,28 @@ describe("releases (R10): one event per change a person would name", () => {
     const ev = diffPlans(b, c);
     expect(ev.map((e) => [e.code, e.summary])).toEqual([
       ["release.versjon", "Versjon: «2.0.1» → «2.0.1a»"],
-      ["release.maldato", "Måldato: 22. okt → 29. okt"],
-      ["release.skippet", "Skippet 30. okt"],
+      ["release.maldato", "Release: 22. okt → 29. okt"],
+      ["release.skippet", "Sluppet 30. okt"],
       ["release.notat", "Notat satt: hotfix"],
       ["release.scope", "ADO-label: «2.0.1» → «2.0.1+ota.1»"],
     ]);
     expect(ev.find((e) => e.code === "release.maldato")).toMatchObject({ before: { date: "2026-10-22" }, after: { date: "2026-10-29" } });
     expect(ev.filter(needsReason).map((e) => e.code)).toEqual(["release.maldato"]);
     const d = withRel([{ ...c.releases![0], shippedDate: undefined }]);
-    expect(diffPlans(c, d).map((e) => [e.code, e.summary])).toEqual([["release.skippet", "Skippet-dato fjernet"]]);
+    expect(diffPlans(c, d).map((e) => [e.code, e.summary])).toEqual([["release.skippet", "Sluppet-dato fjernet"]]);
     expect(diffPlans(b, a).map((e) => [e.code, e.targetLabel, e.summary])).toEqual([["release.slettet", "Release 2.0.1", "Release slettet: 2.0.1"]]);
     expect(diffPlans(b, withRel([rel()]))).toEqual([]);   // the ADO read-back is not a diff event (the refresh logs release.lest itself)
+  });
+  it("R18: «Klar for QA» is logged; moved later it asks why; the release date and «Sluppet» read in the new words", () => {
+    const planWith = (releases: unknown[]) => normalizePlan({ lanes: [], tasks: [], releases });
+    const a = { key: "r1", v: 1, version: "2.0.1", targetDate: "2026-10-27", qaDate: "2026-10-20" };
+    const evs = diffPlans(planWith([a]), planWith([{ ...a, qaDate: "2026-10-23", targetDate: "2026-10-29", shippedDate: "2026-10-29", openAtShip: [7, 8] }]));
+    expect(evs.find((e) => e.code === "release.qa")!.summary).toBe("Klar for QA: 20. okt → 23. okt");
+    expect(needsReason(evs.find((e) => e.code === "release.qa")!)).toBe(true);
+    const earlier = diffPlans(planWith([a]), planWith([{ ...a, qaDate: "2026-10-19" }])).find((e) => e.code === "release.qa")!;
+    expect(needsReason(earlier)).toBe(false);   // earlier is good news: no reason asked
+    expect(evs.find((e) => e.code === "release.maldato")!.summary).toBe("Release: 27. okt → 29. okt");
+    expect(evs.find((e) => e.code === "release.skippet")!.summary).toBe("Sluppet 29. okt · 2 åpne ved release");
   });
 });
 

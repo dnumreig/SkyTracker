@@ -57,7 +57,9 @@ export type ReleaseItem = { id: number; type: "Bug" | "User Story"; title: strin
   /** R18: ADO's category of the state (none on items read before R18, or when the states were not found); `closed` is the day it was closed. */
   category?: "Proposed" | "InProgress" | "Resolved" | "Completed"; closed?: string };
 /** One reading per day (R11): what the label held and how much of it was done, for the burndown and the tempo. */
-export type ReleaseHistoryPoint = { day: string; pointsDone: number; pointsTotal: number; done: number; total: number; forecast?: { p: number; mean: number } };
+export type ReleaseHistoryPoint = { day: string; pointsDone: number; pointsTotal: number; done: number; total: number; forecast?: { p: number; mean: number };
+  /** R18: what was closed (through QA) that day; `pointsDone` and `done` are what was developed. None on readings before R18. */
+  closedPoints?: number; closed?: number };
 /** R12: the chance the release is done by its target day, from ADO's Capacity and each person's pace in the two last finished sprints. */
 export type ReleaseForecastPerson = { name: string; days: number; pace: number; expected: number };
 export type ReleaseForecast =
@@ -72,8 +74,14 @@ export type Release = {
   key: string;
   v?: number;
   version: string;
+  /** «Release» (R18: Operations' date; development's ends at `qaDate` when it is set). */
   targetDate: string;
+  /** R18: «Klar for QA», the development lead's date: development ends here, QA runs from here to «Release». */
+  qaDate?: string;
+  /** «Sluppet», set by hand once it is out. */
   shippedDate?: string;
+  /** R18: the items not closed when «Sluppet» was set, written with `shippedDate`. */
+  openAtShip?: number[];
   note?: string;
   /** The `Custom.Release` label when it differs from the version (e.g. `2.0.1+ota.2`). */
   label?: string;
