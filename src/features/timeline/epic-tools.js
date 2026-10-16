@@ -666,9 +666,10 @@ function releaseStartDay(plan, r) {
 function releaseDoneBy(r, day, usePoints) {
   return ((r.ado && r.ado.items) || []).filter((i) => releaseItemDone(i) && (!i.delivered || i.delivered <= day)).reduce((s, i) => s + (usePoints ? i.points || 0 : 1), 0);
 }
-/** R18: the same for what is closed (through QA) on or before `day`; a closed item without a closed day counts from the start. */
+/** R18: the same for what is closed (through QA) on or before `day`. A closed item without a closed day counts from the day it was
+ *  developed, so what is not closed never dips below what is not developed; with neither day, from the start. */
 function releaseClosedBy(r, day, usePoints) {
-  return ((r.ado && r.ado.items) || []).filter((i) => releaseItemClosed(i) && (!i.closed || i.closed <= day)).reduce((s, i) => s + (usePoints ? i.points || 0 : 1), 0);
+  return ((r.ado && r.ado.items) || []).filter((i) => releaseItemClosed(i) && (!(i.closed || i.delivered) || (i.closed || i.delivered) <= day)).reduce((s, i) => s + (usePoints ? i.points || 0 : 1), 0);
 }
 const PACE_WORDS = ["null", "én", "to", "tre", "fire", "fem", "seks", "sju", "åtte", "ni", "ti", "elleve", "tolv"];
 const daysWords = (n) => (n <= 12 ? PACE_WORDS[n] : String(n)) + " arbeidsdag" + (n === 1 ? "" : "er");

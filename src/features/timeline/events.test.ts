@@ -362,6 +362,16 @@ describe("releases (R10): one event per change a person would name", () => {
     expect(evs.find((e) => e.code === "release.maldato")!.summary).toBe("Release: 27. okt → 29. okt");
     expect(evs.find((e) => e.code === "release.skippet")!.summary).toBe("Sluppet 29. okt · 2 åpne ved release");
   });
+  it("R18: a new release with «Klar for QA» names both dates and stores it; without one it reads as before", () => {
+    const planWith = (releases: unknown[]) => normalizePlan({ lanes: [], tasks: [], releases });
+    const ny = (r: Record<string, unknown>) => diffPlans(planWith([]), planWith([r])).find((e) => e.code === "release.ny")!;
+    const withQa = ny({ key: "r1", version: "2.0.1", targetDate: "2026-10-27", qaDate: "2026-10-20" });
+    expect(withQa.summary).toBe("Ny release 2.0.1 · klar for QA 20. okt · release 27. okt");
+    expect(withQa.after).toEqual({ version: "2.0.1", targetDate: "2026-10-27", qaDate: "2026-10-20" });
+    const plain = ny({ key: "r1", version: "2.0.1", targetDate: "2026-10-27" });
+    expect(plain.summary).toBe("Ny release 2.0.1 · mål 27. okt");
+    expect(plain.after).toEqual({ version: "2.0.1", targetDate: "2026-10-27" });
+  });
 });
 
 describe("R13 wordings", () => {

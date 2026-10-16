@@ -740,7 +740,7 @@ describe("R11: the tempo of a release", () => {
     const a = mk({ items: its, history: h });
     expect(releaseBurndownData(a.p, a.r, today)).toEqual({ startDay: "2026-10-05", axisStart: "2026-10-05", targetDay: "2026-10-22", releaseDay: "2026-10-22", qaDay: null, endDay: "2026-10-22", todayDay: today, total: 79, unit: "SP",
       actual: [{ day: "2026-10-05", remaining: 79 }, { day: "2026-10-06", remaining: 79 }, { day: "2026-10-07", remaining: 75 }, { day: "2026-10-08", remaining: 75 }, { day: "2026-10-09", remaining: 69 }, { day: today, remaining: 69 }],
-      closedActual: [{ day: "2026-10-05", remaining: 75 }, { day: "2026-10-06", remaining: 75 }, { day: "2026-10-07", remaining: 75 }, { day: "2026-10-08", remaining: 75 }, { day: "2026-10-09", remaining: 75 }, { day: today, remaining: 75 }],   // R18: the Closed bug has no closed day, so it counts from the start
+      closedActual: [{ day: "2026-10-05", remaining: 79 }, { day: "2026-10-06", remaining: 79 }, { day: "2026-10-07", remaining: 75 }, { day: "2026-10-08", remaining: 75 }, { day: "2026-10-09", remaining: 75 }, { day: today, remaining: 75 }],   // R18: the Closed bug has no closed day, so it counts from its developed day (7.10)
       forecastDay: "2026-12-09", firstScope: { day: "2026-10-05", total: 70 }, chances: [] });
     expect(releaseBurndownData(a.p, a.r, "2026-10-30")!.endDay).toBe("2026-10-30");
     const same = mk({ items: its, history: [{ ...h[0], pointsTotal: 79 }] });
@@ -1293,5 +1293,27 @@ describe("R18: a release in two phases", () => {
     const d = releaseBurndownData(normalizePlan({ lanes: [], tasks: [], releases: [rel()] }), rel(), TODAY)!;
     expect(d).toMatchObject({ qaDay: "2026-10-20", targetDay: "2026-10-20", releaseDay: "2026-10-27" });   // the ideal line ends at «Klar for QA»
     expect(d.closedActual.at(-1)).toEqual({ day: TODAY, remaining: 8 });   // 10 SP, 2 closed
+  });
+  it("a closed item without a closed day counts as closed from the day it was developed, so «ikke lukket» never dips below «ikke utviklet»", () => {
+    const r = rel({}, [it_(1, "Closed", "Completed", 2, "2026-10-14"), it_(2, "Codereview", "InProgress", 5)]);
+    const d = releaseBurndownData(normalizePlan({ lanes: [], tasks: [], releases: [r] }), r, TODAY)!;
+    expect(d.closedActual.map((x) => [x.day, x.remaining])).toEqual([["2026-10-12", 7], ["2026-10-13", 7], ["2026-10-14", 5], ["2026-10-15", 5], ["2026-10-16", 5]]);
+    d.closedActual.forEach((c, k) => expect(c.remaining).toBeGreaterThanOrEqual(d.actual[k].remaining));
+  });
+  it("R16 under R18: a late handover moves the delivery by the slip, and its colour follows", () => {
+    const at = (r: ReturnType<typeof rel>) => {
+      const p = normalizePlan({ lanes: [], tasks: [], releases: [r], deliveries: [{ key: "d1", name: "Skytale 2.0.1", allCustomers: true, customers: [], promisedDate: "2026-10-27", epics: [], releases: ["r1"] }] });
+      return [deliveryComputed(p, p.deliveries![0], TODAY).day, deliveryStatus(p, p.deliveries![0], TODAY).code];
+    };
+    expect(at(rel({}, [it_(1, "QA", "Resolved", 3, "2026-10-12")]))).toEqual(["2026-10-27", "gronn"]);   // handed over on time: the release date
+    // «Klar for QA» 14.10 passed with a story still in review (the brief's releaseExpected numbers)
+    expect(at(rel({ qaDate: "2026-10-14" }, [it_(2, "Codereview", "InProgress", 5), it_(3, "Closed", "Completed", 2, "2026-10-08", "2026-10-09")]))).toEqual(["2026-10-29", "gul"]);   // two working days late
+    expect(at(rel({ qaDate: "2026-10-14" }))).toEqual(["2026-11-11", "rod"]);   // eleven working days late
+  });
+  it("R16 under R18: a bug developed but not closed is still a bug left", () => {
+    const bug = (id: number, state: string, category: string, delivered?: string, closed?: string) => ({ ...it_(id, state, category, 1, delivered, closed), type: "Bug" });
+    const p = normalizePlan({ lanes: [], tasks: [], releases: [rel({}, [bug(1, "QA", "Resolved", "2026-10-12"), bug(2, "Resolved", "", "2026-10-12"), bug(3, "Closed", "Completed", "2026-10-12", "2026-10-14")])],
+      deliveries: [{ key: "d1", name: "Skytale 2.0.1", allCustomers: true, customers: [], promisedDate: "2026-10-27", epics: [], releases: ["r1"] }] });
+    expect(deliveryBugsLeft(p, p.deliveries![0])).toBe(2);   // in QA, and «Resolved» by name (no category); the closed one is not left
   });
 });

@@ -272,7 +272,11 @@ export function diffPlans(before: Plan, after: Plan, opts: DiffOptions = {}): Pl
   const dayWords = (d: string) => date(dayToUnit(d));
   for (const r of after.releases ?? []) {
     const b = br.get(r.key);
-    if (!b) { ev.push({ ...rbase(r), code: "release.ny", after: { version: r.version, targetDate: r.targetDate }, summary: "Ny release " + r.version + " · mål " + dayWords(r.targetDate) }); continue; }
+    if (!b) {   // R18 (D7): with «Klar for QA» from the start both dates are named; without one it reads as before
+      ev.push({ ...rbase(r), code: "release.ny", after: { version: r.version, targetDate: r.targetDate, ...(r.qaDate ? { qaDate: r.qaDate } : {}) },
+        summary: "Ny release " + r.version + " · " + (r.qaDate ? "klar for QA " + dayWords(r.qaDate) + " · release " : "mål ") + dayWords(r.targetDate) });
+      continue;
+    }
     if (b.version !== r.version) ev.push({ ...rbase(r), code: "release.versjon", before: b.version, after: r.version, summary: "Versjon: " + q(b.version) + " → " + q(r.version) });
     if (b.targetDate !== r.targetDate) ev.push({ ...rbase(r), code: "release.maldato", before: { date: b.targetDate }, after: { date: r.targetDate }, summary: "Release: " + dayWords(b.targetDate) + " → " + dayWords(r.targetDate) });
     if ((b.qaDate ?? null) !== (r.qaDate ?? null)) ev.push({ ...rbase(r), code: "release.qa", before: b.qaDate ? { date: b.qaDate } : null, after: r.qaDate ? { date: r.qaDate } : null,
