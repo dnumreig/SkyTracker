@@ -153,8 +153,8 @@ Green, amber and red describe the plan's health only.
   resten.»
 - **The release strip leads with the chance:** «2.0.1 · 44 % sjanse til 22. okt · 62 % levert»; the tempo colour stays in
   the drawer.
-- **Compare is a menu:** «Sammenlign ▾» like ADO and Mer: the baselines and snapshots, «En dato …», and «Avslutt
-  sammenligning» while one is active.
+- **Compare looks like the menus:** the select stays (it is keyboard-native and the smokes drive it), styled as a quiet
+  menu button «Sammenlign» like ADO and Mer; its options are the baselines, the snapshots and «Dato …».
 - **Proposals are not italic;** the dashed «Forslag» chip says it.
 - **The history reason is a sentence** under the time, not a 10 px chip; a missing one reads «Begrunnelse mangler – legg
   til».
@@ -162,9 +162,11 @@ Green, amber and red describe the plan's health only.
 
 ## 8. Wall mode (the forum view)
 
-- The page is scaled about 1.2 (CSS `zoom` on body) in forum mode.
-- No write controls for anyone: «＋ Epic», «＋ Release», «＋», grips, «Registrer ønske», the shelf's row actions, the save
-  note, the hint and the amber banner are hidden. Readers keep one quiet «Lesetilgang» label.
+- The wall is about 1.2× larger through the size tokens (row height, lane height, month width) and the type; the page
+  re-reads the tokens when the forum view toggles, so a drag still follows the pointer exactly (CSS `zoom` would not).
+- The desk's write chrome is hidden for everyone: «＋ Epic», «＋ Release», «＋», grips, «Registrer ønske», the save note,
+  the hint and the amber banner. The shelf keeps its placing actions for writers, because the forum decides placements
+  there (R15). Readers keep one quiet «Lesetilgang» label.
 - The comparison with the last forum is the headline: «Siden sist …» at 16 px, on the surface colour, with an accent
   edge, first on the page.
 - Ghost bars are stronger (opacity .55 and a dashed edge) so they survive a projector.
