@@ -1759,6 +1759,7 @@ window.__bootTimeline = function(){
       if(lines.length) askReason(lines);   // dialogen holder lagringen til den er lukket
       save(); render();
     }
+    if(mediaPending){ mediaPending = false; applyZoom(); render(); }   // R17: a screen change that came during the drag (pointerup and pointercancel both end here)
   }
   chart.addEventListener('pointerup', endDrag);
   chart.addEventListener('pointercancel', endDrag);
@@ -2187,7 +2188,7 @@ window.__bootTimeline = function(){
 
   /* ================== zoom (R17): the months narrower or wider, per browser; a view, never the plan ================== */
   const ZOOMS = [0.5, 0.75, 1, 1.5, 2], ZOOM_KEY = 'sk.zoom';
-  let zoom = 1;
+  let zoom = 1, mediaPending = false;   // mediaPending: the screen crossed 860 px during a drag; endDrag() applies it
   try{ const z = Number(localStorage.getItem(ZOOM_KEY)); if(ZOOMS.includes(z)) zoom = z; }catch(e){}   // anything else reads as 100 %
   function applyZoom(){   // the factor over the stylesheet's month: 96 px at the desk, 112 on the wall, 76 on a narrow screen
     const root = document.documentElement;
@@ -2223,7 +2224,7 @@ window.__bootTimeline = function(){
     const nb = bar && chart.querySelector('.bar:not(.ghost)[data-id="' + CSS.escape(bar.dataset.id) + '"]');
     (nb || chartScroll).focus({ preventScroll: true });
   });
-  matchMedia('(max-width:860px)').addEventListener('change', () => { if(drag) return; applyZoom(); render(); });   // a narrow screen's 76 px a month, zoomed too; never under a drag
+  matchMedia('(max-width:860px)').addEventListener('change', () => { if(drag){ mediaPending = true; return; } applyZoom(); render(); });   // a narrow screen's 76 px a month, zoomed too; under a drag it waits for endDrag()
 
   /* ================== forum-visningen (R15): skjermen på veggen ================== */
   const FORUM_KEY = 'sk.forum';
