@@ -356,7 +356,12 @@
   .grip{position:absolute;left:4px;top:50%;transform:translateY(-50%);width:12px;color:var(--text-4);font-size:12px;line-height:1;letter-spacing:-2px;cursor:grab;opacity:0;user-select:none}
   .lane-label:hover .grip,.task-label:hover .grip{opacity:1}
   .lane-label{padding-left:20px}
-  .task-label{padding-left:24px}
+  /* R17: the tree: a child sits one step in from its parent, with a line from the parent into each child (GO 16.10) */
+  .task-label{padding-left:44px}
+  .task-label::before{content:"";position:absolute;left:25px;top:0;bottom:0;border-left:1px solid var(--tree);pointer-events:none}
+  .task-label::after{content:"";position:absolute;left:25px;top:calc(50% - 8px);width:12px;border-top:1px solid var(--tree);pointer-events:none}
+  .task-label.kid-last::before{bottom:auto;height:calc(50% - 8px)}
+  .lane-label.has-kids::after{content:"";position:absolute;left:25px;bottom:0;height:7px;border-left:1px solid var(--tree);pointer-events:none}
   .drop-before{box-shadow:inset 0 2px 0 var(--accent)}
   .drop-after{box-shadow:inset 0 -2px 0 var(--accent)}
   .drop-into{box-shadow:inset 0 0 0 2px var(--accent)}
@@ -1412,6 +1417,8 @@ window.__bootTimeline = function(){
       }
     });
 
+    markTree();
+
     // piler (sist = tegnes øverst)
     depSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     depSvg.setAttribute('class', 'deps');
@@ -1427,6 +1434,15 @@ window.__bootTimeline = function(){
     if(!scrolledToToday){ scrolledToToday = true; chartScroll.scrollLeft = Math.max(0, x(todayUnit()) - MONTH_W); }   // åpner med i dag i fokus
     else chartScroll.scrollLeft = sx;
     renderShelf();
+  }
+
+  function markTree(){   // R17: a parent with children gets the stub under its name; each group's last child stops the trunk
+    const rows = [...labels.children].filter(r => r.classList.contains('lane-label') || r.classList.contains('task-label'));
+    rows.forEach((r, i) => {
+      const kid = r.classList.contains('task-label'), next = rows[i + 1], nextKid = !!next && next.classList.contains('task-label');
+      r.classList.toggle('has-kids', !kid && nextKid);
+      r.classList.toggle('kid-last', kid && !nextKid);
+    });
   }
 
   function positionAll(){
