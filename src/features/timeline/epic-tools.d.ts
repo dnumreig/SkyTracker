@@ -110,7 +110,7 @@ export declare function releaseStartDay(plan: Plan, r: Release): string;
 export type ReleasePace = { code: PaceCode; text: string; done: number; elapsed: number; startDay: string; elapsedDays: number; totalDays: number; tempo: number | null; forecastDay: string | null; deltaDays: number | null; readings: number };
 export declare function releasePace(plan: Plan, r: Release, todayDay: string): ReleasePace | null;
 export declare function nextReleaseText(plan: Plan, todayDay: string): { text: string; code: PaceCode | null; release: Release } | null;
-export declare function releaseStateCounts(r: Release): { state: string; count: number; category?: ReleaseItem["category"] }[];
+export declare function releaseStateCounts(r: Release): { state: string; count: number; category?: ReleaseItem["category"]; type?: "Bug" | "User Story" }[];
 export declare function releaseSprintText(r: Release): string;
 export declare function releaseBurndownData(plan: Plan, r: Release, todayDay: string): { startDay: string; axisStart: string; targetDay: string; endDay: string; todayDay: string; total: number; unit: "SP" | "items"; actual: { day: string; remaining: number }[]; forecastDay: string | null; firstScope: { day: string; total: number } | null; chances: { day: string; p: number; mean: number }[] } | null;
 /* R12: the chance a release is done by its target day */

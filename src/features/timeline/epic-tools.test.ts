@@ -1225,4 +1225,16 @@ describe("R18: developed and closed by category", () => {
     ]);
     expect(r.ado!.statesMissing).toBe(true);
   });
+  it("a state name in two categories gives one entry per category, each in its category's place and named by its type (a story's «Resolved» is InProgress, a bug's is Resolved)", () => {
+    const it3 = (id: number, type: string, state: string, category: string) => ({ id, type, title: "", state, category, points: 1, assignee: null });
+    const r = normalizePlan({ lanes: [], tasks: [], releases: [{ key: "r1", version: "2.0.1", targetDate: "2026-10-27", ado: { at: "x", label: "2.0.1",
+      items: [it3(1, "Bug", "Resolved", "Resolved"), it3(2, "Bug", "Develop", "Resolved"), it3(3, "User Story", "Resolved", "InProgress"), it3(4, "User Story", "Codereview", "InProgress")] } }] }).releases![0];
+    const counts = releaseStateCounts(r);
+    expect(counts).toEqual([
+      { state: "Codereview", category: "InProgress", count: 1 }, { state: "Resolved", category: "InProgress", type: "User Story", count: 1 },
+      { state: "Resolved", category: "Resolved", type: "Bug", count: 1 }, { state: "Develop", category: "Resolved", count: 1 },
+    ]);
+    expect(releaseItemDone(counts[1])).toBe(false);
+    expect(releaseItemDone(counts[2])).toBe(true);
+  });
 });

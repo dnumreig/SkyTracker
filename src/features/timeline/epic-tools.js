@@ -702,18 +702,22 @@ function nextReleaseText(plan, todayDay) {
 }
 const STATE_ORDER = ["New", "Active", "Resolved", "Closed"];
 const CATEGORY_ORDER = ["Proposed", "InProgress", "Resolved", "Completed"];
-/** The items by state in ADO's category order (Ny · Codereview · Develop · QA · Closed); without a category, ADO's old order. */
+/** The items by state in ADO's category order (Ny · Codereview · Develop · QA · Closed); without a category, ADO's old order. A state
+ *  name in two categories (a story's «Resolved» is InProgress, a bug's is Resolved) gives one entry per category, with its items' type. */
 function releaseStateCounts(r) {
+  const items = (r && r.ado && r.ado.items) || [];
+  const split = (state) => new Set(items.filter((i) => i.state === state && i.category).map((i) => i.category)).size > 1;
   const counts = new Map();
-  ((r && r.ado && r.ado.items) || []).forEach((i) => {
-    const c = counts.get(i.state) || { state: i.state, count: 0 };
+  items.forEach((i) => {
+    const key = i.state + "/" + (i.category || "");   // by state and category
+    const c = counts.get(key) || { state: i.state, count: 0, ...(i.category ? { category: i.category } : {}), ...(i.category && split(i.state) ? { type: i.type } : {}) };
     c.count++;
-    if (i.category && !c.category) c.category = i.category;
-    counts.set(i.state, c);
+    counts.set(key, c);
   });
   const rank = (s) => { const k = STATE_ORDER.indexOf(s); return k < 0 ? STATE_ORDER.length : k; };
   const cat = (c) => (c.category ? CATEGORY_ORDER.indexOf(c.category) : rank(c.state));   // New ~ Proposed, Active ~ InProgress, …
-  return [...counts.values()].sort((a, b) => cat(a) - cat(b) || rank(a.state) - rank(b.state) || a.state.localeCompare(b.state));
+  const own = (c) => (c.category && rank(c.state) !== cat(c) ? STATE_ORDER.length : rank(c.state));   // ADO's default name leads only its own category: a story's «Resolved» (InProgress) sorts by name
+  return [...counts.values()].sort((a, b) => cat(a) - cat(b) || own(a) - own(b) || a.state.localeCompare(b.state));
 }
 /** «16 items i 2.0.1: 15 i Sprint 71, 1 i Sprint 72 · Sprint 71 har 3 items uten release-label» */
 function releaseSprintText(r) {
