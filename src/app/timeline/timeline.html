@@ -1072,7 +1072,7 @@ window.__bootTimeline = function(){
   let linkSource = null;          // id under kobling
   let myName = null, canWrite = false, serverReady = false, serverFailed = false, serverVersion = null, applyingRemote = false;
   const mayEdit = () => !HOSTED || canWrite;   // R17: from a file everything is local; hosted, only writers edit
-  let drag = null, colDrag = null, saveTimer = null, pendingSave = false, pushing = false;
+  let drag = null, colDrag = null, saveTimer = null, pendingSave = false, pushing = false, putsOut = 0;   // putsOut (R18): the plan's PUTs on their way
   let renderPending = false;   // R17: a background render (the compare) that came during a drag; afterDrag() runs it
   function newNote(){ return { causes: {}, reason: null, reasonCode: null, source: null, lines: [], carried: null }; }
   let pendingNote = newNote();   // følger neste lagring: begrunnelse, årsaker (dytt fra avhengighet), kilde (eksempel)
@@ -3051,7 +3051,10 @@ window.__bootTimeline = function(){
     if(note) r.note = note; else delete r.note;
     r.v = (r.v || 0) + 1;
     const key = r.key;
-    if(HOSTED && canWrite && devBefore && devBefore !== releaseDevTarget(r) && !r.shippedDate) afterSave(() => rereadRelease(key));   // R18: the chance again, for the new day, once the save has landed
+    if(HOSTED && canWrite && devBefore && devBefore !== releaseDevTarget(r) && !r.shippedDate){   // R18: the chance again, for the new day, once the save has landed
+      const again = () => pendingSave || putsOut ? afterSave(again) : rereadRelease(key);   // an earlier save's PUT may land first: wait until none waits and none is out, so the one with this edit has landed
+      afterSave(again);
+    }
     closeReleaseEditor();
     if(lines.length) askReason(lines);
     save(); render();
@@ -3125,6 +3128,7 @@ window.__bootTimeline = function(){
       render();
     }
   }
+  function outbound(put){ putsOut++; return put.finally(() => { putsOut--; }); }   // R18: two PUTs can be out when one takes longer than the debounce; counted once the request is made
   async function pushPlan(){
     if(drag || reasonOpen){ clearTimeout(saveTimer); saveTimer = setTimeout(pushPlan, 900); return; }   // R17: never under a drag or «Hvorfor?»: the live dates are not the plan yet, and the reason goes with the change
     pendingSave = false;
@@ -3133,10 +3137,10 @@ window.__bootTimeline = function(){
     const why = note.reasonCode || !note.carried ? note : note.carried;   // its own reason first, else the one a failed save left
     pendingNote = newNote();
     try{
-      const r = await fetch('api/timeline-plan', {
+      const r = await outbound(fetch('api/timeline-plan', {
         method:'PUT', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ data: state, note: { reason: why.reason, reasonCode: why.reasonCode, causes: note.causes, source: note.source } })
-      });
+      }));
       if(r.status === 403){
         canWrite = false;
         roBanner.hidden = false;
