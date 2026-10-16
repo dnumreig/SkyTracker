@@ -8,7 +8,7 @@ import {
   resolveQueue, queueFloor, capacityFactor, elapsedWeeks, wishesByStatus, WISH_STATUS_LABEL, WISH_SOURCE_LABEL, sizeClassDerived, sizeClassText, FEATURE_TYPE_LABEL, AREAS,
   dayToUnit, releaseSegments, releaseProgress, releaseScope, releaseItemDone, releaseItemClosed,
   workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, dayKey,
-  releaseForecastText, focusKey, restoreFocus, releaseDevTarget, releasePhase, releaseExpected, releaseQaText,
+  releaseForecastText, focusKey, restoreFocus, releaseDevTarget, releasePhase, releaseExpected, releaseExpectedLate, releaseQaText,
   BACKLOG, canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
   navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
   osloDay, osloDate,
@@ -1305,6 +1305,25 @@ describe("R18: a release in two phases", () => {
     expect(releaseQaText(rel(), TODAY)).toBe("Klar for QA 20. okt · release 27. okt");
     expect(releaseQaText(rel({}, [it_(1, "QA", "Resolved", 3, "2026-10-12"), it_(2, "Closed", "Completed", 5, "2026-10-13", "2026-10-15")]), TODAY)).toBe("I QA: 1 av 2 lukket · release 27. okt");
     expect(releaseQaText(rel({ shippedDate: "2026-10-27", openAtShip: [2] }), TODAY)).toBe("Sluppet 27. okt · 1 åpen ved release");
+  });
+  it("R18 (D6): given the plan, the QA sentence names the expected release when it is later than «Release»; on time, with one date (D7) or once out, it does not", () => {
+    const p = (r: unknown) => normalizePlan({ lanes: [], tasks: [], releases: [r] });
+    const late = rel({ qaDate: "2026-10-14" });   // the review's probe: «Klar for QA» 14.10 passed, a story still in Codereview, the tempo's day 29.10 → 27.10 + 11
+    expect(releaseExpectedLate(p(late), late, TODAY)).toBe("2026-11-11");
+    expect(releaseQaText(late, TODAY, p(late))).toBe("Klar for QA 14. okt · release 27. okt · forventet release 11. nov");
+    expect(releaseQaText(late, TODAY)).toBe("Klar for QA 14. okt · release 27. okt");   // without the plan, only the release's own dates
+    const handedLate = rel({ qaDate: "2026-10-14" }, [it_(1, "QA", "Resolved", 3, "2026-10-16"), it_(3, "Closed", "Completed", 2, "2026-10-08", "2026-10-14")]);   // all developed 16.10: two working days late
+    expect(releaseQaText(handedLate, TODAY, p(handedLate))).toBe("I QA: 1 av 2 lukket · release 27. okt · forventet release 29. okt");
+    const onTime = rel({}, [it_(1, "QA", "Resolved", 3, "2026-10-12")]);
+    expect(releaseExpectedLate(p(onTime), onTime, TODAY)).toBeNull();
+    expect(releaseQaText(onTime, TODAY, p(onTime))).toBe("I QA: 0 av 1 lukket · release 27. okt");
+    const one = rel({ qaDate: undefined });   // one date: the tempo's day 29.10 is past «Release», and still nothing is added
+    expect(releaseExpected(p(one), one, TODAY)).toBe("2026-10-29");
+    expect(releaseExpectedLate(p(one), one, TODAY)).toBeNull();
+    expect(releaseQaText(one, TODAY, p(one))).toBe("Release 27. okt");
+    const out = rel({ qaDate: "2026-10-14", shippedDate: "2026-11-11" });
+    expect(releaseExpectedLate(p(out), out, TODAY)).toBeNull();
+    expect(releaseQaText(out, TODAY, p(out))).toBe("Sluppet 11. nov");
   });
   it("the burndown carries a second series (not closed yet) and the QA day", () => {
     const d = releaseBurndownData(normalizePlan({ lanes: [], tasks: [], releases: [rel()] }), rel(), TODAY)!;

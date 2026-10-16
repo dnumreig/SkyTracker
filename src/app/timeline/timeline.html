@@ -1720,13 +1720,14 @@ window.__bootTimeline = function(){
     if(!nx) rel.innerHTML = '';   // a hidden part must not keep its words: the strip's text is read as a whole
     if(nx){   // R17: the chance first; the tempo colour stays in the drawer
       const r = nx.release, pr = releaseProgress(r), today = dayKey(new Date()), ph = r.qaDate ? releasePhase(r) : null;   // R18: by phase (D7)
-      if(ph === 'qa') rel.textContent = 'Neste release ' + r.version + ' i QA · ' + releaseQaText(r, today).replace(/^I QA: /, '');
+      if(ph === 'qa') rel.textContent = 'Neste release ' + r.version + ' i QA · ' + releaseQaText(r, today, state).replace(/^I QA: /, '');   // the QA sentence, with the expected release when it is later (D6)
       else {
         const dev = releaseDevTarget(r), n = calendarDays(today, dev), day = fmtDate(unitToDate(dayToUnit(dev)));
         const when = n > 0 ? 'om ' + n + (n === 1 ? ' dag' : ' dager') : n === 0 ? 'i dag' : -n + (n === -1 ? ' dag' : ' dager') + ' på overtid';
         const goal = r.qaDate ? 'klar for QA ' + day : null;
+        const late = r.qaDate && today > r.qaDate ? releaseExpectedLate(state, r, today) : null;   // R18 (D6): once «Klar for QA» has passed in development, what that does to the release
         rel.textContent = 'Neste release ' + r.version + ' · ' + (nfc && nfc.short ? nfc.short + ' til ' + (goal || day) : (goal || 'mål ' + day)) + ' · ' +
-          (pr.fraction === null ? 'ikke lest fra ADO' : Math.round(pr.fraction * 100) + ' % utviklet') + ' · ' + when;
+          (pr.fraction === null ? 'ikke lest fra ADO' : Math.round(pr.fraction * 100) + ' % utviklet') + ' · ' + when + (late ? ' · forventet release ' + fmtDate(unitToDate(dayToUnit(late))) : '');
       }
       rel.title = ph === 'qa' ? 'Neste release i QA: hvor mye som er lukket, og release-datoen'   // QA has no chance
         : 'Neste release: sjansen for at alt er utviklet til ' + (r.qaDate ? 'klar for QA' : 'målet') + '; tempo-fargen står i skuffen';
@@ -2866,11 +2867,11 @@ window.__bootTimeline = function(){
   let releaseKey = null, relEditKey = null;
   const getRelease = key => (state.releases || []).find(r => r.key === key);
   const relDay = d => fmtDate(unitToDate(dayToUnit(d)));
-  function releaseSubText(r){   // R18: with «Klar for QA» the head says the phase and both dates; without it, as before (D7)
-    const pr = releaseProgress(r), ph = releasePhase(r);
+  function releaseSubText(r){   // R18: with «Klar for QA» the head says the phase, both dates and the expected release when it is later (D6); without it, as before (D7)
+    const pr = releaseProgress(r), ph = releasePhase(r), late = releaseExpectedLate(state, r, dayKey(new Date()));
     const head = r.shippedDate ? 'Sluppet ' + relDay(r.shippedDate) + (r.shippedDate !== r.targetDate ? (r.qaDate ? ' · release-datoen var ' : ' · målet var ') + relDay(r.targetDate) : '')
       : !r.qaDate ? 'Mål ' + relDay(r.targetDate)
-      : (ph === 'qa' ? 'I QA' : 'I utvikling · klar for QA ' + relDay(r.qaDate)) + ' · release ' + relDay(r.targetDate);
+      : (ph === 'qa' ? 'I QA' : 'I utvikling · klar for QA ' + relDay(r.qaDate)) + ' · release ' + relDay(r.targetDate) + (late ? ' · forventet release ' + relDay(late) : '');
     return head + ' · ' + pr.text + (r.ado ? ' · lest fra ADO ' + whenText(r.ado.at) : '');
   }
   const PACE_LABEL = { gronn: 'Grønn', gul: 'Gul', rod: 'Rød' };
@@ -2957,7 +2958,7 @@ window.__bootTimeline = function(){
     if(bd && bd.actual.length) dev += burndownSvg(bd) + (bd.qaDay ? '<p class="rel-legend"><span class="k-dev">—</span> ikke utviklet · <span class="k-closed">- -</span> ikke lukket</p>' : '') + burndownTable(bd);   // R18: the two lines named in words
     if(r.qaDate){   // R18: two sections, development until «Klar for QA», QA until «Release»; without it, as before (D7)
       if(dev) html += '<section class="rel-phase"><h3>Utvikling — til klar for QA ' + esc(relDay(r.qaDate)) + '</h3>' + dev + '</section>';   // never read or empty: no heading over nothing
-      const qaBody = '<p class="rel-pace"><span>' + esc(releaseQaText(r, todayDay)) + '</span></p>' +
+      const qaBody = '<p class="rel-pace"><span>' + esc(releaseQaText(r, todayDay, state)) + '</span></p>' +   // with the expected release when it is later (D6)
         group('Utviklet, ikke lukket', items.filter(i => releaseItemDone(i) && !releaseItemClosed(i)));
       html += '<section class="rel-phase"><h3>QA — til release ' + esc(relDay(r.targetDate)) + '</h3>' + qaBody + '</section>';
     } else html += dev;

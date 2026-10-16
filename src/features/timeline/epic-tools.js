@@ -739,13 +739,21 @@ function releaseExpected(plan, r, todayDay) {
   const slip = devEnd > r.qaDate ? workDaysBetween(r.qaDate, devEnd) : 0;
   return laterDay(addWorkDays(r.targetDate, slip), todayDay);
 }
+/** The expected release when it is later than «Release» (a late handover, or «Release» passed while not out), for the drawer and
+ *  the strip to say; null without «Klar for QA» (one phase reads as before, D7), once out, or when it is «Release». */
+function releaseExpectedLate(plan, r, todayDay) {
+  if (!r.qaDate || r.shippedDate) return null;
+  const day = releaseExpected(plan, r, todayDay);
+  return day !== r.targetDate ? day : null;
+}
 /** The QA section's sentence: «Klar for QA 20. okt · release 27. okt» · «I QA: 5 av 9 lukket · release 27. okt» · «Sluppet 27. okt · 2 åpne ved release».
- *  Called with today's day like its siblings (the d.ts declares it), which it does not read: the sentence names only the release's own dates. */
-function releaseQaText(r) {
+ *  Given the plan, it adds the expected release when that is later than «Release» (`releaseExpectedLate`, D6): «… · release 27. okt · forventet release 11. nov». */
+function releaseQaText(r, todayDay, plan) {
   const phase = releasePhase(r), items = (r.ado && r.ado.items) || [];
   if (phase === "sluppet") { const n = (r.openAtShip || []).length; return "Sluppet " + dayWords(r.shippedDate) + (n ? " · " + n + (n === 1 ? " åpen" : " åpne") + " ved release" : ""); }
-  if (phase === "qa") return "I QA: " + items.filter(releaseItemClosed).length + " av " + items.length + " lukket · release " + dayWords(r.targetDate);
-  const s = (r.qaDate ? "Klar for QA " + dayWords(r.qaDate) + " · " : "") + "release " + dayWords(r.targetDate);
+  const late = plan ? releaseExpectedLate(plan, r, todayDay) : null, exp = late ? " · forventet release " + dayWords(late) : "";
+  if (phase === "qa") return "I QA: " + items.filter(releaseItemClosed).length + " av " + items.length + " lukket · release " + dayWords(r.targetDate) + exp;
+  const s = (r.qaDate ? "Klar for QA " + dayWords(r.qaDate) + " · " : "") + "release " + dayWords(r.targetDate) + exp;
   return s[0].toUpperCase() + s.slice(1);   // «Release 27. okt» without a QA date
 }
 const STATE_ORDER = ["New", "Active", "Resolved", "Closed"];
@@ -1123,7 +1131,7 @@ if (typeof module !== "undefined") {
     DELIVERY_OWNER, DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor, deliveryRows, wireDialogs,
     dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, releaseItemClosed, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
     workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, releaseForecastText, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
-    releaseDevTarget, releasePhase, releaseExpected, releaseQaText,
+    releaseDevTarget, releasePhase, releaseExpected, releaseExpectedLate, releaseQaText,
     progressFraction, progressSignal, epicProgressSignal, progressText,
     MIX, MIX_LABEL, capacityFactor, elapsedWeeks, queueFloor, resolveQueue,
     focusKey, restoreFocus,

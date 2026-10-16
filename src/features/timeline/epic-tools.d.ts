@@ -117,7 +117,8 @@ export declare function releaseBurndownData(plan: Plan, r: Release, todayDay: st
 export declare function releaseDevTarget(r: Release): string;
 export declare function releasePhase(r: Release): "utvikling" | "qa" | "sluppet";
 export declare function releaseExpected(plan: Plan, r: Release, todayDay: string): string;
-export declare function releaseQaText(r: Release, todayDay: string): string;
+export declare function releaseExpectedLate(plan: Plan, r: Release, todayDay: string): string | null;
+export declare function releaseQaText(r: Release, todayDay: string, plan?: Plan): string;
 /* R12: the chance a release is done by its target day */
 export declare function releaseForecastText(r: Release, todayDay: string): { short: string | null; text: string; detail?: string; basis?: string; people?: { name: string; days: number; pace: number; expected: number }[] } | null;
 export declare function sprintUnlabelledWiql(iterationPath: string): string;
