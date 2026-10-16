@@ -1058,10 +1058,10 @@ function focusSelector(el) {
   return sel + " " + (act ? "[" + act + '="' + CSS.escape(el.getAttribute(act)) + '"]' : tag(el));
 }
 /** The key of the control that has the focus, taken before a render replaces it; null when nothing has it. */
-function focusKey(doc) { try { return focusSelector(doc.activeElement); } catch (e) { return null; } }
+function focusKey(doc) { try { return focusSelector(doc.activeElement); } catch { return null; } }
 /** The focus back on the control the key names, without scrolling, when it exists. Never throws: a render that called it
  *  (inside applyRemote) must finish, or the saves that wait for it stop. */
-function restoreFocus(doc, key) { try { const c = key && doc.querySelector(key); if (c) c.focus({ preventScroll: true }); } catch (e) { /* a selector this browser can't parse: the focus stays where the render left it */ } }
+function restoreFocus(doc, key) { try { const c = key && doc.querySelector(key); if (c) c.focus({ preventScroll: true }); } catch { /* a selector this browser can't parse: the focus stays where the render left it */ } }
 
 /* ---------- R17: modals and drawers as dialogs (browser only; every page calls it once at boot) ---------- */
 /** Role, aria-modal and a label on every `.modal-back .modal` and `aside.drawer`; focus moves in when one opens, Tab stays
