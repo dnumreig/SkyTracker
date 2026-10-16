@@ -48,6 +48,8 @@
   .row-menu-list{position:absolute;right:0;top:calc(100% + 4px);z-index:20;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow)}
   /* R17: the notice after «Senere», ten seconds with «Angre» */
   .undo{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;background:var(--text);color:var(--surface);padding:8px 14px;border-radius:6px;font-size:13px;box-shadow:var(--shadow);z-index:90}
+  .undo:not(.on){width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;box-shadow:none}   /* idle: out of sight but in the accessibility tree, so the live region is there before its text changes */
+  .undo:not(.on) button{display:none}   /* and no tab stop while idle */
   .undo button{color:var(--surface);text-decoration:underline}
   .undo button:hover{background:none}   /* sky.css's text button turns --raised on hover, which hides the --surface text */
 </style>
@@ -75,7 +77,7 @@
   </div>
   <div class="filters" id="tabs"></div>
   <div id="list"></div>
-  <div class="undo" id="undo" role="status" aria-live="polite" hidden><span id="undoText"></span> <button class="text" type="button">Angre</button></div>
+  <div class="undo" id="undo" role="status" aria-live="polite"><span id="undoText"></span> <button class="text" type="button">Angre</button></div>
 </main>
 
 <div class="modal-back" id="newBack"><div class="modal">
@@ -172,27 +174,39 @@ window.__bootInntak = function(){
     const b = e.target.closest('button[data-act]'); if(!b) return;
     const id = b.closest('.wish').dataset.id, act = b.dataset.act;
     if(act === 'utred' || act === 'nei') openDecide(id, act);
-    else if(act === 'senere'){ decide(id, 'senere', {}); offerUndo(id); }
+    else if(act === 'senere'){ decide(id, 'senere', {}); offerUndo(id, e.detail === 0); }   // detail 0: a click from the keyboard
     else if(act === 'angre'){ const w = getWish(id); if(w && !w.featureId){ w.status = 'ubehandlet'; ['decidedAt', 'decidedBy', 'forum', 'reason', 'owner', 'sizeClass'].forEach(k => delete w[k]); bump(w); save(); render(); } }
     else if(act === 'slett'){ closeRowMenu(b.closest('.row-menu')); removeWish(id); }
   });
   // R17: a row's «⋯» closes on its item, a click outside it or Escape (as Tidslinjen's menus); focus inside it goes back to «⋯»
   function closeRowMenu(m){ const back = m.contains(document.activeElement); m.open = false; if(back) m.querySelector('summary').focus(); }
   document.addEventListener('click', e => { document.querySelectorAll('.row-menu[open]').forEach(m => { if(!m.contains(e.target)) closeRowMenu(m); }); });
-  let undoTimer = null, undoId = null;
-  function offerUndo(id){   // R17: «Senere» decides in one click; ten seconds to take it back
+  // R17: «Senere» decides in one click; ten seconds to take it back. The notice is a live region that never leaves the
+  // accessibility tree (only out of sight while idle), and the ten seconds wait while the pointer or the focus is on it.
+  const undoBox = $('undo'), undoBtn = undoBox.querySelector('button');
+  let undoTimer = null, undoId = null, undoHover = false, undoFocus = false;
+  function hideUndo(){ clearTimeout(undoTimer); undoId = null; undoHover = false; undoFocus = false; undoBox.classList.remove('on'); $('undoText').textContent = ''; }
+  function armUndo(){ clearTimeout(undoTimer); if(undoId && !undoHover && !undoFocus) undoTimer = setTimeout(hideUndo, 10000); }   // a full ten seconds each time it is left
+  function offerUndo(id, focus){
     const w = getWish(id); if(!w) return;
-    undoId = id; $('undoText').textContent = '«' + w.title + '» satt til Senere.'; $('undo').hidden = false;
-    clearTimeout(undoTimer); undoTimer = setTimeout(() => { $('undo').hidden = true; undoId = null; }, 10000);
+    undoId = id; undoBox.classList.add('on');
+    $('undoText').textContent = '«' + w.title + '» satt til Senere.';   // once it shows, into a region already in the tree: it is read out
+    if(focus) undoBtn.focus();   // a keyboard «Senere»: its row is gone, so the focus goes to «Angre»
+    armUndo();
   }
-  $('undo').querySelector('button').addEventListener('click', () => {
-    const w = undoId && getWish(undoId); $('undo').hidden = true; clearTimeout(undoTimer); undoId = null;
+  undoBox.addEventListener('mouseenter', () => { undoHover = true; armUndo(); });
+  undoBox.addEventListener('mouseleave', () => { undoHover = false; armUndo(); });
+  undoBox.addEventListener('focusin', () => { undoFocus = true; armUndo(); });
+  undoBox.addEventListener('focusout', () => { undoFocus = false; armUndo(); });
+  undoBtn.addEventListener('click', () => {
+    const w = undoId && getWish(undoId), refocus = undoBox.contains(document.activeElement); hideUndo();
     if(!w || w.status !== 'senere') return;
     // «Senere» put a registered feature on the shelf (decide); taking the decision back takes it off again, a tombstone as Tidslinjen deletes
     const t = w.featureId && state.tasks.find(x => x.id === w.featureId);
     if(t && t.state !== 'ny') return;   // started on Tidslinjen meanwhile: the decision stands
     if(t){ state.deleted[t.id] = Math.max(0, ...Object.values(t.fv || {})) + 1; state.tasks = state.tasks.filter(x => x !== t); }
     w.status = 'ubehandlet'; ['decidedAt', 'decidedBy', 'forum', 'reason', 'owner', 'sizeClass', 'featureId'].forEach(k => delete w[k]); bump(w); save(); render();
+    if(refocus){ const s = $('list').querySelector('.wish[data-id="' + CSS.escape(w.id) + '"] button[data-act="senere"]'); if(s) s.focus(); }   // the focus goes back to the wish it took back
   });
 
   /* ---------- new wish ---------- */
