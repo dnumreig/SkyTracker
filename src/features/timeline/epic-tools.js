@@ -613,8 +613,9 @@ function releaseForecastText(r, todayDay) {
   if (f.missing === "history") return { short: null, text: "Ingen leverte poeng i de to siste sprintene å regne tempo fra" };
   if (f.missing === "capacity") {
     const off = f.unplanned + " arbeidsdag" + (f.unplanned === 1 ? "" : "er") + " er uten sprint";
-    if (!f.sprints.length) return { short: null, text: "Lag sprintene fram til målet i ADO og fyll inn Capacity (" + off + ") for å få sannsynligheten" };
-    return { short: null, text: "Fyll inn Capacity i ADO for " + andList(f.sprints) + " (Development-timer per dag og fridager)" + (f.unplanned ? " og lag sprintene fram til målet (" + off + ")" : "") + " for å få sannsynligheten" };
+    const to = r.qaDate ? "klar for QA" : "målet";   // R18: the window ends at «Klar for QA» when it is set (D7)
+    if (!f.sprints.length) return { short: null, text: "Lag sprintene fram til " + to + " i ADO og fyll inn Capacity (" + off + ") for å få sannsynligheten" };
+    return { short: null, text: "Fyll inn Capacity i ADO for " + andList(f.sprints) + " (Development-timer per dag og fridager)" + (f.unplanned ? " og lag sprintene fram til " + to + " (" + off + ")" : "") + " for å få sannsynligheten" };
   }
   const short = (f.p >= 0.995 ? "over 99 %" : f.p < 0.005 ? "under 1 %" : Math.round(f.p * 100) + " %") + " sjanse";   // a simulation never knows for certain
   return {

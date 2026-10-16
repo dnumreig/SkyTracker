@@ -1293,6 +1293,14 @@ describe("R18: a release in two phases", () => {
     expect(releaseForecastText(developed as never, "2026-10-16")).toBeNull();   // in QA there is no chance (spec §5)
     expect(releaseForecastText({ ...developed, qaDate: undefined } as never, "2026-10-16")).not.toBeNull();   // one phase reads as today (D7)
   });
+  it("R18: the missing-Capacity sentences say «fram til klar for QA» when it is set, and «fram til målet» without it (D7)", () => {
+    const miss = (sprints: string[], unplanned: number) => ({ day: "2026-10-16", missing: "capacity", sprints, unplanned });
+    const r = (f: unknown, qaDate?: string) => ({ key: "r1", version: "2.0.1", targetDate: "2026-10-27", ...(qaDate ? { qaDate } : {}), ado: { at: "x", label: "2.0.1", items: [], forecast: f } });
+    expect(releaseForecastText(r(miss([], 3), "2026-10-20") as never, "2026-10-16")!.text).toBe("Lag sprintene fram til klar for QA i ADO og fyll inn Capacity (3 arbeidsdager er uten sprint) for å få sannsynligheten");
+    expect(releaseForecastText(r(miss(["Sprint 71"], 2), "2026-10-20") as never, "2026-10-16")!.text).toBe("Fyll inn Capacity i ADO for Sprint 71 (Development-timer per dag og fridager) og lag sprintene fram til klar for QA (2 arbeidsdager er uten sprint) for å få sannsynligheten");
+    expect(releaseForecastText(r(miss([], 3)) as never, "2026-10-16")!.text).toBe("Lag sprintene fram til målet i ADO og fyll inn Capacity (3 arbeidsdager er uten sprint) for å få sannsynligheten");
+    expect(releaseForecastText(r(miss(["Sprint 71"], 2)) as never, "2026-10-16")!.text).toBe("Fyll inn Capacity i ADO for Sprint 71 (Development-timer per dag og fridager) og lag sprintene fram til målet (2 arbeidsdager er uten sprint) for å få sannsynligheten");
+  });
   it("the QA sentence per phase", () => {
     expect(releaseQaText(rel(), TODAY)).toBe("Klar for QA 20. okt · release 27. okt");
     expect(releaseQaText(rel({}, [it_(1, "QA", "Resolved", 3, "2026-10-12"), it_(2, "Closed", "Completed", 5, "2026-10-13", "2026-10-15")]), TODAY)).toBe("I QA: 1 av 2 lukket · release 27. okt");
