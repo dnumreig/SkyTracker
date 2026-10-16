@@ -39,8 +39,13 @@ burndown's second series); `events.ts` logs the new date; `timeline.html` draws 
 3. «Klar for QA» set after «Release»: the editor refuses it with the reason in the field. (Task 4 smoke R18-2.)
 4. «Marker sluppet» on a release with open items: the open ids are kept and shown as «åpne ved release»; without «Sluppet»
    the normaliser drops them. (Task 2 normaliser test; Task 4 smoke R18-4.)
-5. A story that moves back from QA to Codereview: it is no longer developed, the burndown goes up that day, and the tempo
-   counts only what is developed. (Task 1: `releaseItemOf` with an InProgress category gives no delivered day.)
+5. A story that moves back from QA to Codereview: it is no longer developed, and the tempo counts only what is developed.
+   (Task 1: `releaseItemOf` with an InProgress category gives no delivered day.)
+   - **Amended after the final review (16.10):** the story counts as never developed, and the burndown is redrawn from
+     today's states. R11 builds every day's point from each item's delivered day, so the line does not rise on the day the
+     story went back. Drawing from the stored readings instead would change R11's design and jump at the first R18 read.
+     The help card «Releaser» says so: «Sendes en story tilbake fra QA, teller den som ikke utviklet, og burndownen tegnes
+     på nytt etter dagens tilstander.»
 
 ## Where the plan departs from the spec
 
