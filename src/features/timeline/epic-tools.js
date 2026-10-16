@@ -605,10 +605,11 @@ function forecastOf(f, validDay) {
   return { day: f.day, need: f.need, days: f.days, p: f.p, mean: f.mean, p10: f.p10, p90: f.p90, people, basis: strs(f.basis), capacity: strs(f.capacity) };
 }
 const andList = (xs) => (xs.length <= 1 ? xs.join("") : xs.slice(0, -1).join(", ") + " og " + xs[xs.length - 1]);
-/** The forecast in words for the drawer, the tooltip, the strip and the report; null without one or once shipped. */
+/** The forecast in words for the drawer, the tooltip, the strip and the report; null without one or once shipped.
+ *  R18: the chance is for development: it aims at «Klar for QA» when that is set, and there is none in phase QA. */
 function releaseForecastText(r, todayDay) {
   const f = r && !r.shippedDate && r.ado && r.ado.forecast;
-  if (!f) return null;
+  if (!f || (r.qaDate && releasePhase(r) === "qa")) return null;
   if (f.missing === "history") return { short: null, text: "Ingen leverte poeng i de to siste sprintene å regne tempo fra" };
   if (f.missing === "capacity") {
     const off = f.unplanned + " arbeidsdag" + (f.unplanned === 1 ? "" : "er") + " er uten sprint";
@@ -618,7 +619,7 @@ function releaseForecastText(r, todayDay) {
   const short = (f.p >= 0.995 ? "over 99 %" : f.p < 0.005 ? "under 1 %" : Math.round(f.p * 100) + " %") + " sjanse";   // a simulation never knows for certain
   return {
     short,
-    text: short + " for at alt er levert til " + fmtDate(dayOf(r.targetDate)) + (f.day < todayDay ? " · regnet " + fmtDate(dayOf(f.day)) : ""),
+    text: short + (r.qaDate ? " for at alt er utviklet til klar for QA " + fmtDate(dayOf(r.qaDate)) : " for at alt er utviklet til " + fmtDate(dayOf(r.targetDate))) + (f.day < todayDay ? " · regnet " + fmtDate(dayOf(f.day)) : ""),
     detail: "Forventet " + f.mean + " av " + f.need + " SP på " + f.days + " arbeidsdag" + (f.days === 1 ? "" : "er") + " · 8 av 10 utfall " + (f.p10 === f.p90 ? "rundt " + f.p10 : "mellom " + f.p10 + " og " + f.p90) + " SP",
     basis: "Tempo per person fra " + andList(f.basis) + " · tilgjengelighet fra Capacity i " + andList(f.capacity) + " (Development-timer, 7,5 t = full dag) · ikke regnet med: hvem som kan ta hvilken oppgave",
     people: f.people,

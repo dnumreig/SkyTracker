@@ -2,7 +2,7 @@
 // fast each person has been (the bugs and stories they resolved in the two last finished sprints). Read only, never
 // written to ADO. Design: docs/superpowers/specs/2026-10-12-planning-system-r12-release-forecast-design.md.
 import type { Plan, Release, ReleaseForecast, ReleaseItem, Sprint } from "@/features/timeline/merge";
-import { dayKey, osloDay, releaseItemDone } from "@/features/timeline/epic-tools.js";
+import { dayKey, osloDay, releaseDevTarget, releaseItemDone } from "@/features/timeline/epic-tools.js";
 import type { AdoCapacity, AdoClient, AdoWorkItem } from "./client";
 import { isDeveloped, type StateMap } from "./states";
 import { parseSprints } from "./sync";
@@ -132,13 +132,14 @@ export type ForecastMemo = {
 type Client = Pick<AdoClient, "wiql" | "batch" | "capacities" | "iterations">;
 
 /** The release's forecast for today, or null when there is nothing to forecast: shipped, nothing left, no points, or the target day reached.
- *  R18: `states` (ADO's state categories, read once per refresh) decides which past items count for the pace. */
+ *  R18: `states` (ADO's state categories, read once per refresh) decides which past items count for the pace; the target is
+ *  development's (`releaseDevTarget`: «Klar for QA» when it is set, else «Release»). */
 export async function readForecast(plan: Plan, r: Release, items: ReleaseItem[], client: Client, now: Date, memo: ForecastMemo, states: StateMap | null = null): Promise<ReleaseForecast | null> {
   if (r.shippedDate) return null;
   const need = items.filter((i) => !releaseItemDone(i)).reduce((s, i) => s + (i.points || 0), 0);
   if (need <= 0 || !items.some((i) => i.points > 0)) return null;
   const today = osloDay(now);
-  const window = forecastWindow(today, r.targetDate);
+  const window = forecastWindow(today, releaseDevTarget(r));
   if (!window.length) return null;
   const cached = plan.sprints?.items ?? [];
   const sprints = await (memo.sprints ??= cached.length && cached.every((s) => s.id) ? Promise.resolve(cached) : client.iterations().then(parseSprints));

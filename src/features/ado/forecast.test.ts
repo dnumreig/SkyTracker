@@ -187,4 +187,10 @@ describe("readForecast", () => {
     expect(calls.filter((c) => c.startsWith("capacities")).length).toBe(1);
     expect(workDays("2026-10-13", "2026-10-20")).toBe(6);
   });
+  it("R18: with «Klar for QA» the window runs to the QA day, not the release day", async () => {
+    const plan = planWith([S68, S69, S70, S71, S72]);
+    plan.releases![0].qaDate = "2026-10-20";
+    const { client } = fakeClient(CAP);
+    expect(await readForecast(plan, plan.releases![0], items, client, NOW, {})).toMatchObject({ days: 5 });   // 13–19 Oct
+  });
 });

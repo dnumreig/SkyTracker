@@ -802,7 +802,7 @@ describe("R12: the chance a release is done by its target day, in words and in t
   it("the chance, what is expected and the range, the people and what it rests on", () => {
     expect(releaseForecastText(rel(FC), "2026-10-13")).toEqual({
       short: "44 % sjanse",
-      text: "44 % sjanse for at alt er levert til 22. okt",
+      text: "44 % sjanse for at alt er utviklet til 22. okt",
       detail: "Forventet 78 av 82 SP på 7 arbeidsdager · 8 av 10 utfall mellom 37 og 121 SP",
       basis: "Tempo per person fra Sprint 69 og Sprint 70 · tilgjengelighet fra Capacity i Sprint 71 (Development-timer, 7,5 t = full dag) · ikke regnet med: hvem som kan ta hvilken oppgave",
       people: FC.people,
@@ -811,7 +811,7 @@ describe("R12: the chance a release is done by its target day, in words and in t
   it("never says 0 or 100 %, and says when the forecast is from an earlier day", () => {
     expect(releaseForecastText(rel({ ...FC, p: 1 }), "2026-10-13")!.short).toBe("over 99 % sjanse");
     expect(releaseForecastText(rel({ ...FC, p: 0 }), "2026-10-13")!.short).toBe("under 1 % sjanse");
-    expect(releaseForecastText(rel(FC), "2026-10-14")!.text).toBe("44 % sjanse for at alt er levert til 22. okt · regnet 13. okt");
+    expect(releaseForecastText(rel(FC), "2026-10-14")!.text).toBe("44 % sjanse for at alt er utviklet til 22. okt · regnet 13. okt");
     expect(releaseForecastText(rel({ ...FC, p10: 26, p90: 26, mean: 26 }), "2026-10-13")!.detail).toBe("Forventet 26 av 82 SP på 7 arbeidsdager · 8 av 10 utfall rundt 26 SP");
   });
   it("tells what is missing: Capacity for a sprint, sprints up to the target, the past to measure a pace from", () => {
@@ -1283,6 +1283,15 @@ describe("R18: a release in two phases", () => {
     const late = rel({ qaDate: "2026-10-14" });
     expect(releasePace(normalizePlan({ lanes: [], tasks: [], releases: [late] }), late, TODAY)!.text)
       .toBe("50 % utviklet · 100 % av tiden brukt · med dagens tempo klar for QA 29. okt, elleve arbeidsdager etter");
+  });
+  it("R18: the chance's sentence aims at «Klar for QA» when it is set", () => {
+    const fc = { day: "2026-10-16", need: 8, days: 3, p: 0.44, mean: 7, p10: 4, p90: 9, people: [], basis: [], capacity: [] };
+    const r = { key: "r1", version: "2.0.1", targetDate: "2026-10-27", qaDate: "2026-10-20", ado: { at: "x", label: "2.0.1", items: [], forecast: fc } };
+    expect(releaseForecastText(r as never, "2026-10-16")!.text).toBe("44 % sjanse for at alt er utviklet til klar for QA 20. okt");
+    expect(releaseForecastText({ ...r, qaDate: undefined } as never, "2026-10-16")!.text).toBe("44 % sjanse for at alt er utviklet til 27. okt");   // D9
+    const developed = { ...r, ado: { ...r.ado, items: [{ id: 1, type: "Bug", title: "", state: "QA", category: "Resolved", points: 3, assignee: null }] } };
+    expect(releaseForecastText(developed as never, "2026-10-16")).toBeNull();   // in QA there is no chance (spec §5)
+    expect(releaseForecastText({ ...developed, qaDate: undefined } as never, "2026-10-16")).not.toBeNull();   // one phase reads as today (D7)
   });
   it("the QA sentence per phase", () => {
     expect(releaseQaText(rel(), TODAY)).toBe("Klar for QA 20. okt · release 27. okt");
