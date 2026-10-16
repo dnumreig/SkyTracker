@@ -99,6 +99,7 @@
   .sw.depsw::after{content:"";position:absolute;right:-1px;top:-4px;border:4px solid transparent;border-left-color:var(--dep)}
   .legend .zoom{margin-left:auto}   /* R17: zoom at the right end of the row, in sky.css's 12 px buttons; a view, so readers and the wall have it too */
   #zoomReset{min-width:54px}        /* «100 %» and «50 %» take the same room: − stays under the pointer */
+  .legend .zoom button[aria-disabled="true"]{opacity:.5;cursor:default}   /* 50 % and 200 %: inert, still focusable */
   /* R14: the status strip in words, under the top bar */
   .status{display:flex;flex-wrap:wrap;gap:4px 0;margin:12px 0 0;font-size:12px;color:var(--text-2);align-items:center}
   .status > *{padding:0 12px;border-left:1px solid var(--line-soft);display:inline-flex;align-items:center;gap:6px;min-width:0}
@@ -1701,6 +1702,7 @@ window.__bootTimeline = function(){
 
   /* ================== drag ================== */
   chart.addEventListener('pointerdown', e => {
+    if(e.button !== 0) return;   // R17: the main button only; a right button opens its menu and its release could miss the chart
     const bar = e.target.closest('.bar');
     if(!bar || viewMode !== 'epic') return;   // per person og per leveranse er lesevisninger
     if(linkSource){ completeLink(bar.dataset.id); e.preventDefault(); return; }
@@ -1708,7 +1710,7 @@ window.__bootTimeline = function(){
     if(!t) return;
     const h = e.target.classList.contains('h') ? e.target : null;
     const mode = !h ? 'move' : h.classList.contains('l') ? 'l' : h.classList.contains('m') ? 'm' : 'r';
-    drag = {t, bar, mode, x0: e.clientX, start0: t.start, likely0: t.endLikely, end0: t.end, moved: false};
+    drag = {t, bar, mode, x0: e.clientX, start0: t.start, likely0: t.endLikely, end0: t.end, moved: false, pointerId: e.pointerId, undo: dragUndo()};
     bar.classList.add('dragging');
     bar.setPointerCapture(e.pointerId);
     showTip(e, t);
@@ -1763,6 +1765,20 @@ window.__bootTimeline = function(){
   }
   chart.addEventListener('pointerup', endDrag);
   chart.addEventListener('pointercancel', endDrag);
+  function dragUndo(){   // R17: what a cancelled drag puts back: every feature's dates and pin (the queue moves others too), the pending touches and causes
+    return { tasks: state.tasks.map(v => [v, v.start, v.endLikely, v.end, v.pinned]), touched: new Map([...pendingTouch].map(([v, f]) => [v, new Set(f)])), note: pendingNote, causes: Object.assign({}, pendingNote.causes) };
+  }
+  function cancelDrag(){   // R17: a render replaced the bar under the pointer (a key, «Forum»): the drag is undone, nothing is saved
+    const d = drag;
+    drag = null;
+    tip.style.display = 'none';
+    d.undo.tasks.forEach(([v, start, likely, end, pinned]) => { v.start = start; v.end = end; if(likely !== undefined) v.endLikely = likely; if(pinned) v.pinned = pinned; else delete v.pinned; });
+    pendingTouch.clear(); d.undo.touched.forEach((f, v) => pendingTouch.set(v, f));
+    pendingNote.causes = pendingNote === d.undo.note ? d.undo.causes : {};   // a save that went out mid-drag started a new note: its causes are all the drag's
+    if(mediaPending){ mediaPending = false; applyZoom(); }
+    render();
+  }
+  document.addEventListener('lostpointercapture', e => { if(drag && e.pointerId === drag.pointerId) cancelDrag(); });   // a release ends the drag before its capture goes, so only a lost bar lands here
   function inFrontOfQueue(t, floor){   // started before the queue lets it: overstyrt with intent (a drag and a key do the same)
     return t.kind === 'estimate' && t.lane !== BACKLOG && t.state !== 'levert' && floor !== null && t.start < floor - 1e-9;
   }
@@ -1775,6 +1791,7 @@ window.__bootTimeline = function(){
     if(!t) return;
     if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); if(linkSource){ completeLink(t.id); return; } openEditor(t.id); return; }
     if(e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    if(drag){ e.preventDefault(); return; }   // R17: the pointer owns the bar while it drags: no week-move, no save and no render under it
     if(!mayEdit() || viewMode !== 'epic' || t.state === 'levert') return;
     e.preventDefault();
     const d = (e.key === 'ArrowRight' ? 1 : -1) * WEEK;
@@ -2196,8 +2213,8 @@ window.__bootTimeline = function(){
     if(zoom !== 1) root.style.setProperty('--month-w', Math.round(cssNum('--month-w') * zoom) + 'px');
     readMetrics();
     $('zoomReset').textContent = Math.round(zoom * 100) + ' %';
-    $('zoomOut').disabled = zoom === ZOOMS[0];
-    $('zoomIn').disabled = zoom === ZOOMS[ZOOMS.length - 1];
+    $('zoomOut').setAttribute('aria-disabled', zoom === ZOOMS[0] ? 'true' : 'false');   // a limit is aria-disabled, not disabled: the button keeps the focus
+    $('zoomIn').setAttribute('aria-disabled', zoom === ZOOMS[ZOOMS.length - 1] ? 'true' : 'false');
   }
   function setZoom(z){   // the date in the middle of the view stays in the middle
     if(drag) return;   // never under a drag: the render would replace the bar that holds the pointer, and the drag would hang
@@ -2210,8 +2227,8 @@ window.__bootTimeline = function(){
     chartScroll.scrollLeft = x(mid) - half;
   }
   const zoomStep = d => setZoom(ZOOMS[ZOOMS.indexOf(zoom) + d]);
-  $('zoomOut').addEventListener('click', () => { zoomStep(-1); if($('zoomOut').disabled) $('zoomReset').focus(); });
-  $('zoomIn').addEventListener('click', () => { zoomStep(1); if($('zoomIn').disabled) $('zoomReset').focus(); });   // at 50 % or 200 % the pressed button switches off: the focus moves to the middle, not the page
+  $('zoomOut').addEventListener('click', () => zoomStep(-1));   // past a limit there is no level, so an aria-disabled button does nothing
+  $('zoomIn').addEventListener('click', () => zoomStep(1));
   $('zoomReset').addEventListener('click', () => setZoom(1));
   chartScroll.addEventListener('keydown', e => {   // + or = in, - out, 0 back to 100 %; with Ctrl/Cmd they stay the browser's own zoom
     if(e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, select, textarea')) return;
