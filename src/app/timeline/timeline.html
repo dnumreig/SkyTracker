@@ -260,8 +260,8 @@
   .rel-pace .chip{margin-top:1px}
   .rel-states{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
   .rel-sprints{font-size:12px;color:var(--text-3);margin:4px 0 2px}
-  .rel-phase{margin-top:14px}   /* R18: the drawer in two sections once «Klar for QA» is set */
-  .rel-phase h3{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px}
+  .rel-phase,.rel-all{margin-top:14px}   /* R18: the drawer in two sections once «Klar for QA» is set, then the lists under «Alle saker» */
+  .rel-phase h3,.rel-all h3{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px}
   .burn{display:block;width:100%;height:auto;margin:10px 0 2px}
   .burn .gl{stroke:var(--line-soft);stroke-width:1}
   .burn .ideal{stroke:var(--text-4);stroke-width:1.5;fill:none}
@@ -273,6 +273,9 @@
   .burn .now{stroke:var(--today);stroke-width:1}
   .burn text{font-size:11px;fill:var(--text-3);font-variant-numeric:tabular-nums}
   .burn .ttl{font-size:11px;fill:var(--text-2);font-weight:600}
+  .rel-legend{font-size:12px;color:var(--text-3);margin:0 0 4px}   /* R18: the chart's two lines in words */
+  .rel-legend .k-dev{color:var(--release);font-weight:700}
+  .rel-legend .k-closed{font-weight:700}
   /* R12: the chance the release is done by its target day */
   .rel-fc{margin:8px 0 2px}
   .rel-fc .chip{font-variant-numeric:tabular-nums}
@@ -361,6 +364,7 @@
   .ed-field textarea{resize:vertical}
   .ed-row.top{align-items:flex-start}   /* R18: fields with a note under them line up with those without */
   .ed-field small{display:block;margin-top:3px}
+  .ed-err{font-size:12px;color:var(--danger)}   /* R18: why a field was refused, under it (the field's description, not its name) */
   .task-label .chip.fixed{background:transparent;color:var(--text-2);box-shadow:inset 0 0 0 1px var(--line)}
   .ed-kind button.on[data-k=discovery]{background:var(--badge-bg);border-color:var(--text-3);color:var(--text)}
   .ed-kind button.on[data-k=estimate]{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -896,7 +900,7 @@
       <div class="ed-body">
         <div class="ed-row top">
           <label class="ed-field"><span>Versjon</span><input id="relVersion" type="text" placeholder="2.0.1"></label>
-          <label class="ed-field"><span>Klar for QA</span><input id="relQa" type="date"><small class="md">settes av utviklingsleder</small></label>
+          <label class="ed-field"><span>Klar for QA</span><input id="relQa" type="date"><small class="md">settes av utviklingsleder</small><small class="ed-err" id="relQaErr" aria-hidden="true" hidden>Klar for QA kan ikke være etter release-datoen.</small></label>
           <label class="ed-field"><span>Release</span><input id="relTarget" type="date"><small class="md">settes av Operations</small></label>
         </div>
         <div class="ed-row">
@@ -1276,7 +1280,7 @@ window.__bootTimeline = function(){
         const t = el('span', 't');
         const fcs = sg.shipped ? null : releaseForecastText(r, dayKey(new Date()));   // R12: the chance in the tooltip
         const qaOn = !!r.qaDate && !sg.shipped;   // R18: the QA part and both dates once «Klar for QA» is set (D7)
-        if(qaOn){ const q = dayToUnit(r.qaDate); if(q > a && q < b){ const qp = el('span', 'qa-part'); qp.style.left = (x(q) - x(a)) + 'px'; d.appendChild(qp); } }
+        if(qaOn){ const q = dayToUnit(r.qaDate); if(q < b){ const qp = el('span', 'qa-part'); qp.style.left = (x(Math.max(q, a)) - x(a)) + 'px'; d.appendChild(qp); } }   // on or before the visible start: the whole segment is QA
         const word = sg.shipped ? 'sluppet ' : qaOn ? 'release ' : 'mål ', end = fmtDate(unitToDate(sg.end));
         t.innerHTML = (sg.shipped ? '✓ ' : '') + esc(r.version) + (wide ? ' <b>· ' + word + esc(end) + '</b>' : '');
         d.appendChild(t);
@@ -1724,7 +1728,8 @@ window.__bootTimeline = function(){
         rel.textContent = 'Neste release ' + r.version + ' · ' + (nfc && nfc.short ? nfc.short + ' til ' + (goal || day) : (goal || 'mål ' + day)) + ' · ' +
           (pr.fraction === null ? 'ikke lest fra ADO' : Math.round(pr.fraction * 100) + ' % utviklet') + ' · ' + when;
       }
-      rel.title = 'Neste release: sjansen for at alt er utviklet til ' + (r.qaDate ? 'klar for QA' : 'målet') + '; tempo-fargen står i skuffen';
+      rel.title = ph === 'qa' ? 'Neste release i QA: hvor mye som er lukket, og release-datoen'   // QA has no chance
+        : 'Neste release: sjansen for at alt er utviklet til ' + (r.qaDate ? 'klar for QA' : 'målet') + '; tempo-fargen står i skuffen';
     }
     $('mixSelect').value = (state.capacity && state.capacity.mode) || 'transition';
     renderSprintGoal();
@@ -2863,7 +2868,7 @@ window.__bootTimeline = function(){
   const relDay = d => fmtDate(unitToDate(dayToUnit(d)));
   function releaseSubText(r){   // R18: with «Klar for QA» the head says the phase and both dates; without it, as before (D7)
     const pr = releaseProgress(r), ph = releasePhase(r);
-    const head = r.shippedDate ? 'Sluppet ' + relDay(r.shippedDate) + (r.shippedDate !== r.targetDate ? ' · målet var ' + relDay(r.targetDate) : '')
+    const head = r.shippedDate ? 'Sluppet ' + relDay(r.shippedDate) + (r.shippedDate !== r.targetDate ? (r.qaDate ? ' · release-datoen var ' : ' · målet var ') + relDay(r.targetDate) : '')
       : !r.qaDate ? 'Mål ' + relDay(r.targetDate)
       : (ph === 'qa' ? 'I QA' : 'I utvikling · klar for QA ' + relDay(r.qaDate)) + ' · release ' + relDay(r.targetDate);
     return head + ' · ' + pr.text + (r.ado ? ' · lest fra ADO ' + whenText(r.ado.at) : '');
@@ -2895,9 +2900,14 @@ window.__bootTimeline = function(){
     s += '<text x="' + f(xOf(d.axisStart)) + '" y="' + (H - 8) + '">' + esc(relDay(d.axisStart)) + '</text>';
     if(!qa) s += label(d.targetDay, 'mål ' + relDay(d.targetDay), 'middle');
     else if(d.releaseDay === d.targetDay) s += label(d.targetDay, 'klar for QA og release ' + relDay(d.targetDay), 'middle');
-    else {   // «klar for QA» hangs to the left of its point (to the right near the axis start), so it never runs into «release» to its right
-      s += label(d.targetDay, 'klar for QA ' + relDay(d.targetDay), xOf(d.targetDay) - L >= 110 ? 'end' : 'start');
-      s += '<line class="rel-day" x1="' + f(xOf(d.releaseDay)) + '" x2="' + f(xOf(d.releaseDay)) + '" y1="' + f(yOf(0)) + '" y2="' + f(yOf(0) + 5) + '"/>' + label(d.releaseDay, 'release ' + relDay(d.releaseDay), 'middle');
+    else {   // «klar for QA» hangs to the left of its point (to the right near the axis start) and «release» sits on its tick; when the two would touch, one label names both
+      const wide = t => t.length * 5.5;   // a label's width at 11 px, estimated
+      const qt = 'klar for QA ' + relDay(d.targetDay), rt = 'release ' + relDay(d.releaseDay), both = qt + ' · ' + rt;
+      const qx = xOf(d.targetDay), qLeft = qx - L >= wide(qt), qEnd = qLeft ? qx : qx + wide(qt);
+      const rx = d.releaseDay === d.endDay ? W - R : xOf(d.releaseDay), rStart = d.releaseDay === d.endDay ? rx - wide(rt) : rx - wide(rt) / 2;
+      s += '<line class="rel-day" x1="' + f(xOf(d.releaseDay)) + '" x2="' + f(xOf(d.releaseDay)) + '" y1="' + f(yOf(0)) + '" y2="' + f(yOf(0) + 5) + '"/>';
+      if(rStart < qEnd + 6) s += rx - wide(both) >= L + wide(relDay(d.axisStart)) + 6 ? label(d.releaseDay, both, 'end') : label(d.targetDay, both, 'start');   // ends at the release day, or starts at «Klar for QA» when the axis start is in the way
+      else s += label(d.targetDay, qt, qLeft ? 'end' : 'start') + label(d.releaseDay, rt, 'middle');
     }
     if(d.endDay !== d.targetDay && !(qa && d.endDay === d.releaseDay)) s += '<text x="' + (W - R) + '" y="' + (H - 8) + '" text-anchor="end">' + esc(relDay(d.endDay)) + '</text>';
     return s + '</svg>';
@@ -2944,18 +2954,19 @@ window.__bootTimeline = function(){
     if(spt) dev += '<p class="rel-sprints">' + esc(spt) + '</p>';
     const bd = releaseBurndownData(state, r, todayDay);
     if(bd && bd.firstScope) dev += '<p class="rel-sprints" title="Innholdet har endret seg siden første lesing">Innhold nå ' + bd.total + ' ' + bd.unit + ' · ' + bd.firstScope.total + ' ' + bd.unit + ' ved første lesing ' + esc(relDay(bd.firstScope.day)) + '</p>';
-    if(bd && bd.actual.length) dev += burndownSvg(bd) + burndownTable(bd);
+    if(bd && bd.actual.length) dev += burndownSvg(bd) + (bd.qaDay ? '<p class="rel-legend"><span class="k-dev">—</span> ikke utviklet · <span class="k-closed">- -</span> ikke lukket</p>' : '') + burndownTable(bd);   // R18: the two lines named in words
     if(r.qaDate){   // R18: two sections, development until «Klar for QA», QA until «Release»; without it, as before (D7)
-      html += '<section class="rel-phase"><h3>Utvikling — til klar for QA ' + esc(relDay(r.qaDate)) + '</h3>' + dev + '</section>';
+      if(dev) html += '<section class="rel-phase"><h3>Utvikling — til klar for QA ' + esc(relDay(r.qaDate)) + '</h3>' + dev + '</section>';   // never read or empty: no heading over nothing
       const qaBody = '<p class="rel-pace"><span>' + esc(releaseQaText(r, todayDay)) + '</span></p>' +
         group('Utviklet, ikke lukket', items.filter(i => releaseItemDone(i) && !releaseItemClosed(i)));
       html += '<section class="rel-phase"><h3>QA — til release ' + esc(relDay(r.targetDate)) + '</h3>' + qaBody + '</section>';
     } else html += dev;
     const openIds = r.openAtShip || [];   // R18: what «Marker sluppet …» found open
     if(openIds.length) html += '<div class="rel-open">' + group('Åpne ved release', openIds.map(id => items.find(i => i.id === id) || { id, title: '', state: '', points: 0, assignee: '' })) + '</div>';
-    if(r.ado && r.ado.statesMissing) html += '<p class="md rel-note">Fant ikke ADO-tilstandene: teller Resolved og Closed</p>';
+    if(r.ado && r.ado.statesMissing) html += '<p class="md">Fant ikke ADO-tilstandene: teller Resolved og Closed</p>';
     $('relShip').hidden = (HOSTED && !canWrite) || !!r.shippedDate;
-    html += group('Bugs', items.filter(i => i.type === 'Bug')) + group('Stories', items.filter(i => i.type !== 'Bug'));
+    const lists = group('Bugs', items.filter(i => i.type === 'Bug')) + group('Stories', items.filter(i => i.type !== 'Bug'));
+    html += r.qaDate && lists ? '<section class="rel-all"><h3>Alle saker</h3>' + lists + '</section>' : lists;   // R18: with the two sections the lists get their own heading, not the QA section's
     if(r.ado && !items.length) html += '<p class="hist-empty">Ingenting i ADO har labelen ennå.</p>';
     $('relBody').innerHTML = html;
   }
@@ -2963,12 +2974,14 @@ window.__bootTimeline = function(){
   $('relEdit').addEventListener('click', () => openReleaseEditor(releaseKey));
   $('relShip').addEventListener('click', async () => {   // R18: the release process ships it; what is still open is remembered
     const r = getRelease(releaseKey); if(!r || r.shippedDate) return;
-    const open = ((r.ado && r.ado.items) || []).filter(i => !releaseItemClosed(i)).map(i => i.id);
-    const msg = 'Marker ' + r.version + ' som sluppet. ' + (open.length ? open.length + (open.length === 1 ? ' åpen sak huskes' : ' åpne saker huskes') + ' som åpne ved release.' : 'Alt er lukket.');
+    const key = r.key, openOf = x => ((x.ado && x.ado.items) || []).filter(i => !releaseItemClosed(i)).map(i => i.id), n = openOf(r).length;
+    const msg = 'Marker ' + r.version + ' som sluppet. ' + (!r.ado ? 'Ikke lest fra ADO: det som er åpent, er ikke kjent.' : n ? n + (n === 1 ? ' åpen sak huskes' : ' åpne saker huskes') + ' som åpne ved release.' : 'Alt er lukket.');
     const day = await askDialog('Marker sluppet', msg, { input: 'date', value: dayKey(new Date()), confirmText: 'Marker sluppet' });
     if(typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
-    r.shippedDate = day; if(open.length) r.openAtShip = open; else delete r.openAtShip;
-    r.v = (r.v || 0) + 1;
+    const cur = getRelease(key); if(!cur || cur.shippedDate) return;   // the plan may have come back from the server while the dialog was open: write to the release as it is now
+    const open = openOf(cur);
+    cur.shippedDate = day; if(open.length) cur.openAtShip = open; else delete cur.openAtShip;
+    cur.v = (cur.v || 0) + 1;
     save(); render(); renderReleaseDrawer();
     setTimeout(() => $('relEdit').focus(), 0);   // the button is gone: its neighbour takes the focus (after the key events, or Enter's keypress would click it), not the page
   });
@@ -2998,7 +3011,7 @@ window.__bootTimeline = function(){
     $('relEdTitle').textContent = r ? 'Release ' + r.version : 'Ny release';
     $('relVersion').value = r ? r.version : '';
     $('relTarget').value = r ? r.targetDate : dayKey(new Date(Date.now() + 14 * 86400000));
-    $('relQa').value = (r && r.qaDate) || ''; $('relQa').removeAttribute('aria-invalid');
+    $('relQa').value = (r && r.qaDate) || ''; relQaRefused(false);
     $('relShipped').value = (r && r.shippedDate) || '';
     $('relLabel').value = (r && r.label) || '';
     $('relNote').value = (r && r.note) || '';
@@ -3009,22 +3022,30 @@ window.__bootTimeline = function(){
     setTimeout(() => (ro ? $('relCancel') : $('relVersion')).focus(), 0);
   }
   function closeReleaseEditor(){ relEditKey = null; relBack.classList.remove('open'); }
+  function relQaRefused(on){   // R18: a refused «Klar for QA» says why under the field, as its description
+    const q = $('relQa'); $('relQaErr').hidden = !on;
+    if(on){ q.setAttribute('aria-invalid', 'true'); q.setAttribute('aria-describedby', 'relQaErr'); } else { q.removeAttribute('aria-invalid'); q.removeAttribute('aria-describedby'); }
+  }
   $('relSave').addEventListener('click', () => {
     const version = $('relVersion').value.trim(), target = $('relTarget').value, shipped = $('relShipped').value, label = $('relLabel').value.trim(), note = $('relNote').value.trim();
     const qa = $('relQa').value;   // R18: «Klar for QA», on or before «Release»
     if(!version || !target){ askDialog('Release', 'Versjon og release-dato må fylles ut.', {confirmText:'OK', noCancel:true}); return; }
-    if(qa && qa > target){ $('relQa').setAttribute('aria-invalid', 'true'); askDialog('Release', 'Klar for QA kan ikke være etter release-datoen.', {confirmText:'OK', noCancel:true}); return; }
-    $('relQa').removeAttribute('aria-invalid');
+    if(qa && qa > target){ relQaRefused(true); askDialog('Release', 'Klar for QA kan ikke være etter release-datoen.', {confirmText:'OK', noCancel:true}).then(() => $('relQa').focus()); return; }
+    relQaRefused(false);
     state.releases = state.releases || []; state.deletedReleases = state.deletedReleases || {};
     let r = relEditKey ? getRelease(relEditKey) : null;
     const devBefore = r && r.ado ? releaseDevTarget(r) : null;   // R18: a read release's chance was simulated against this day
+    const wasShipped = !!(r && r.shippedDate);
     const lines = [];
     if(!r){ r = { key: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4), v: 0, version, targetDate: target }; state.releases.push(r); state.example = false; }
     else if(r.targetDate !== target){ lines.push('Release ' + r.version + ': release ' + relDay(r.targetDate) + ' → ' + relDay(target)); if(target > r.targetDate) pendingNote.reasonCode = 'ekstern'; }   // en release flyttes av verden utenfor
     if(r.qaDate && qa && qa > r.qaDate) lines.push('Release ' + r.version + ': klar for QA ' + relDay(r.qaDate) + ' → ' + relDay(qa));   // R18 (D8): a later handover asks why
     r.version = version; r.targetDate = target;
     if(qa) r.qaDate = qa; else delete r.qaDate;
-    if(shipped) r.shippedDate = shipped; else { delete r.shippedDate; delete r.openAtShip; }
+    if(shipped){   // R18: «Sluppet» newly set on a read release keeps what is still open, as «Marker sluppet …» does (spec §3)
+      if(!wasShipped && r.ado && Array.isArray(r.ado.items)){ const open = r.ado.items.filter(i => !releaseItemClosed(i)).map(i => i.id); if(open.length) r.openAtShip = open; else delete r.openAtShip; }
+      r.shippedDate = shipped;
+    } else { delete r.shippedDate; delete r.openAtShip; }
     if(label && label !== version) r.label = label; else delete r.label;
     if(note) r.note = note; else delete r.note;
     r.v = (r.v || 0) + 1;
