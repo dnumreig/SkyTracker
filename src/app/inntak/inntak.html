@@ -143,7 +143,20 @@ window.__bootInntak = function(){
   $('forumLabel').addEventListener('input', () => { try{ sessionStorage.setItem('skytracker-inntak-forum', $('forumLabel').value); }catch(e){} });
 
   /* ---------- the list ---------- */
+  // R17: render() rebuilds the filter and the list, and every save and poll calls it: the control that had the focus gets it back
+  function focusKey(){
+    const a = document.activeElement;
+    if($('tabs').contains(a)) return '#tabs [data-f="' + a.dataset.f + '"]';
+    const row = $('list').contains(a) ? a.closest('.wish') : null;
+    return row ? '#list .wish[data-id="' + CSS.escape(row.dataset.id) + '"] ' + (a.dataset.act ? '[data-act="' + a.dataset.act + '"]' : a.tagName.toLowerCase()) : null;
+  }
+  function restoreFocus(key){
+    const c = key && document.querySelector(key); if(!c) return;
+    const menu = c.closest('.row-menu'); if(menu && c.tagName !== 'SUMMARY') menu.open = true;   // «Slett ønske …» sits in the row's «⋯»
+    c.focus({ preventScroll: true });
+  }
   function render(){
+    const keep = focusKey();
     const g = wishesByStatus(state);
     const counts = { ubehandlet: g.ubehandlet.length, utred: g.utred.length, senere: g.senere.length, nei: g.nei.length };
     $('tabs').innerHTML = ['ubehandlet', 'utred', 'senere', 'nei', 'alle'].map(k =>
@@ -152,6 +165,7 @@ window.__bootInntak = function(){
     const list = $('list');
     if(!items.length){
       list.innerHTML = '<div class="empty">' + (filter === 'ubehandlet' ? 'Ingen ubehandlede ønsker.' + (canWrite ? ' Registrer det neste med «＋ Nytt ønske».' : '') : 'Ingenting her ennå.') + '</div>';
+      restoreFocus(keep);
       return;
     }
     list.innerHTML = items.map(w => {
@@ -168,6 +182,7 @@ window.__bootInntak = function(){
         '<div class="meta">' + meta + '</div>' + (w.note ? '<div class="note">' + esc(w.note) + '</div>' : '') + (dec ? '<div class="decision">' + dec + '</div>' : '') + '</div>' +
         '<div class="acts">' + acts + '</div></div>';
     }).join('');
+    restoreFocus(keep);
   }
   $('tabs').addEventListener('click', e => { const b = e.target.closest('button[data-f]'); if(!b) return; filter = b.dataset.f; render(); });
   $('list').addEventListener('click', e => {
