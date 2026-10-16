@@ -52,9 +52,9 @@ smokes behind a mock API.
 ## Execution
 
 - Tasks 1–7 and 12 are built here, inline, in order.
-- Tasks 8–11 (Brettet, Inntak, Kunder, the login page) are built by up to four subagents (GO 16.10: up to five, on Opus 5.5)
-  started after Task 4's commit, while Tasks 5–7 run here. Each subagent gets its own worktree and branch:
-  `git -C /Users/dnumreig/Skytale/SkyTracker-wt-epics worktree add ../SkyTracker-wt-r17-<page> -b r17-<page> <task-4-sha>`,
+- Tasks 8–11 (Brettet, Inntak, Kunder, the login page) are built by four subagents (GO 16.10: up to five at a time, on Opus 5.5)
+  started after Task 1's commit (a ledgered ruling; first planned after Task 4), while Tasks 2–7 run here. Each subagent gets its own worktree and branch:
+  `git -C /Users/dnumreig/Skytale/SkyTracker-wt-epics worktree add ../SkyTracker-wt-r17-<page> -b r17-<page> <task-1-sha>`,
   `ln -s ../SkyTracker-wt-epics/node_modules node_modules` inside it, runs its smoke with `SKY_SRC=<its worktree>`, touches
   only its page, its route or component, and its own smoke file, never `sky.css`, `timeline.html` or `epic-tools.js`, and
   commits once on its branch. The commits are read and cherry-picked onto `feat/r17-delivery-view-ux` here.
@@ -1091,12 +1091,7 @@ if (part("U5")) {
   assert(c.goal === "dashed", "U5: a goal is dashed ink");
   assert(c.ext === "rgba(0, 0, 0, 0)", "U5: «Ekstern dato» is an outline chip: " + c.ext);
   await ctx.close();
-  const k = await open("/kunder");
-  await k.page.click('#views button[data-v="epic"]'); await k.page.waitForSelector("table.epics");
-  const w = await k.page.$eval(".pill.w-tyngst", (e) => [getComputedStyle(e).backgroundColor, getComputedStyle(e, "::before").width].join());
-  assert(w === "rgb(241, 245, 249),26px", "U5: «Tyngst» is a neutral meter, not red: " + w);
-  await k.ctx.close();
-  console.log("U5 OK: today is ink, discovery a slate hatch, goals dashed, attributes outlined, weight a meter");
+  console.log("U5 OK: today is ink, discovery a slate hatch, goals dashed, attributes outlined (Kunder's weight: Task 10)");
 }
 ```
 
@@ -1132,31 +1127,16 @@ ruler's `.axis .sprint.now{border-left-color:var(--today)}` and the burndown's `
 `today.innerHTML = '<span class="tl">I dag · ' + tn.getDate() + '. ' + MND_S[tn.getMonth()] + (spl ? ' · ' + spl : '') + '</span>';`
 (`MND_UP` is then unused: delete it). `hosted-history-smoke.mjs:485` keeps its regex (it reads the end of the label).
 
-- [ ] **Step 6: Kunder's weight.** In kunder.html replace the three weight selectors in the pill rules so only the status
-codes keep the colours, then add the meter:
-
-```css
-  .pill.st-gronn{background:var(--ok-bg);color:var(--ok-fg)}
-  .pill.st-gul{background:var(--warn-bg);color:var(--warn-fg)}
-  .pill.st-rod{background:var(--bad-bg);color:var(--bad-fg)}
-  /* R17: weight is an amount, not a status: one neutral pill with a short meter */
-  .pill.w-lett,.pill.w-flere,.pill.w-tyngst,.pill.w-ingen{background:var(--badge-bg);color:var(--text)}
-  .pill.w-lett::before,.pill.w-flere::before,.pill.w-tyngst::before{height:6px;border-radius:3px;background:var(--accent)}
-  .pill.w-lett::before{width:8px} .pill.w-flere::before{width:16px} .pill.w-tyngst::before{width:26px}
-  .pill.w-ingen::before{width:0}
-```
-
 - [ ] **Step 7: Run U1–U5, the history smoke and the gates**
 
 Run: `ONLY=U1,U2,U3,U4,U5 NODE_OPTIONS= npx tsx ~/Skytale/ClaudeReports/planning/roadmap-2.0/build/hosted-ux-r17-smoke.mjs && NODE_OPTIONS= npx tsx ~/Skytale/ClaudeReports/planning/roadmap-2.0/build/hosted-history-smoke.mjs && NODE_OPTIONS= npx tsx ~/Skytale/ClaudeReports/planning/roadmap-2.0/build/hosted-deliveries-smoke.mjs && npx vitest run && npx eslint src`
 Expected: all OK (U3's axe now covers the today label: white on ink, ink on white in dark).
 
-- [ ] **Step 8: Commit, then start Tasks 8–11** (see Execution)
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/app/timeline/timeline.html src/app/kunder/kunder.html
-git commit -m "Tidslinjen, Kunder: one meaning per colour: today in ink, discovery a slate hatch, dashed goals, outlined attributes, weight as a meter (R17)"
-git rev-parse HEAD   # the base for the four page worktrees
+git add src/app/timeline/timeline.html
+git commit -m "Tidslinjen: one meaning per colour: today in ink, discovery a slate hatch, dashed goals, outlined attributes (R17)"
 ```
 
 ### Task 5: a quieter chart (spec §7)
@@ -1570,7 +1550,7 @@ Each of these tasks is self-contained. The context every subagent needs:
   Norwegian in the UI, English in code and commits. Text a person reads is never below 12 px (chips may be 11 px).
   Green, amber and red mean the plan's health only.
 - Work only in your worktree `/Users/dnumreig/Skytale/SkyTracker-wt-r17-<page>` on branch `r17-<page>` (cut from the
-  Task 4 commit). Change only the files your task lists. Never edit `sky.css`, `timeline.html`, `epic-tools.js`; never
+  Task 1 commit). Change only the files your task lists. Never edit `sky.css`, `timeline.html`, `epic-tools.js`; never
   push; never use `master`; no Claude attribution in the commit. Commit once at the end with the given message.
 - Run the gates from your worktree: `npx vitest run`, `npx tsc --noEmit`, `npx eslint src`; and your page's smoke with
   `SKY_SRC=$PWD NODE_OPTIONS= npx tsx ~/Skytale/ClaudeReports/planning/roadmap-2.0/build/<smoke>.mjs`.
@@ -1724,6 +1704,9 @@ await page.click("table.lines tbody tr td:nth-child(3)"); await page.waitForSele
 await page.fill("#dlPromised", "2027-03-01"); await page.waitForSelector("#dlReasonRow:not([hidden])");
 assert(await page.$eval("#dlReasonRow", (r) => r.previousElementSibling.contains(document.getElementById("dlPromised"))), "K-R17: the reason sits right under the date");
 await page.click("#dlCancel");
+await page.click('#views button[data-v="epic"]'); await page.waitForSelector("table.epics");
+const w = await page.$eval(".pill.w-tyngst, .pill.w-flere, .pill.w-lett", (e) => [getComputedStyle(e).backgroundColor, parseFloat(getComputedStyle(e, "::before").width) > 0].join());
+assert(w === "rgb(241, 245, 249),true", "K-R17: weight is a neutral meter, not a status colour: " + w);
 console.log("K-R17 OK");
 ```
 
@@ -1761,6 +1744,17 @@ console.log("K-R17 OK");
     after the `.ed-row` that holds `#dlPromised`.
   - The customer column keeps «Alle kunder» on one line: `.lines td.nm{min-width:120px;white-space:nowrap}`; headers
     `.lines thead th,.epics thead th{font-size:12px;letter-spacing:0;text-transform:none;font-weight:600}`.
+  - Weight is an amount, not a status (spec §6, moved here from Task 4 by a ledgered ruling): replace the three weight selectors in the
+    pill rules so only the status codes keep the colours, then add the meter:
+    ```css
+  .pill.st-gronn{background:var(--ok-bg);color:var(--ok-fg)}
+  .pill.st-gul{background:var(--warn-bg);color:var(--warn-fg)}
+  .pill.st-rod{background:var(--bad-bg);color:var(--bad-fg)}
+  .pill.w-lett,.pill.w-flere,.pill.w-tyngst,.pill.w-ingen{background:var(--badge-bg);color:var(--text)}
+  .pill.w-lett::before,.pill.w-flere::before,.pill.w-tyngst::before{height:6px;border-radius:3px;background:var(--accent)}
+  .pill.w-lett::before{width:8px} .pill.w-flere::before{width:16px} .pill.w-tyngst::before{width:26px}
+  .pill.w-ingen::before{width:0}
+    ```
 
 - [ ] **Step 4: Run the deliveries smoke and the gates** → `K-R17 OK`; D1–D7 still pass (they click `button[data-edit]`, which
   is now the customer's name).
