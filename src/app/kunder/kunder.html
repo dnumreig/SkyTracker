@@ -169,7 +169,7 @@ window.__bootKunder = function(){
     $('dlCustomersField').hidden = $('dlAll').checked;
     const eps = new Set(d ? d.epics : []), rels = new Set(d ? d.releases : []);
     $('dlEpics').innerHTML = state.lanes.length ? state.lanes.map(l => '<label><input type="checkbox" data-epic="' + esc(l.key) + '"' + (eps.has(l.key) ? ' checked' : '') + '> ' + esc(l.name) + ' <small>' + esc(EPIC_STATE_LABEL[l.state || 'aktiv'].toLowerCase()) + '</small></label>').join('') : '<small>Ingen epics i planen ennå.</small>';
-    $('dlReleases').innerHTML = (state.releases || []).length ? state.releases.map(r => '<label><input type="checkbox" data-release="' + esc(r.key) + '"' + (rels.has(r.key) ? ' checked' : '') + '> ' + esc(r.version) + ' <small>' + esc(r.shippedDate ? 'skippet ' + dayText(r.shippedDate) : 'mål ' + dayText(r.targetDate)) + '</small></label>').join('') : '<small>Ingen releaser i planen ennå.</small>';
+    $('dlReleases').innerHTML = (state.releases || []).length ? state.releases.map(r => '<label><input type="checkbox" data-release="' + esc(r.key) + '"' + (rels.has(r.key) ? ' checked' : '') + '> ' + esc(r.version) + ' <small>' + esc(r.shippedDate ? 'sluppet ' + dayText(r.shippedDate) : (r.qaDate ? 'klar for QA ' + dayText(r.qaDate) + ' · release ' : 'mål ') + dayText(r.targetDate)) + '</small></label>').join('') : '<small>Ingen releaser i planen ennå.</small>';   // R18: a release's dates as report.ts and Tidslinjen name them (D4, D7)
     $('dlNote').value = (d && d.note) || '';
     $('dlReasonRow').hidden = true; $('dlReasonCode').value = ''; $('dlReasonText').value = '';
     $('dlDelete').hidden = !d;
