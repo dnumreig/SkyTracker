@@ -67,6 +67,16 @@ describe("sprintReportMarkdown", () => {
     const order = ["## Fremdrift per feature", "## Releaser", "## Utredninger som kom videre"].map((h) => md.indexOf(h));
     expect(order).toEqual([...order].sort((a, b) => a - b));
   });
+  it("R18: the release line names both dates once «Klar for QA» is set, and «sluppet …» once out, «Klar for QA» or not (D4, D7)", () => {
+    const p = plan();
+    p.releases = normalizePlan({ lanes: [], tasks: [], releases: [
+      { key: "r0", version: "2.0.0", targetDate: "2026-11-05", qaDate: "2026-11-02", shippedDate: "2026-11-06" },   // out in the period (its first event is 6.11)
+      { key: "r1", version: "2.0.1", targetDate: "2026-11-27", qaDate: "2026-11-20" },
+      { key: "r2", version: "2.0.2", targetDate: "2026-12-11" },
+    ] }).releases;
+    const md = sprintReportMarkdown({ title: "Sprintrapport Sprint 73", strip: STRIP, path: path(), plan: p, laneName, todayUnit: TODAY, todayDay: "2026-11-09" });
+    expect(md).toContain("## Releaser\n- 2.0.0: sluppet 6. nov · ikke lest fra ADO\n- 2.0.1: klar for QA 20. nov · release 27. nov · ikke lest fra ADO\n- 2.0.2: mål 11. des · ikke lest fra ADO\n");
+  });
 });
 
 describe("the period's first day is the Oslo day (minor after R16)", () => {

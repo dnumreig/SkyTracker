@@ -163,6 +163,14 @@ describe("refreshReleases (R10 + R11)", () => {
     expect(items.find((i) => i.id === 4871)!.delivered).toBeUndefined();
     expect(items.find((i) => i.id === 4817)).toMatchObject({ category: "Completed", closed: "2026-10-12" });
   });
+  it("R18: a good read of the states leaves «statesMissing» unset on every release, also on one the last read flagged", async () => {
+    const { client } = fake([], undefined, { states: STATES_OF });
+    const before = plan();
+    before.releases![0].ado = { at: "2026-10-11T10:00:00.000Z", label: "2.0.1", items: [], statesMissing: true };   // the last read did not find them
+    const p = (await refreshReleases(before, client, NOW)).plan;
+    p.releases!.forEach((r) => expect(r.ado).not.toHaveProperty("statesMissing"));
+    expect(p.releases![0].ado!.items.find((i) => i.id === 4817)!.category).toBe("Completed");   // and the read counted by the categories
+  });
   it("R18: when the states call fails the release is still read by the names, and says so", async () => {
     const { client } = fake([], undefined, { states: STATES_OF });
     const p = (await refreshReleases(plan(), { ...client, states: async () => { throw new Error("no access"); } }, NOW)).plan;
