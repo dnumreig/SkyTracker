@@ -1053,6 +1053,7 @@ window.__bootTimeline = function(){
   let myName = null, canWrite = false, serverReady = false, serverFailed = false, serverVersion = null, applyingRemote = false;
   const mayEdit = () => !HOSTED || canWrite;   // R17: from a file everything is local; hosted, only writers edit
   let drag = null, colDrag = null, saveTimer = null, pendingSave = false, pushing = false;
+  let renderPending = false;   // R17: a background render (the compare) that came during a drag; afterDrag() runs it
   function newNote(){ return { causes: {}, reason: null, reasonCode: null, source: null, lines: [] }; }
   let pendingNote = newNote();   // følger neste lagring: begrunnelse, årsaker (dytt fra avhengighet), kilde (eksempel)
   function restoreNote(note){      // lagringen feilet: begrunnelsen og årsakene skal bli med i neste forsøk
@@ -1761,7 +1762,7 @@ window.__bootTimeline = function(){
       if(lines.length) askReason(lines);   // dialogen holder lagringen til den er lukket
       save(); render();
     }
-    if(mediaPending){ mediaPending = false; applyZoom(); render(); }   // R17: a screen change that came during the drag (pointerup and pointercancel both end here)
+    afterDrag();   // R17: a screen change or a background render that came during the drag (pointerup and pointercancel both end here)
   }
   chart.addEventListener('pointerup', endDrag);
   chart.addEventListener('pointercancel', endDrag);
@@ -1775,10 +1776,15 @@ window.__bootTimeline = function(){
     d.undo.tasks.forEach(([v, start, likely, end, pinned]) => { v.start = start; v.end = end; if(likely !== undefined) v.endLikely = likely; if(pinned) v.pinned = pinned; else delete v.pinned; });
     pendingTouch.clear(); d.undo.touched.forEach((f, v) => pendingTouch.set(v, f));
     pendingNote.causes = pendingNote === d.undo.note ? d.undo.causes : {};   // a save that went out mid-drag started a new note: its causes are all the drag's
-    if(mediaPending){ mediaPending = false; applyZoom(); }
-    render();
+    renderPending = true; afterDrag();
   }
+  function afterDrag(){   // R17: what waited for the drag: a screen change (the zoom over the new base), then a background render
+    if(mediaPending){ mediaPending = false; applyZoom(); renderPending = true; }
+    if(renderPending){ renderPending = false; render(); }
+  }
+  function renderWhenFree(){ if(drag) renderPending = true; else render(); }   // R17: a render nobody asked for now (a compare coming back) never lands under a drag
   document.addEventListener('lostpointercapture', e => { if(drag && e.pointerId === drag.pointerId) cancelDrag(); });   // a release ends the drag before its capture goes, so only a lost bar lands here
+  chart.addEventListener('contextmenu', () => { if(drag) cancelDrag(); });   // R17: a Mac's Ctrl+click is button 0 and opens the menu, and its release never reaches the chart
   function inFrontOfQueue(t, floor){   // started before the queue lets it: overstyrt with intent (a drag and a key do the same)
     return t.kind === 'estimate' && t.lane !== BACKLOG && t.state !== 'levert' && floor !== null && t.start < floor - 1e-9;
   }
@@ -2135,7 +2141,7 @@ window.__bootTimeline = function(){
         strip: j.strip, path: j.path, exportText: j.exportText,
       };
       renderCompareBar();
-      render();
+      renderWhenFree();   // R17: a save's reply refreshes the compare; under a drag the chart waits
     }catch(e){ endCompare(); setSaveNote('kunne ikke hente sammenligningen'); }
   }
   async function refreshCompare(){ if(cmp) await startCompare(cmp.id); }
@@ -2143,7 +2149,7 @@ window.__bootTimeline = function(){
     cmp = null;
     cmpBar.hidden = true; cmpList.hidden = true;
     cmpSelect.value = ''; cmpDate.hidden = true;
-    render();
+    renderWhenFree();   // R17: also reached from a compare that failed in the background
   }
   function renderCompareBar(){
     cmpBar.hidden = false;
@@ -3020,6 +3026,7 @@ window.__bootTimeline = function(){
     }
   }
   async function pushPlan(){
+    if(drag || reasonOpen){ clearTimeout(saveTimer); saveTimer = setTimeout(pushPlan, 900); return; }   // R17: never under a drag or «Hvorfor?»: the live dates are not the plan yet, and the reason goes with the change
     pendingSave = false;
     pushing = true;
     const note = pendingNote;        // det som følger akkurat denne lagringen
