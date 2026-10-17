@@ -1,4 +1,4 @@
-import type { Plan, PlanLane, PlanTask, Sprint, TaskFieldGroup, Wish, WishSource, WishStatus, Release, ReleaseItem, Delivery } from "./merge";
+import type { Plan, PlanLane, PlanTask, Sprint, TaskFieldGroup, Wish, WishSource, WishStatus, Release, ReleaseItem, Delivery, SprintCheck } from "./merge";
 
 export declare function progressFraction(p: PlanTask["progress"] | undefined | null): number | null;
 export declare function progressSignal(task: PlanTask, todayUnit: number): { code: "gronn" | "gul" | "rod"; done: number; elapsed: number } | null;
@@ -162,6 +162,29 @@ export type DeliveryReleasePart = { kind: "release"; key: string; release: Relea
 export type DeliveryPart = DeliveryEpicPart | DeliveryReleasePart;
 export type DeliveryGroup = { delivery: Delivery; status: DeliveryStatus; segment: { start: number; end: number; promised: number }; parts: DeliveryPart[] };
 export declare function deliveryRows(plan: Plan, todayDay: string): { groups: DeliveryGroup[]; loose: DeliveryEpicPart[] };
+
+/* R19: the Sprint tab */
+export declare function nextSprint(sprints: Sprint[] | undefined | null, date: Date): Sprint | null;
+/** The part of a sprint for bugs and issues: 1 − the mix's feature share (transition 0.45, normal 0.4). */
+export declare function budgetShare(plan: Partial<Plan> | null | undefined): number;
+/** «26. okt – 6. nov» */
+export declare function sprintRangeText(s: Sprint): string;
+/** The features the read asks ADO about: in an epic, aktiv, with an ADO id, the bar starting on or before the next sprint's last day. */
+export declare function dueFeatureIds(plan: Plan, todayDay: string): string[];
+export type DueStatus = "i gang" | "ikke startet" | "sent" | "planlagt" | "uten stories" | "ikke i ADO";
+export type Due = { task: PlanTask; epic: PlanLane | null; start: string; status: DueStatus; inNext?: number; open?: number; inNextPoints?: number; inCurrent?: number };
+export declare function sprintDue(plan: Plan, check: SprintCheck | null | undefined, todayDay: string): { sprint: Sprint | null; discoveries: Due[]; features: Due[] };
+/** The features in work today: in an epic, aktiv, today inside the bar; by epic, then start. */
+export declare function sprintInWork(plan: Plan, todayDay: string): PlanTask[];
+export type SlipCost = { weeks: number; sprint: string; epic: { key: string; name: string; before: EpicStatusCode; after: EpicStatusCode; goalDate: number | null } | null };
+export declare function slipCost(plan: Plan, taskId: string, todayDay: string): SlipCost | null;
+export declare function slipCostText(cost: SlipCost): string;
+export type HealthForecast = { now: number; afterRelease: { label: string; value: number } | null; endOfNext: { value: number; closed: number; created: number } | null };
+export declare function healthForecast(check: SprintCheck, release: Release | null | undefined): HealthForecast;
+export declare function budgetText(check: SprintCheck): string;
+/** «43 åpne bugs · 17 issues»; "" without a check. */
+export declare function healthStripText(check: SprintCheck | null | undefined): string;
+export declare function sprintCheckMarkdown(plan: Plan, check: SprintCheck, todayDay: string): string;
 
 /* R17: modals and drawers as dialogs (browser only) */
 export declare function wireDialogs(doc: Document): void;

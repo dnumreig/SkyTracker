@@ -1071,6 +1071,154 @@ function deliveryRows(plan, todayDay) {
   return { groups, loose };
 }
 
+/* ---------- R19: the Sprint tab ---------- */
+/** The sprint after the one `date` falls in, or the first that starts after `date` (between sprints); null when there is none. */
+function nextSprint(sprints, date) {
+  const list = (Array.isArray(sprints) ? sprints : []).slice().sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+  const cur = currentSprint(list, date);
+  const after = cur ? cur.finish : dayKey(date);
+  return list.find((s) => s.start > after) || null;
+}
+/** The part of a sprint for bugs and issues: 1 − the mix's feature share (transition 0.45, normal 0.4), to the hundredth. */
+function budgetShare(plan) {
+  const mode = plan && plan.capacity && MIX[plan.capacity.mode] ? plan.capacity.mode : "transition";
+  return Math.round((1 - MIX[mode]) * 100) / 100;
+}
+/** «26. okt – 6. nov» */
+function sprintRangeText(s) { return fmtDate(dayOf(s.start)) + " – " + fmtDate(dayOf(s.finish)); }
+const sprintsOfPlan = (plan) => (plan && plan.sprints && plan.sprints.items) || [];
+const epicFeature = (plan, t) => t.kind === "estimate" && t.state === "aktiv" && t.lane !== BACKLOG && plan.lanes.some((l) => l.key === t.lane);   // a feature of an epic, in development
+const laneRank = (plan) => { const idx = new Map(plan.lanes.map((l, i) => [l.key, i])); return (t) => (idx.has(t.lane) ? idx.get(t.lane) : plan.lanes.length); };   // the epics' order, the shelf last
+/** The features the read asks ADO about: in an epic, aktiv, with an ADO id, the bar starting on or before the next sprint's last day. */
+function dueFeatureIds(plan, todayDay) {
+  const next = nextSprint(sprintsOfPlan(plan), dayOf(todayDay));
+  if (!next) return [];
+  const last = dayToUnit(next.finish);
+  return plan.tasks.filter((t) => epicFeature(plan, t) && typeof t.adoId === "number" && t.start <= last + 1e-9).map((t) => t.id);
+}
+/** D6: what the timeline expects of the next sprint: every task not delivered whose bar starts on or before its last day.
+ *  Discoveries («utredes» or «ny», shelf or epic) must be under way; features (estimates in an epic, aktiv) must have stories
+ *  in the next sprint, or in the current one once the bar has started. «sent»: it should have started before the next sprint.
+ *  The counts come from the check (0 without an entry; entries for tasks no longer due are ignored). By start, epic, label. */
+function sprintDue(plan, check, todayDay) {
+  const sprint = nextSprint(sprintsOfPlan(plan), dayOf(todayDay));
+  if (!sprint) return { sprint: null, discoveries: [], features: [] };
+  const first = dayToUnit(sprint.start), last = dayToUnit(sprint.finish), today = dayToUnit(todayDay), rank = laneRank(plan);
+  const due = (t) => t.state !== "levert" && t.start <= last + 1e-9;
+  const late = (t) => t.start < first - 1e-9;
+  const row = (t, status) => ({ task: t, epic: t.lane === BACKLOG ? null : plan.lanes.find((l) => l.key === t.lane) || null, start: dayKey(unitToDate(t.start)), status });
+  const order = (a, b) => (Math.abs(a.task.start - b.task.start) > 1e-9 ? a.task.start - b.task.start : 0) || rank(a.task) - rank(b.task) || String(a.task.label || "").localeCompare(String(b.task.label || ""), "nb");
+  const discoveries = plan.tasks.filter((t) => (t.state === "utredes" || t.state === "ny") && due(t))
+    .map((t) => row(t, t.state === "utredes" ? "i gang" : late(t) ? "sent" : "ikke startet")).sort(order);
+  const counts = (check && check.features) || {};
+  const features = plan.tasks.filter((t) => epicFeature(plan, t) && due(t)).map((t) => {
+    const c = Object.prototype.hasOwnProperty.call(counts, t.id) ? counts[t.id] : { open: 0, inNext: 0, inNextPoints: 0, inCurrent: 0 };
+    const status = c.inNext > 0 || (c.inCurrent > 0 && t.start <= today + 1e-9) ? "planlagt" : late(t) ? "sent" : typeof t.adoId !== "number" ? "ikke i ADO" : "uten stories";
+    return { ...row(t, status), inNext: c.inNext, open: c.open, inNextPoints: c.inNextPoints, inCurrent: c.inCurrent };
+  }).sort(order);
+  return { sprint, discoveries, features };
+}
+/** The features in work today: in an epic, aktiv, today inside the bar; by epic, then start. */
+function sprintInWork(plan, todayDay) {
+  const today = dayToUnit(todayDay), rank = laneRank(plan);
+  return plan.tasks.filter((t) => epicFeature(plan, t) && t.start <= today + 1e-9 && today <= t.end + 1e-9).sort((a, b) => rank(a) - rank(b) || a.start - b.start);
+}
+/** D7: what it costs when the task starts no earlier than the sprint after next: on clones of the plan run through the queue,
+ *  the end's shift in whole weeks and its epic's status before and after (null on the shelf). Nothing in `plan` moves.
+ *  Null without a sprint after next or without the task. */
+function slipCost(plan, taskId, todayDay) {
+  const items = sprintsOfPlan(plan), next = nextSprint(items, dayOf(todayDay)), after = next && nextSprint(items, dayOf(next.start));
+  if (!after) return null;
+  const before = normalizePlan(JSON.parse(JSON.stringify(plan)));
+  resolveQueue(before);
+  const was = before.tasks.find((t) => t.id === taskId);
+  if (!was) return null;
+  const moved = JSON.parse(JSON.stringify(before)), t = moved.tasks.find((v) => v.id === taskId), at = dayToUnit(after.start);
+  if (t.start < at - 1e-9) shiftTask(t, at - t.start);   // by hand, a pinned one or a fixed end too: the question is what a later start costs
+  resolveQueue(moved);
+  const lane = was.lane === BACKLOG ? null : before.lanes.find((l) => l.key === was.lane) || null;
+  return {
+    weeks: Math.round((t.end - was.end) / WEEK), sprint: after.name,
+    epic: lane ? { key: lane.key, name: lane.name, before: epicStatus(before, lane.key).code, after: epicStatus(moved, lane.key).code, goalDate: typeof lane.goalDate === "number" ? lane.goalDate : null } : null,
+  };
+}
+const SLIP_WORD = { gronn: "grønn", gul: "gul", rod: "rød", venter: "venter på utredning", "ingen-mal": "uten måldato", tom: "tom" };
+/** «starter tidligst Sprint 73 → slutt +2 uker → «Epic» blir gul (mål 15. des)», or «· «Epic» er fortsatt …» when the colour stays. */
+function slipCostText(c) {
+  const head = "starter tidligst " + c.sprint + " → ";
+  if (c.weeks === 0) return head + "slutten flytter seg ikke";
+  const shift = head + "slutt +" + weeksWords(c.weeks);
+  const e = c.epic;
+  if (!e) return shift;
+  const goal = typeof e.goalDate === "number" ? " (mål " + fmtDate(unitToDate(e.goalDate)) + ")" : "";
+  return shift + (e.before !== e.after ? " → «" + e.name + "» blir " : " · «" + e.name + "» er fortsatt ") + SLIP_WORD[e.after] + goal;
+}
+/** D3, D4: the open bugs now, after the next release (its label's open bugs close with it) and at the end of the next sprint
+ *  (open − the budget's points at the closed bugs' average points + the average created, over the last two finished sprints;
+ *  by count when those bugs had no points). `endOfNext` is null without a budget or without history. */
+function healthForecast(check, release) {
+  const open = check.bugs.open;
+  let afterRelease = null;
+  if (release) {
+    const label = releaseScope(release), inRelease = check.bugs.inRelease;
+    afterRelease = { label, value: Math.max(0, open - (Object.prototype.hasOwnProperty.call(inRelease, label) ? inRelease[label] : 0)) };
+  }
+  let endOfNext = null;
+  const last = check.sprints.slice(-2), n = last.length;
+  if (check.budget.points !== null && n) {
+    const sum = (k) => last.reduce((s, x) => s + x[k], 0);
+    const closedPoints = sum("closedPoints"), avg = closedPoints / sum("closed");
+    const closed = closedPoints > 0 ? Math.round((check.budget.points * check.budget.share) / avg) : Math.round(sum("closed") / n);
+    const created = Math.round(sum("created") / n);
+    endOfNext = { value: Math.max(0, open - closed + created), closed, created };
+  }
+  return { now: open, afterRelease, endOfNext };
+}
+/** «45 % ≈ 24 SP av ~53 · 18 SP planlagt på bugs», or why there is no budget. */
+function budgetText(check) {
+  const b = check.budget;
+  if (b.points === null) {
+    if (b.missing === "capacity") return "Ingen budsjett: fyll inn Capacity i ADO for " + (check.next || "neste sprint") + " (Development-timer per dag og fridager)";
+    if (b.missing === "history") return "Ingen budsjett: ingen utviklede poeng i de to siste sprintene å regne tempo fra";
+    return "Ingen budsjett: ingen neste sprint i ADO";
+  }
+  const planned = check.bugs.inNextPoints;
+  return Math.round(b.share * 100) + " % ≈ " + Math.round(b.points * b.share) + " SP av ~" + Math.round(b.points) + " · " +
+    (planned > 0 ? dec(Math.round(planned * 10) / 10) + " SP planlagt på bugs" : "ingen SP planlagt på bugs ennå");
+}
+const openBugsWords = (n) => n + (n === 1 ? " åpen bug" : " åpne bugs");
+const issuesWords = (n) => n + (n === 1 ? " issue" : " issues");
+/** «43 åpne bugs · 17 issues»; "" without a check. */
+function healthStripText(check) { return check ? openBugsWords(check.bugs.open) + " · " + issuesWords(check.issues.open) : ""; }
+/** HH:MM in Oslo, built from the parts so the locale's separator does not matter. */
+function osloTime(d) {
+  const parts = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Oslo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(d);
+  const part = (type) => String((parts.find((p) => p.type === type) || { value: "0" }).value).padStart(2, "0");
+  return part("hour") + ":" + part("minute");
+}
+/** D9: «Kopier som tekst», the Markdown for produktforum: the health with its forecasts, the budget, the due lists with the
+ *  cost of every «sent» row, and when ADO was read. */
+function sprintCheckMarkdown(plan, check, todayDay) {
+  const due = sprintDue(plan, check, todayDay), s = due.sprint, next = s ? s.name : check.next || "neste sprint";
+  const nr = nextReleaseText(plan, todayDay), fc = healthForecast(check, nr ? nr.release : null), b = check.bugs;
+  const grades = "A " + b.A + " · B " + b.B + " · C " + b.C + " · D " + b.D + (b.none > 0 ? " · uten grad " + b.none : "");
+  const lines = ["## " + (s ? s.name + " · " + sprintRangeText(s) : next.charAt(0).toUpperCase() + next.slice(1)), "",
+    "**App-helse:** " + openBugsWords(b.open) + " (" + grades + ") · " + issuesWords(check.issues.open)];
+  if (fc.afterRelease) lines.push("- Etter " + fc.afterRelease.label + ": ≈ " + fc.afterRelease.value);
+  if (fc.endOfNext) lines.push("- Ved slutten av " + next + ": ≈ " + fc.endOfNext.value + " (lukker ~" + fc.endOfNext.closed + ", ~" + fc.endOfNext.created + " nye)");
+  lines.push("", "**Budsjett for bugs og issues:** " + budgetText(check), "");
+  const row = (d) => {
+    const t = d.task, cost = d.status === "sent" ? slipCost(plan, t.id, todayDay) : null;
+    return "- " + (d.epic ? d.epic.name : "Hylla") + " › " + t.label + " · " + (t.assignee || "uten eier") + " · " + fmtDate(unitToDate(t.start)) + " – " + fmtDate(unitToDate(t.end)) + " · " + d.status + (cost ? " · " + slipCostText(cost) : "");
+  };
+  const list = (rows) => (rows.length ? rows.map(row) : ["- Ingen"]);
+  lines.push("### Utredninger som skal i gang", ...list(due.discoveries), "", "### Features som skal ha stories i " + next, ...list(due.features), "");
+  const at = new Date(check.at);
+  lines.push("_Lest fra ADO " + (isNaN(at.getTime()) ? check.at : fmtDate(dayOf(osloDay(at))) + " " + osloTime(at)) + "_");
+  if (check.statesMissing) lines.push("", "_ADOs tilstander ble ikke funnet: alt unntatt Closed og Removed er telt som åpent._");
+  return lines.join("\n") + "\n";
+}
+
 /* ---------- R17: the focus across a re-render (browser only) ---------- */
 /** A selector that finds `el` again after a re-render: `#id`; else its row (the closest [data-id] or [data-key], never a
  *  ghost; the n-th of them when rows share the key, as Kunder's one per customer) and the control in it. */
@@ -1158,5 +1306,6 @@ if (typeof module !== "undefined") {
     progressFraction, progressSignal, epicProgressSignal, progressText,
     MIX, MIX_LABEL, capacityFactor, elapsedWeeks, queueFloor, resolveQueue,
     focusKey, restoreFocus,
+    nextSprint, budgetShare, sprintRangeText, dueFeatureIds, sprintDue, sprintInWork, slipCost, slipCostText, healthForecast, budgetText, healthStripText, sprintCheckMarkdown,
   };
 }

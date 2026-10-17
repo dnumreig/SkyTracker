@@ -13,8 +13,9 @@ import {
   navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
   osloDay, osloDate,
   DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor, deliveryRows,
+  nextSprint, budgetShare, sprintRangeText, dueFeatureIds, sprintDue, sprintInWork, slipCost, slipCostText, healthForecast, budgetText, healthStripText, sprintCheckMarkdown,
 } from "./epic-tools.js";
-import type { Delivery, Plan, PlanTask, SprintCheck } from "./merge";
+import type { Delivery, Plan, PlanTask, Sprint, SprintCheck } from "./merge";
 
 const est = (over: Partial<PlanTask>): PlanTask =>
   ({ id: "e", lane: "x", label: "Est", kind: "estimate", start: 4, endLikely: 5, end: 6, deps: [], fv: {}, ...over });
@@ -1392,5 +1393,134 @@ describe("normalizePlan: sprintCheck (R19)", () => {
   it("keeps only the known fields", () => {
     const c = { ...structuredClone(VALID), extra: 1, bugs: { ...structuredClone(VALID).bugs, extra: 2 } };
     expect(normalizePlan({ lanes: [], tasks: [], sprintCheck: c }).sprintCheck).toEqual(VALID);
+  });
+});
+
+describe("R19: the Sprint tab", () => {
+  const U = (y: number, m: number, d: number) => dateToUnit(new Date(y, m - 1, d));
+  const sprint = (n: number, start: string, finish: string): Sprint => ({ name: "Sprint " + n, path: "Skytale\\Sprint " + n, start, finish });
+  const SPR: Sprint[] = [sprint(70, "2026-09-28", "2026-10-09"), sprint(71, "2026-10-12", "2026-10-23"), sprint(72, "2026-10-26", "2026-11-06"), sprint(73, "2026-11-09", "2026-11-20")];
+  const TODAY = "2026-10-16";
+  // estimates: likely four and late six weeks after their start; discoveries two weeks long
+  const feat = (id: string, lane: string, start: number, over: Partial<PlanTask> = {}): PlanTask =>
+    ({ id, lane, label: "Feature " + id.slice(1), kind: "estimate", start, endLikely: start + 4 * WEEK, end: start + 6 * WEEK, deps: [], fv: {}, ...over });
+  const discovery = (id: string, lane: string, start: number, state: "utredes" | "ny"): PlanTask =>
+    ({ id, lane, label: "Utredning " + id.slice(1), kind: "discovery", state, start, end: start + 2 * WEEK, deps: [], fv: {} });
+  const PLAN: Plan = normalizePlan({
+    lanes: [{ key: "a", name: "Epic A" }, { key: "b", name: "Epic B" }],
+    sprints: { at: "2026-10-16T08:00:00Z", items: SPR },
+    tasks: [
+      discovery("d1", BACKLOG, U(2026, 10, 12), "utredes"),
+      discovery("d2", BACKLOG, U(2026, 10, 19), "ny"),
+      discovery("d3", BACKLOG, U(2026, 10, 28), "ny"),
+      discovery("d4", "a", U(2026, 11, 16), "utredes"),   // in an epic, after the next sprint: not due
+      feat("f1", "a", U(2026, 10, 26), { adoId: 101 }),
+      feat("f2", "a", U(2026, 10, 30), { adoId: 102 }),
+      feat("f3", "b", U(2026, 10, 5), { adoId: 103 }),
+      feat("f4", "b", U(2026, 10, 19), { adoId: 104 }),
+      feat("f5", "a", U(2026, 11, 2)),
+      feat("f8", "b", U(2026, 11, 2), { adoId: 108 }),
+      feat("f6", "a", U(2026, 10, 5), { adoId: 106, state: "levert", deliveredAt: "2026-10-14" }),   // delivered: never due, never in work
+      feat("f7", BACKLOG, U(2026, 10, 26), { adoId: 107 }),   // on the shelf (klar): not a feature of an epic
+    ],
+  });
+  const fc = (stories: number, open: number, inNext: number, inNextPoints: number, inCurrent: number) => ({ stories, open, inNext, inNextPoints, inCurrent });
+  const HC: SprintCheck = {
+    at: "2026-10-17T10:40:00Z",
+    current: "Sprint 71",
+    next: "Sprint 72",
+    bugs: { open: 43, A: 1, B: 12, C: 21, D: 9, none: 0, inRelease: { "2.0.1": 11 }, inNext: 6, inNextPoints: 18, closedCurrent: 7 },
+    issues: { open: 17 },
+    sprints: [   // oldest first; only the last two count
+      { name: "Sprint 67", end: "2026-08-28", openBugs: 30, openIssues: 12, created: 9, closed: 2, closedPoints: 3 },
+      { name: "Sprint 68", end: "2026-09-11", openBugs: 35, openIssues: 14, created: 7, closed: 3, closedPoints: 9 },
+      { name: "Sprint 69", end: "2026-09-25", openBugs: 40, openIssues: 15, created: 5, closed: 8, closedPoints: 16 },
+      { name: "Sprint 70", end: "2026-10-09", openBugs: 41, openIssues: 16, created: 3, closed: 12, closedPoints: 24 },
+    ],
+    budget: { points: 53, share: 0.45 },
+    features: {},
+  };
+  const CHECK: SprintCheck = { ...HC, features: { f1: fc(4, 3, 3, 8, 0), f2: fc(2, 2, 0, 0, 0), f3: fc(5, 2, 0, 0, 2), f4: fc(1, 1, 0, 0, 0), gone: fc(1, 1, 1, 1, 0) } };
+  const SLIP: Plan = normalizePlan({
+    lanes: [{ key: "t", name: "Telenor kan bygge på oss", goalDate: U(2026, 12, 15) }],
+    sprints: { at: "2026-10-16T08:00:00Z", items: SPR },
+    tasks: [{ id: "x", lane: "t", label: "Kontaktkort", kind: "estimate", start: U(2026, 10, 26), endLikely: U(2026, 11, 27), end: U(2026, 12, 11), deps: [], fv: {} }],
+  });
+
+  it("nextSprint: the sprint after the current one, the first after a gap, none after the last", () => {
+    expect(nextSprint(SPR, new Date(2026, 9, 16))!.name).toBe("Sprint 72");
+    expect(nextSprint(SPR, new Date(2026, 9, 24))!.name).toBe("Sprint 72");   // the weekend between 71 and 72
+    expect(nextSprint([...SPR].reverse(), new Date(2026, 9, 16))!.name).toBe("Sprint 72");
+    const xmas = [{ name: "Sprint 75", path: "p", start: "2026-12-07", finish: "2026-12-18" }, { name: "Sprint 76", path: "p", start: "2027-01-04", finish: "2027-01-15" }];
+    expect(nextSprint(xmas, new Date(2026, 11, 28))!.name).toBe("Sprint 76");
+    expect(nextSprint(SPR, new Date(2026, 10, 12))).toBeNull();
+    expect(nextSprint(undefined, new Date(2026, 9, 16))).toBeNull();
+  });
+  it("budgetShare and sprintRangeText", () => {
+    expect(budgetShare({ capacity: { mode: "transition", at: "x" } })).toBe(0.45);
+    expect(budgetShare({ capacity: { mode: "normal", at: "x" } })).toBe(0.4);
+    expect(budgetShare(null)).toBe(0.45);
+    expect(sprintRangeText(SPR[2])).toBe("26. okt – 6. nov");
+  });
+  it("sprintDue: discoveries and features by D6, in start order, a stale cache ignored", () => {
+    const due = sprintDue(PLAN, CHECK, TODAY);
+    expect(due.sprint!.name).toBe("Sprint 72");
+    expect(due.discoveries.map((d) => [d.task.id, d.status])).toEqual([["d1", "i gang"], ["d2", "sent"], ["d3", "ikke startet"]]);
+    expect(due.features.map((d) => [d.task.id, d.status])).toEqual([["f3", "planlagt"], ["f4", "sent"], ["f1", "planlagt"], ["f2", "uten stories"], ["f5", "ikke i ADO"], ["f8", "uten stories"]]);
+    expect(due.features[2]).toMatchObject({ start: "2026-10-26", inNext: 3, inNextPoints: 8, open: 3 });
+    expect(due.discoveries[0].epic).toBeNull();
+    expect(due.features[0].epic!.key).toBe("b");
+    expect(dueFeatureIds(PLAN, TODAY).sort()).toEqual(["f1", "f2", "f3", "f4", "f8"]);
+  });
+  it("sprintDue without sprints or without a check", () => {
+    expect(sprintDue({ ...PLAN, sprints: undefined }, CHECK, TODAY)).toEqual({ sprint: null, discoveries: [], features: [] });
+    expect(sprintDue(PLAN, null, TODAY).features.map((d) => d.status)).toEqual(["sent", "sent", "uten stories", "uten stories", "ikke i ADO", "uten stories"]);
+  });
+  it("sprintInWork: the features whose bar holds today", () => {
+    expect(sprintInWork(PLAN, TODAY).map((t) => t.id)).toEqual(["f3"]);
+  });
+  it("slipCost: one sprint later moves the end two weeks and turns the epic amber", () => {
+    const c = slipCost(SLIP, "x", TODAY)!;
+    expect(c).toMatchObject({ weeks: 2, sprint: "Sprint 73", epic: { key: "t", before: "gronn", after: "gul", goalDate: U(2026, 12, 15) } });
+    expect(slipCostText(c)).toBe("starter tidligst Sprint 73 → slutt +2 uker → «Telenor kan bygge på oss» blir gul (mål 15. des)");
+  });
+  it("slipCost: nothing moves for a feature already after the next sprint, none without a sprint after next", () => {
+    const late = normalizePlan(structuredClone(SLIP)); const x = late.tasks[0]; x.start = U(2026, 11, 9); x.endLikely = U(2026, 11, 27); x.end = U(2026, 12, 11);
+    expect(slipCostText(slipCost(late, "x", TODAY)!)).toBe("starter tidligst Sprint 73 → slutten flytter seg ikke");
+    expect(slipCost({ ...SLIP, sprints: { at: "x", items: SPR.slice(0, 3) } }, "x", TODAY)).toBeNull();
+  });
+  it("slipCostText: no epic, and a colour that stays", () => {
+    expect(slipCostText({ weeks: 1, sprint: "Sprint 73", epic: null })).toBe("starter tidligst Sprint 73 → slutt +1 uke");
+    expect(slipCostText({ weeks: 2, sprint: "Sprint 73", epic: { key: "a", name: "A", before: "gronn", after: "gronn", goalDate: null } })).toBe("starter tidligst Sprint 73 → slutt +2 uker · «A» er fortsatt grønn");
+  });
+  it("healthForecast: after the release and at the end of the next sprint (D3, D4)", () => {
+    const r = { key: "r", version: "2.0.1", targetDate: "2026-10-22" };
+    expect(healthForecast(HC, r)).toEqual({ now: 43, afterRelease: { label: "2.0.1", value: 32 }, endOfNext: { value: 35, closed: 12, created: 4 } });
+    expect(healthForecast(HC, { ...r, label: "2.0.1+ota.2" }).afterRelease).toEqual({ label: "2.0.1+ota.2", value: 43 });
+    expect(healthForecast(HC, null).afterRelease).toBeNull();
+  });
+  it("healthForecast: by count when the bugs had no points; none without a budget or history", () => {
+    const noPts = { ...HC, sprints: HC.sprints.map((s) => ({ ...s, closedPoints: 0 })) };
+    expect(healthForecast(noPts, null).endOfNext).toEqual({ value: 37, closed: 10, created: 4 });
+    expect(healthForecast({ ...HC, budget: { points: null, share: 0.45, missing: "capacity" } }, null).endOfNext).toBeNull();
+    expect(healthForecast({ ...HC, sprints: [] }, null).endOfNext).toBeNull();
+  });
+  it("budgetText and healthStripText", () => {
+    expect(budgetText(HC)).toBe("45 % ≈ 24 SP av ~53 · 18 SP planlagt på bugs");
+    expect(budgetText({ ...HC, bugs: { ...HC.bugs, inNextPoints: 0 } })).toBe("45 % ≈ 24 SP av ~53 · ingen SP planlagt på bugs ennå");
+    expect(budgetText({ ...HC, budget: { points: null, share: 0.45, missing: "capacity" } })).toBe("Ingen budsjett: fyll inn Capacity i ADO for Sprint 72 (Development-timer per dag og fridager)");
+    expect(budgetText({ ...HC, budget: { points: null, share: 0.45, missing: "history" } })).toBe("Ingen budsjett: ingen utviklede poeng i de to siste sprintene å regne tempo fra");
+    expect(budgetText({ ...HC, next: null, budget: { points: null, share: 0.45 } })).toBe("Ingen budsjett: ingen neste sprint i ADO");
+    expect(healthStripText(HC)).toBe("43 åpne bugs · 17 issues");
+    expect(healthStripText({ ...HC, bugs: { ...HC.bugs, open: 1 }, issues: { open: 1 } })).toBe("1 åpen bug · 1 issue");
+    expect(healthStripText(null)).toBe("");
+  });
+  it("sprintCheckMarkdown: the head, the lists, a flagged row's cost and the read time", () => {
+    const md = sprintCheckMarkdown({ ...PLAN, releases: [{ key: "r", version: "2.0.1", targetDate: "2026-10-22" }] } as Plan, { ...HC, features: CHECK.features, at: "2026-10-17T10:40:00Z" }, TODAY);
+    expect(md.split("\n").slice(0, 8).join("\n")).toBe("## Sprint 72 · 26. okt – 6. nov\n\n**App-helse:** 43 åpne bugs (A 1 · B 12 · C 21 · D 9) · 17 issues\n- Etter 2.0.1: ≈ 32\n- Ved slutten av Sprint 72: ≈ 35 (lukker ~12, ~4 nye)\n\n**Budsjett for bugs og issues:** 45 % ≈ 24 SP av ~53 · 18 SP planlagt på bugs\n");
+    expect(md).toContain("### Utredninger som skal i gang\n- Hylla › ");
+    expect(md).toMatch(/- Epic B › .+ · sent · starter tidligst Sprint 73 → /);
+    expect(md.trim().endsWith("_Lest fra ADO 17. okt 12:40_")).toBe(true);
+    expect(sprintCheckMarkdown(PLAN, { ...HC, statesMissing: true, at: "2026-10-17T10:40:00Z" }, TODAY)).toContain("_ADOs tilstander ble ikke funnet: alt unntatt Closed og Removed er telt som åpent._");
   });
 });
