@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sprint – SkyTracker</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="timeline/sky.css">
+<style>
+  /* this page: the shared tokens and controls are in timeline/sky.css (R17); what follows is Sprint's own (R19) */
+  .wrap{max-width:1080px}
+  .hint{max-width:100ch;margin-bottom:12px}
+  p.hint .x{font-size:14px}
+  #missing{display:grid;gap:6px;margin-bottom:12px}
+  #missing:empty{display:none}
+  p.miss{font-size:13px;color:var(--text-2);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--text-4);border-radius:4px;padding:6px 10px;max-width:100ch;width:fit-content}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px 20px;margin-bottom:16px;min-width:0}
+  .card h2{font-size:18px;font-weight:600;line-height:1.3;color:var(--text)}
+  .card h3{font-size:15px;font-weight:600;color:var(--text);margin:18px 0 4px}
+  /* app health: the headline, neutral chips (severity is an amount), the trend, the forecasts (green/amber: health) */
+  #healthHead{font-size:28px;font-weight:700;line-height:1.2;color:var(--text);margin-top:6px;font-variant-numeric:tabular-nums}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{display:inline-flex;align-items:center;font-size:12px;font-weight:600;border-radius:999px;padding:2px 10px;background:var(--badge-bg);color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .health-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px 40px;margin-top:16px}
+  #trend{list-style:none;display:flex;align-items:flex-end;gap:12px}
+  #trend li{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:52px}
+  #trend .bar{display:block;width:24px;background:var(--accent);border-radius:3px 3px 0 0}
+  #trend .n{font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+  #trend .nm{font-size:12px;color:var(--text-2);white-space:nowrap}
+  .fcs{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+  .fc{font-size:13px;font-weight:600;border-radius:4px;padding:3px 10px;background:var(--badge-bg);color:var(--text);font-variant-numeric:tabular-nums}
+  .fc.fc-down{background:var(--ok-bg);color:var(--ok-fg)}
+  .fc.fc-up{background:var(--warn-bg);color:var(--warn-fg)}
+  /* the next sprint: the budget and the two lists */
+  #budget{margin-top:4px;color:var(--text)}
+  ul.due,ul.work{list-style:none;border-top:1px solid var(--line-soft)}
+  ul.due > li,ul.work > li{padding:8px 0;border-bottom:1px solid var(--line-soft);min-width:0}
+  li.none{font-size:13px;color:var(--text-3)}
+  .due-row .top,.work-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px}
+  a.to-tl{color:var(--text);font-weight:600;text-decoration:none;overflow-wrap:anywhere;min-width:0}
+  a.to-tl:hover{color:var(--accent-text);text-decoration:underline}
+  .st{font-size:12px;font-weight:600;border-radius:999px;padding:1px 8px;background:var(--badge-bg);color:var(--text);white-space:nowrap}
+  .st.sent{background:var(--warn-bg);color:var(--warn-fg)}
+  .meta,.cost{font-size:13px;color:var(--text-2);margin-top:2px;overflow-wrap:anywhere}
+  .cost::before{content:"→ ";content:"→ " / "";color:var(--text-3)}   /* a visual cue only: the alt text keeps it out of the screen reader */
+  /* the current sprint: progress against the time spent */
+  .prog-wrap{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-2)}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--text-4)}
+  .dot.sig-gronn{background:var(--ok-fg)} .dot.sig-gul{background:var(--warn)} .dot.sig-rod{background:var(--bad-fg)}
+  ul.work{margin-top:8px}
+  #curClosed{margin-top:10px;color:var(--text)}
+  /* the foot */
+  .foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+  .foot .btns{display:flex;flex-wrap:wrap;gap:8px}
+  .foot button{font-size:13px;padding:6px 12px}
+  .read-at{font-size:12px;color:var(--text-3)}
+  .note{font-size:12px;color:var(--text-2)}
+  .ado-login{font-size:13px;color:var(--text-2);margin-top:8px}
+  .ado-login a{color:var(--accent-text);text-decoration:underline}
+  /* D10, forum mode: large type for the wall; no write controls here at all, and refreshing and copying stay */
+  html.forum body{font-size:18px}
+  html.forum .wrap{max-width:1280px}
+  html.forum .hint{font-size:15px}
+  html.forum #healthHead{font-size:40px}
+  html.forum .card h2{font-size:24px}
+  html.forum .card h3{font-size:20px}
+  html.forum .chip,html.forum .st{font-size:15px}
+  html.forum .fc{font-size:17px}
+  html.forum #trend .n{font-size:16px}
+  html.forum #trend .nm,html.forum .read-at,html.forum .note{font-size:14px}
+  html.forum .meta,html.forum .cost,html.forum .prog-wrap,html.forum p.miss,html.forum li.none,html.forum .ado-login{font-size:16px}
+  html.forum .foot button{font-size:15px;padding:7px 14px}
+  html.forum .dot{width:12px;height:12px}
+  @media (max-width:480px){
+    .card{padding:14px}
+    .health-row{gap:14px}
+    #trend{gap:8px}
+    #trend li{min-width:0}
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="tb-left">
+    <nav class="tabs" id="navTabs" aria-label="Sider"></nav>
+  </div>
+  <div class="tb-right">
+    <span class="whoami" id="whoami"></span>
+    <span class="ro-tag" id="roTag" hidden>Lesetilgang</span>
+    <a class="btn logout" id="logoutLink" href="/api/auth/signout" title="Logg ut av SkyTracker">Logg ut</a>
+  </div>
+</header>
+<main class="wrap">
+  <h1 class="sr-only">Sprint</h1>
+  <p class="hint" id="hint">Planen mot sprinten: åpne bugs og issues, budsjettet for neste sprint og det Tidslinjen venter skal starte. Lest fra ADO; ingenting skrives dit. <button class="x" id="hintClose" title="Lukk hintet; det kommer ikke tilbake i denne nettleseren">✕</button></p>
+  <div id="missing"></div>
+
+  <section class="card" aria-labelledby="hHealth">
+    <h2 id="hHealth">App-helse</h2>
+    <p id="healthHead" hidden></p>
+    <div class="chips" id="sevChips" hidden></div>
+    <div class="health-row" id="healthRow" hidden>
+      <ol id="trend" aria-label="Åpne bugs ved slutten av de siste sprintene" hidden></ol>
+      <div class="fcs" id="fcs" hidden>
+        <p class="fc" id="fcRelease" hidden></p>
+        <p class="fc" id="fcNext" hidden></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="hNext">
+    <h2 id="hNext">Neste sprint</h2>
+    <p id="budget" hidden></p>
+    <h3>Utredninger som skal i gang</h3>
+    <ul class="due" id="listDisc"></ul>
+    <h3 id="hFeat">Features som skal ha stories i neste sprint</h3>
+    <ul class="due" id="listFeat"></ul>
+  </section>
+
+  <section class="card" aria-labelledby="hCur">
+    <h2 id="hCur">Ingen sprint pågår</h2>
+    <ul class="work" id="curList" hidden></ul>
+    <p id="curClosed" hidden></p>
+  </section>
+
+  <div class="foot">
+    <span class="read-at" id="readAt" hidden></span>
+    <span class="btns">
+      <button id="refreshBtn" title="Les åpne bugs og issues, budsjettet og storiene på nytt fra ADO. Ingenting skrives dit.">Oppdater fra ADO</button>
+      <button id="copyBtn" title="Helsen, budsjettet og listene som Markdown, til produktforum" disabled>Kopier som tekst</button>
+    </span>
+    <span class="note" id="note" role="status"></span>
+  </div>
+  <p class="ado-login" id="adoLogin" hidden>Logg inn på nytt for å koble til ADO. <a href="/api/auth/signin?callbackUrl=%2Fsprint">Logg inn</a></p>
+</main>
+
+<script>
+window.__bootSprint = function(){
+  const HOSTED = location.protocol !== 'file:';
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  $('navTabs').innerHTML = navTabsHtml('sprint', HOSTED);   // R14: the pages share the tabs; R19: «Sprint» is the fifth
+  wireDialogs(document);   // R17: every page wires its dialogs; this one has none yet
+  try{ if(localStorage.getItem('sk.hint.sprint') === '1') $('hint').hidden = true; }catch(e){}   // the hint closes once per browser
+  $('hintClose').addEventListener('click', () => { $('hint').hidden = true; try{ localStorage.setItem('sk.hint.sprint', '1'); }catch(e){} });
+  const POLL_MS = 10000;
+  const SPRINT_MAX_AGE_MS = 3600000;   // opened hosted, the page reads ADO once when the cached check is older than an hour (or missing)
+  const SEV_TITLE = { A: '1 - Critical', B: '2 - High', C: '3 - Medium', D: '4 - Low' };
+  let state = emptyPlan(), serverVersion = null, serverReady = false, loaded = false, reading = false, shownDay = null;
+  function emptyPlan(){ return normalizePlan({ schema: SCHEMA, lanes: [], tasks: [], deleted: {}, deletedLanes: {} }); }
+  const setNote = m => { $('note').textContent = m || ''; };
+  const today = () => dayKey(new Date());
+  const dayText = d => fmtDate(dayOf(d));
+  const unitText = u => fmtDate(unitToDate(u));
+  const nOf = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+  const spText = p => String(Math.round(p * 10) / 10).replace('.', ',');
+  const fcClass = (v, now) => (v < now ? 'fc-down' : v > now ? 'fc-up' : 'fc-flat');   // falling is green, rising amber: health
+  const laneOf = t => (t.lane === BACKLOG ? null : state.lanes.find(l => l.key === t.lane) || null);
+  const toTl = (t, lane) => '<a class="to-tl" href="/timeline#feature=' + encodeURIComponent(t.id) + '">' + esc((lane ? lane.name : 'Hylla') + ' › ' + t.label) + '</a>';
+  const readAtText = at => { const d = new Date(at); return isNaN(d.getTime()) ? at : fmtDate(dayOf(osloDay(d))) + ' ' + osloTime(d); };   // Oslo time, as the copied text says it
+
+  /* ---------- the page, drawn from the plan and its cached ADO read (state.sprintCheck) ---------- */
+  function render(){
+    const keep = focusKey(document);   // R17: a poll or a read redraws the lists: the link that had the focus gets it back
+    const check = state.sprintCheck || null, day = today(), now = new Date();
+    const due = sprintDue(state, check, day), cur = currentSprint((state.sprints && state.sprints.items) || [], now);
+    shownDay = day;
+    renderMissing(check, due.sprint);
+    renderHealth(check, due.sprint, day);
+    renderNext(check, due, cur, day);
+    renderCurrent(check, cur, day, now);
+    $('readAt').hidden = !check; $('readAt').textContent = check ? 'Lest fra ADO ' + readAtText(check.at) : '';
+    $('copyBtn').disabled = !check;
+    restoreFocus(document, keep);
+  }
+  function renderMissing(check, next){   // each says what is missing; nothing until the plan has come
+    const m = [];
+    if(loaded){
+      if(!check) m.push(['unread', 'Ikke lest fra ADO ennå.' + (reading ? ' Leser nå …' : '')]);
+      if(!next) m.push(['sprints', 'Ingen sprinter fra ADO: lag sprintene i ADO for å se neste sprint.']);
+      if(check && check.statesMissing) m.push(['states', 'Fant ikke ADOs tilstander: alt unntatt Closed og Removed er telt som åpent.']);
+      if(check && !check.sprints.length) m.push(['history', 'Ingen avsluttede sprinter å regne trend og prognose fra.']);
+    }
+    $('missing').innerHTML = m.map(([k, t]) => '<p class="miss" data-missing="' + k + '">' + esc(t) + '</p>').join('');
+  }
+  function renderHealth(check, next, day){   // without a check the numbers are left out
+    $('healthHead').hidden = !check; $('healthHead').textContent = healthStripText(check);
+    $('sevChips').hidden = !check;
+    $('sevChips').innerHTML = !check ? '' : ['A', 'B', 'C', 'D'].map(k => '<span class="chip" title="Alvorlighet ' + SEV_TITLE[k] + '">' + k + ' ' + check.bugs[k] + '</span>').join('') +
+      (check.bugs.none > 0 ? '<span class="chip" title="Bugs uten alvorlighet i ADO">uten grad ' + check.bugs.none + '</span>' : '');
+    const hist = check ? check.sprints : [], max = Math.max(1, ...hist.map(s => s.openBugs));
+    $('trend').hidden = !hist.length;
+    $('trend').innerHTML = hist.map(s => '<li><span class="bar" aria-hidden="true" style="height:' + Math.max(2, Math.round(40 * s.openBugs / max)) + 'px"></span><span class="n">' + s.openBugs + '</span><span class="nm">' + esc(s.name) + '</span></li>').join('');
+    const nr = check ? nextReleaseText(state, day) : null, fc = check ? healthForecast(check, nr ? nr.release : null) : null;
+    const rel = $('fcRelease'), nx = $('fcNext');
+    rel.hidden = !(fc && fc.afterRelease);   // left out without a next release
+    if(!rel.hidden){ rel.textContent = 'etter ' + fc.afterRelease.label + ' ≈ ' + fc.afterRelease.value; rel.className = 'fc ' + fcClass(fc.afterRelease.value, fc.now); }
+    nx.hidden = !(fc && next);   // left out without a next sprint
+    if(!nx.hidden){
+      const e = fc.endOfNext;
+      nx.textContent = 'ved slutten av ' + next.name + (e ? ' ≈ ' + e.value + ' (lukker ~' + e.closed + ', ~' + e.created + ' nye)' : ': ingen prognose uten ' + (check.budget.points === null ? 'budsjett' : 'historikk'));
+      nx.className = 'fc ' + (e ? fcClass(e.value, fc.now) : 'fc-none');
+    }
+    $('fcs').hidden = rel.hidden && nx.hidden;
+    $('healthRow').hidden = $('trend').hidden && $('fcs').hidden;
+  }
+  function renderNext(check, due, cur, day){   // D6: what the timeline expects of the next sprint; the lists draw from the plan even without a check
+    const next = due.sprint, nx = next ? next.name : 'neste sprint', curName = cur ? cur.name : (check && check.current) || null;
+    $('hNext').textContent = next ? next.name + ' · ' + sprintRangeText(next) : 'Neste sprint';
+    $('budget').hidden = !check; $('budget').textContent = check ? 'Budsjett for bugs og issues: ' + budgetText(check) : '';
+    $('hFeat').textContent = 'Features som skal ha stories i ' + nx;
+    const discDetail = d => (d.status === 'i gang' ? 'utredes' : d.status === 'sent' ? 'skulle startet ' + dayText(d.start) : 'starter ' + dayText(d.start));
+    const featDetail = d => d.status === 'planlagt'
+      ? (d.inNext > 0 ? nOf(d.inNext, 'story', 'stories') + ' i ' + nx + (d.inNextPoints > 0 ? ' · ' + spText(d.inNextPoints) + ' SP' : '') : nOf(d.inCurrent, 'story', 'stories') + ' i ' + (curName || 'sprinten som pågår'))
+      : d.status === 'uten stories' ? 'ingen åpne stories i ' + nx
+      : d.status === 'ikke i ADO' ? 'ikke koblet til ADO'
+      : 'ingen stories i ' + (curName ? curName + ' eller ' : '') + nx;   // «sent»
+    // what a row says: a discovery comes from the plan alone, and so does a feature without an ADO id (it owes ADO nothing:
+    // «sent» with its cost when late, «ikke i ADO» otherwise). A feature in ADO has its stories there, so before the first
+    // read it claims nothing: «ikke lest», no «sent», no cost (fix rounds 1–2)
+    const discView = d => ({ st: d.status, detail: discDetail(d) });
+    const featView = d => (check || typeof d.task.adoId !== 'number' ? { st: d.status, detail: featDetail(d) } : { st: 'ikke lest', detail: 'ikke lest fra ADO ennå' });
+    const row = (d, view) => {
+      const t = d.task, v = view(d), cost = v.st === 'sent' ? slipCost(state, t.id, day) : null;   // D7: what waiting a sprint costs; nothing moves
+      return '<li class="due-row" data-id="' + esc(t.id) + '"><div class="top">' + toTl(t, d.epic) + '<span class="st' + (v.st === 'sent' ? ' sent' : '') + '">' + esc(v.st) + '</span></div>' +
+        '<div class="meta">' + esc(t.assignee || 'uten eier') + ' · ' + esc(unitText(t.start) + ' – ' + unitText(t.end)) + ' · <span class="detail">' + esc(v.detail) + '</span></div>' +
+        (cost ? '<div class="cost">' + esc(slipCostText(cost)) + '</div>' : '') + '</li>';
+    };
+    const list = (rows, view) => (rows.length ? rows.map(d => row(d, view)).join('') : '<li class="none">Ingen</li>');
+    $('listDisc').innerHTML = list(due.discoveries, discView);
+    $('listFeat').innerHTML = list(due.features, featView);
+  }
+  function renderCurrent(check, cur, day, now){   // the features in work with their progress against the time spent, and the bugs closed so far
+    $('hCur').textContent = cur ? cur.name + ' · dag ' + sprintDay(cur, now) + ' av ' + sprintDay(cur, dayOf(cur.finish)) : 'Ingen sprint pågår';
+    $('curList').hidden = !cur;
+    const u = dayToUnit(day), work = cur ? sprintInWork(state, day) : [];
+    $('curList').innerHTML = !cur ? '' : !work.length ? '<li class="none">Ingen</li>' : work.map(t => {
+      const s = progressSignal(t, u);
+      return '<li class="work-row" data-id="' + esc(t.id) + '">' + toTl(t, laneOf(t)) + '<span class="prog-wrap">' +
+        (s ? '<span class="dot sig-' + s.code + '" role="img" aria-label="' + PACE_WORD[s.code] + '" title="' + PACE_WORD[s.code] + '"></span><span class="prog">' + esc(progressText(t, s)) + '</span>' : '<span class="prog">ingen fremdrift registrert</span>') + '</span></li>';
+    }).join('');
+    const closed = !!(cur && check && check.current === cur.name);   // a read from an earlier sprint does not count for this one
+    $('curClosed').hidden = !closed;
+    $('curClosed').textContent = closed ? nOf(check.bugs.closedCurrent, 'bug', 'bugs') + ' lukket så langt i sprinten' : '';
+  }
+
+  /* ---------- reading ADO and copying: both are reads, open to readers (D1, D10) ---------- */
+  async function readAdo(manual){
+    if(reading) return;
+    reading = true; if(manual) setNote('leser fra ADO …'); render();
+    try{
+      const r = await fetch('api/ado-sprint-check', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+      let j = {}; try{ j = await r.json(); }catch(e){}
+      if(r.status === 401 && j.error === 'ado-login'){ $('adoLogin').hidden = false; setNote(''); return; }   // the numbers stay, drawn from the cache
+      if(!r.ok) throw new Error(j.message || ('HTTP ' + r.status));
+      $('adoLogin').hidden = true;
+      if(j.data){ setNote(''); reading = false; applyRemote(j.data, j.version); }
+      else setNote(manual ? 'ingen endring i ADO' : '');
+    }catch(e){ setNote('ADO svarte ikke – prøv igjen'); }
+    finally{ reading = false; render(); }
+  }
+  $('refreshBtn').addEventListener('click', () => readAdo(true));
+  $('copyBtn').addEventListener('click', async () => {   // D9: the Markdown for produktforum
+    const check = state.sprintCheck; if(!check) return;
+    try{ await navigator.clipboard.writeText(sprintCheckMarkdown(state, check, today())); setNote('kopiert'); }
+    catch(e){ setNote('kunne ikke kopiere'); }
+  });
+
+  /* ---------- the shared plan: read only; the page never saves ---------- */
+  function applyRemote(data, version){ serverVersion = version; state = normalizePlan(data); render(); }
+  async function init(){
+    setNote('henter …');
+    let j;
+    try{
+      const r = await fetch('api/timeline-plan', {cache:'no-store'});
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      j = await r.json();
+    }catch(e){ loaded = true; setNote('frakoblet – kunne ikke hente planen'); render(); return; }
+    const canWrite = j.role === 'writer';
+    serverReady = true; loaded = true;
+    $('roTag').hidden = canWrite; $('whoami').textContent = j.user || '';
+    let stored = null; try{ stored = localStorage.getItem('sk.forum'); }catch(e){}
+    document.documentElement.classList.toggle('forum', forumDefault(stored, canWrite));   // D10: the forum view is the readers' default; a stored choice wins
+    setNote('');
+    if(j.plan) applyRemote(j.plan.data, j.plan.version); else { state = emptyPlan(); render(); }
+    const c = state.sprintCheck;
+    if(HOSTED && !(c && Date.now() - new Date(c.at).getTime() <= SPRINT_MAX_AGE_MS)) readAdo(false);
+  }
+  async function poll(){
+    if(!serverReady || reading) return;
+    try{
+      const r = await fetch('api/timeline-plan', {cache:'no-store'});
+      if(!r.ok) return;
+      const j = await r.json();
+      if(reading) return;
+      if(j.plan && j.plan.version !== serverVersion) applyRemote(j.plan.data, j.plan.version);
+      else if(today() !== shownDay) render();   // a page left open overnight moves to the new day
+    }catch(e){ /* frakoblet – prøver igjen neste runde */ }
+  }
+  setInterval(poll, POLL_MS);
+  render();
+  init();
+};
+</script>
+<script>
+(function(){
+  var s = document.createElement('script');
+  s.src = 'timeline/epic-tools.js';
+  s.onload = function(){ window.__bootSprint(); };
+  s.onerror = function(){ document.getElementById('missing').textContent = 'Kunne ikke laste epic-tools.js.'; };
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>

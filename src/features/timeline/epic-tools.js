@@ -863,8 +863,8 @@ function sprintLabel(sprints, date) {
 }
 
 /* ---------- R14: the shared top bar and the status strip in words ---------- */
-const NAV_TABS = [["inntak", "Inntak", "/inntak"], ["timeline", "Tidslinjen", "/timeline"], ["board", "Brettet", "/"], ["kunder", "Kunder", "/kunder"]];
-/** The pages' tabs in the process order (R16 added «Kunder»); opened from a file, only the active one shows (the others would point nowhere). */
+const NAV_TABS = [["inntak", "Inntak", "/inntak"], ["timeline", "Tidslinjen", "/timeline"], ["board", "Brettet", "/"], ["kunder", "Kunder", "/kunder"], ["sprint", "Sprint", "/sprint"]];
+/** The pages' tabs in the process order (R16 added «Kunder», R19 «Sprint»); opened from a file, only the active one shows (the others would point nowhere). */
 function navTabsHtml(active, hosted) {
   return NAV_TABS.map(([key, name, href]) => {
     const on = key === active;

@@ -124,7 +124,7 @@ export declare function releaseForecastText(r: Release, todayDay: string): { sho
 export declare function sprintUnlabelledWiql(iterationPath: string): string;
 
 /* R14: the shared top bar and the status strip in words */
-export declare function navTabsHtml(active: "inntak" | "timeline" | "board" | "kunder", hosted: boolean): string;
+export declare function navTabsHtml(active: "inntak" | "timeline" | "board" | "kunder" | "sprint", hosted: boolean): string;
 export declare function epicStatusWords(plan: Plan): string;
 
 /* R15: the forum view */

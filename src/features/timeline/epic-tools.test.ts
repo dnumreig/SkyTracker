@@ -917,9 +917,9 @@ describe("R14: the top bar's words", () => {
   const discT = (id: string, lane: string, end: number): PlanTask => ({ id, label: id, lane, kind: "discovery", start: 0, endLikely: end, end, deps: [], fv: {}, state: "utredes" });
   const words = (lanes: ReturnType<typeof ln>[], tasks: PlanTask[]) => epicStatusWords({ lanes, tasks } as unknown as Plan);
 
-  it("navTabsHtml keeps the process order, marks the active tab and shows all four when hosted", () => {
+  it("navTabsHtml keeps the process order, marks the active tab and shows all five when hosted", () => {
     const html = navTabsHtml("timeline", true);
-    expect([...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1])).toEqual(["/inntak", "/timeline", "/", "/kunder"]);
+    expect([...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1])).toEqual(["/inntak", "/timeline", "/", "/kunder", "/sprint"]);   // R19: «Sprint» last
     expect(html).toContain('<a class="tab on" id="tab-timeline" data-tab="timeline" data-label="Tidslinjen" href="/timeline" aria-current="page">Tidslinjen</a>');
     expect(html).toContain('<a class="tab" id="tab-board" data-tab="board" data-label="Brettet" href="/">Brettet</a>');   // R17: the label reserves the bold width (sky.css)
     expect(html).not.toContain("hidden");
@@ -931,6 +931,8 @@ describe("R14: the top bar's words", () => {
     expect(html).toContain('id="tab-inntak" data-tab="inntak" data-label="Inntak" href="/inntak" hidden>');
     expect(html).toContain('id="tab-timeline" data-tab="timeline" data-label="Tidslinjen" href="/timeline" hidden>');
     expect(html).toContain('id="tab-kunder" data-tab="kunder" data-label="Kunder" href="/kunder" hidden>');
+    expect(html).toContain('id="tab-sprint" data-tab="sprint" data-label="Sprint" href="/sprint" hidden>');
+    expect(navTabsHtml("sprint", true)).toContain('<a class="tab on" id="tab-sprint" data-tab="sprint" data-label="Sprint" href="/sprint" aria-current="page">Sprint</a>');
   });
 
   it("epicStatusWords counts the active epics by colour, in Norwegian words", () => {
