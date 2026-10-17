@@ -104,6 +104,22 @@ export type Delivery = {
   /** Release keys. */
   releases: string[];
 };
+/** R19: the Sprint tab's read of ADO (sprint-check.ts), cached in the plan; written by the server, merged by `at`. */
+export type SprintCheckSprint = { name: string; end: string; openBugs: number; openIssues: number; created: number; closed: number; closedPoints: number };
+export type SprintCheckFeature = { stories: number; open: number; inNext: number; inNextPoints: number; inCurrent: number };
+export type SprintCheck = {
+  at: string;
+  current: string | null;
+  next: string | null;
+  statesMissing?: true;
+  bugs: { open: number; A: number; B: number; C: number; D: number; none: number; inRelease: Record<string, number>; inNext: number; inNextPoints: number; closedCurrent: number };
+  issues: { open: number };
+  /** The last four finished sprints, oldest first. */
+  sprints: SprintCheckSprint[];
+  /** `points`: the next sprint's expected points (null when it could not be computed); `share`: the part for bugs and issues. */
+  budget: { points: number | null; share: number; missing?: "capacity" | "history" };
+  features: Record<string, SprintCheckFeature>;
+};
 export type AdoSnapshot = Partial<Record<"title" | "description" | "state" | "targetDate" | "startDate", string | null>>;
 export type AdoConflict = { field: string; ours: string | null; theirs: string | null };
 export type LaneAdo = { pushedAt: string; snapshot: AdoSnapshot; conflicts?: AdoConflict[] };
@@ -186,6 +202,7 @@ export type Plan = {
   sprintGoals?: Record<string, { text: string; at: string }>;
   /** The sprint mix: the share of a sprint that goes to planned features (R5); the factor from raw weeks to elapsed time. */
   capacity?: { mode: "transition" | "normal"; at: string };
+  sprintCheck?: SprintCheck;
   [key: string]: unknown;
 };
 
@@ -298,17 +315,20 @@ export function mergePlans(stored: Plan, incoming: Plan): Plan {
     tasks.push(candidate);
   }
 
-  // plan-level caches: the sprint list and each sprint's goal carry an `at`; the newer one wins (incoming on ties)
+  // plan-level caches: the sprint list, each sprint's goal and the Sprint tab's read (R19) carry an `at`; the newer one wins (incoming on ties)
   const newer = <T extends { at: string }>(a?: T, b?: T) => (!a ? b : !b ? a : b.at >= a.at ? b : a);
   const sprints = newer(stored.sprints, incoming.sprints);
+  const sprintCheck = newer(stored.sprintCheck, incoming.sprintCheck);
   const capacity = newer(stored.capacity, incoming.capacity);
   const sprintGoals: Record<string, { text: string; at: string }> = {};
   for (const src of [stored.sprintGoals, incoming.sprintGoals]) for (const [k, g] of Object.entries(src ?? {})) sprintGoals[k] = newer(sprintGoals[k], g)!;
   const out: Plan = { ...stored, ...incoming, lanes: liveLanes, tasks, deleted, deletedLanes, wishes: liveWishes, deletedWishes, releases: liveReleases, deletedReleases, deliveries: liveDeliveries, deletedDeliveries };
   delete out.sprints;
+  delete out.sprintCheck;
   delete out.sprintGoals;
   delete out.capacity;
   if (sprints) out.sprints = sprints;
+  if (sprintCheck) out.sprintCheck = sprintCheck;
   if (capacity) out.capacity = capacity;
   if (Object.keys(sprintGoals).length) out.sprintGoals = sprintGoals;
   return out;

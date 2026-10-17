@@ -14,7 +14,7 @@ import {
   osloDay, osloDate,
   DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor, deliveryRows,
 } from "./epic-tools.js";
-import type { Delivery, Plan, PlanTask } from "./merge";
+import type { Delivery, Plan, PlanTask, SprintCheck } from "./merge";
 
 const est = (over: Partial<PlanTask>): PlanTask =>
   ({ id: "e", lane: "x", label: "Est", kind: "estimate", start: 4, endLikely: 5, end: 6, deps: [], fv: {}, ...over });
@@ -1351,5 +1351,46 @@ describe("R18: a release in two phases", () => {
     const p = normalizePlan({ lanes: [], tasks: [], releases: [rel({}, [bug(1, "QA", "Resolved", "2026-10-12"), bug(2, "Resolved", "", "2026-10-12"), bug(3, "Closed", "Completed", "2026-10-12", "2026-10-14")])],
       deliveries: [{ key: "d1", name: "Skytale 2.0.1", allCustomers: true, customers: [], promisedDate: "2026-10-27", epics: [], releases: ["r1"] }] });
     expect(deliveryBugsLeft(p, p.deliveries![0])).toBe(2);   // in QA, and «Resolved» by name (no category); the closed one is not left
+  });
+});
+
+describe("normalizePlan: sprintCheck (R19)", () => {
+  const VALID: SprintCheck = {
+    at: "2026-10-17T10:00:00Z",
+    current: "Sprint 71",
+    next: "Sprint 72",
+    statesMissing: true,
+    bugs: { open: 40, A: 3, B: 12, C: 15, D: 4, none: 6, inRelease: { "2.0.1": 11 }, inNext: 9, inNextPoints: 14, closedCurrent: 7 },
+    issues: { open: 17 },
+    sprints: [
+      { name: "Sprint 69", end: "2026-09-25", openBugs: 35, openIssues: 15, created: 12, closed: 10, closedPoints: 21 },
+      { name: "Sprint 70", end: "2026-10-09", openBugs: 38, openIssues: 16, created: 14, closed: 11, closedPoints: 24.5 },
+    ],
+    budget: { points: null, share: 0.45, missing: "capacity" },
+    features: { f1: { stories: 6, open: 4, inNext: 2, inNextPoints: 5, inCurrent: 1 } },
+  };
+  it("keeps a valid sprintCheck as it is", () => {
+    expect(normalizePlan({ lanes: [], tasks: [], sprintCheck: structuredClone(VALID) }).sprintCheck).toEqual(VALID);
+  });
+  /* eslint-disable @typescript-eslint/no-explicit-any -- the spoilers write values the type forbids */
+  it.each([
+    ["no read time", (c: any) => { delete c.at; }],
+    ["a negative count", (c: any) => { c.bugs.C = -1; }],
+    ["a count that is not a number", (c: any) => { c.issues.open = "17"; }],
+    ["a label count that is not finite", (c: any) => { c.bugs.inRelease["2.0.1"] = Infinity; }],
+    ["a sprint without a name", (c: any) => { c.sprints[0].name = 7; }],
+    ["a sprint end that is not a day", (c: any) => { c.sprints[0].end = "17.10"; }],
+    ["a share above 1", (c: any) => { c.budget.share = 1.2; }],
+    ["an unknown missing reason", (c: any) => { c.budget.missing = "tid"; }],
+    ["a feature count missing", (c: any) => { delete c.features.f1.inCurrent; }],
+    ["a next sprint that is not a string", (c: any) => { c.next = 72; }],
+  ])("drops the whole sprintCheck on %s", (_, spoil) => {
+    const c = structuredClone(VALID); spoil(c);
+    expect("sprintCheck" in normalizePlan({ lanes: [], tasks: [], sprintCheck: c })).toBe(false);
+  });
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  it("keeps only the known fields", () => {
+    const c = { ...structuredClone(VALID), extra: 1, bugs: { ...structuredClone(VALID).bugs, extra: 2 } };
+    expect(normalizePlan({ lanes: [], tasks: [], sprintCheck: c }).sprintCheck).toEqual(VALID);
   });
 });

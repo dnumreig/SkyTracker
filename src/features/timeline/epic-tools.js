@@ -80,6 +80,8 @@ function normalizePlan(plan) {
   if (p.sprintGoals && typeof p.sprintGoals === "object" && !Array.isArray(p.sprintGoals)) {
     Object.keys(p.sprintGoals).forEach((k) => { const g = p.sprintGoals[k]; if (!g || typeof g !== "object" || typeof g.text !== "string" || typeof g.at !== "string") delete p.sprintGoals[k]; });
   } else delete p.sprintGoals;
+  const sprintCheck = sprintCheckOf(p.sprintCheck, isDay);   // R19: the Sprint tab's read of ADO, written by the server; dropped whole when any part is off
+  if (sprintCheck) p.sprintCheck = sprintCheck; else delete p.sprintCheck;
   // releases (R10): a version with a target day, a shipped day once out, and the ADO read-back of its label's bugs and stories
   p.deletedReleases = p.deletedReleases && typeof p.deletedReleases === "object" ? p.deletedReleases : {};
   const validDay = (d) => { if (!isDay(d)) return false; const q = d.split("-").map(Number), dt = new Date(q[0], q[1] - 1, q[2]); return dt.getFullYear() === q[0] && dt.getMonth() === q[1] - 1 && dt.getDate() === q[2]; };   // a real calendar day, not just the shape
@@ -603,6 +605,27 @@ function forecastOf(f, validDay) {
   if (f.missing !== undefined || !["need", "days", "p", "mean", "p10", "p90"].every((k) => Number.isFinite(f[k]) && f[k] >= 0) || f.p > 1) return null;
   const people = (Array.isArray(f.people) ? f.people : []).filter((x) => x && typeof x === "object" && typeof x.name === "string" && x.name && ["days", "pace", "expected"].every((k) => Number.isFinite(x[k]))).map((x) => ({ name: x.name, days: x.days, pace: x.pace, expected: x.expected }));
   return { day: f.day, need: f.need, days: f.days, p: f.p, mean: f.mean, p10: f.p10, p90: f.p90, people, basis: strs(f.basis), capacity: strs(f.capacity) };
+}
+/** R19: the Sprint tab's read of ADO rebuilt with exactly the fields of `SprintCheck`, or null when any of them is off. */
+function sprintCheckOf(c, isDay) {
+  const isCount = (n) => Number.isFinite(n) && n >= 0;
+  const isMap = (o) => !!o && typeof o === "object" && !Array.isArray(o);
+  const pick = (o, keys) => (isMap(o) && keys.every((k) => isCount(o[k])) ? Object.fromEntries(keys.map((k) => [k, o[k]])) : null);   // the counts, or null when one is off
+  const nameOrNull = (s) => s === null || typeof s === "string";
+  if (!isMap(c) || typeof c.at !== "string" || !nameOrNull(c.current) || !nameOrNull(c.next)) return null;
+  const bugs = pick(c.bugs, ["open", "A", "B", "C", "D", "none", "inNext", "inNextPoints", "closedCurrent"]), issues = pick(c.issues, ["open"]);
+  if (!bugs || !issues || !isMap(c.bugs.inRelease) || !Object.values(c.bugs.inRelease).every(isCount)) return null;
+  const sprints = Array.isArray(c.sprints) ? c.sprints.map((s) => { const n = pick(s, ["openBugs", "openIssues", "created", "closed", "closedPoints"]); return n && typeof s.name === "string" && s.name && isDay(s.end) ? { name: s.name, end: s.end, ...n } : null; }) : [null];
+  const b = c.budget;
+  if (sprints.includes(null) || !isMap(b) || !(b.points === null || isCount(b.points)) || !(Number.isFinite(b.share) && b.share >= 0 && b.share <= 1) || !(b.missing === undefined || b.missing === "capacity" || b.missing === "history")) return null;
+  if (!isMap(c.features)) return null;
+  const features = Object.entries(c.features).map(([k, f]) => [k, pick(f, ["stories", "open", "inNext", "inNextPoints", "inCurrent"])]);
+  if (features.some(([, f]) => !f)) return null;
+  return {
+    at: c.at, current: c.current, next: c.next, ...(c.statesMissing === true ? { statesMissing: true } : {}),
+    bugs: { open: bugs.open, A: bugs.A, B: bugs.B, C: bugs.C, D: bugs.D, none: bugs.none, inRelease: Object.fromEntries(Object.entries(c.bugs.inRelease)), inNext: bugs.inNext, inNextPoints: bugs.inNextPoints, closedCurrent: bugs.closedCurrent },
+    issues, sprints, budget: { points: b.points, share: b.share, ...(b.missing ? { missing: b.missing } : {}) }, features: Object.fromEntries(features),
+  };
 }
 const andList = (xs) => (xs.length <= 1 ? xs.join("") : xs.slice(0, -1).join(", ") + " og " + xs[xs.length - 1]);
 /** The forecast in words for the drawer, the tooltip, the strip and the report; null without one or once shipped.
