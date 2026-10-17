@@ -114,6 +114,8 @@
   .status i.st-rod{background:var(--bad)}
   .status .ado-link{color:var(--warn-fg);font-weight:500;text-decoration:none}
   .status .ado-link:hover{text-decoration:underline}
+  #stHealth{color:var(--accent-text);text-decoration:none}   /* R19 (D8): the open bugs and issues, a link to the Sprint tab at the strip's 12 px */
+  #stHealth:hover{text-decoration:underline}
 
   /* ---------- tom plan ---------- */
   .empty{
@@ -579,6 +581,7 @@
   <div class="status" id="statusStrip" title="Planen nå, i ord">
     <span id="stEpics">Ingen epics ennå</span>
     <span id="stRelease" hidden></span>
+    <a id="stHealth" href="/sprint" hidden title="Åpne bugs og issues, fra Sprint-fanen"></a>
     <span class="sprint-goal" id="sprintGoal" hidden></span>
     <a class="ado-link" id="adoStatus" hidden href="#"></a>
   </div>
@@ -1732,6 +1735,9 @@ window.__bootTimeline = function(){
       rel.title = ph === 'qa' ? 'Neste release i QA: hvor mye som er lukket, og release-datoen'   // QA has no chance
         : 'Neste release: sjansen for at alt er utviklet til ' + (r.qaDate ? 'klar for QA' : 'målet') + '; tempo-fargen står i skuffen';
     }
+    const health = $('stHealth'), hw = HOSTED ? healthStripText(state.sprintCheck) : '';   // R19 (D8): «43 åpne bugs · 17 issues» from the Sprint tab's read of ADO; from a file there is no tab
+    health.hidden = !hw;
+    health.textContent = hw;   // empty when hidden: the strip's text is read as a whole
     $('mixSelect').value = (state.capacity && state.capacity.mode) || 'transition';
     renderSprintGoal();
   }
@@ -2057,11 +2063,27 @@ window.__bootTimeline = function(){
       if(r.ok) setBadge((await r.json()).missing14d);
     }catch(e){}
   }
-  function openFromHash(){   // #historikk=<id> opens the history of one target (a delivery from Kunder, or anything with an id)
+  function openFromHash(){   // #historikk=<id> opens the history of one target (a delivery from Kunder, or anything with an id); R19: #feature=<id> opens the feature (the Sprint tab's rows)
+    const f = /^#feature=(.+)$/.exec(location.hash || '');
+    if(f){ let id = f[1]; try{ id = decodeURIComponent(id); }catch(e){} openFeatureLink(id); return; }
     const m = /^#historikk=(.+)$/.exec(location.hash || '');
     if(!m) return;
     let target = m[1]; try{ target = decodeURIComponent(target); }catch(e){}
     openHistory({ target });
+  }
+  window.addEventListener('hashchange', openFromHash);   // a second link on an open page
+  function openFeatureLink(id){   // R19: the feature's row (or its shelf row) in view and its editor open; read-only for readers (R17)
+    if(HOSTED && !serverReady) return;   // the plan is not here yet: the load opens the link
+    if(!getTask(id)){ setSaveNote('fant ikke featuren fra lenken'); return; }
+    if(editorBack.classList.contains('open') && editorTaskId !== id) closeEditor();   // a feature never saved goes as with «Avbryt»
+    if(viewMode !== 'epic') setView('epic', false);   // the feature rows are in «Per epic»; the stored view stays
+    const t = getTask(id);
+    if(!t) return;
+    const sel = '[data-id="' + CSS.escape(id) + '"]';
+    let row = labels.querySelector('.task-label' + sel);
+    if(!row && t.lane === BACKLOG){ shelf.classList.remove('closed'); row = shelfList.querySelector('.shelf-row' + sel); }   // the shelf folds; the epics do not
+    if(row) row.scrollIntoView({ block: 'center' });
+    openEditor(id);
   }
   function openHistory(opts){
     opts = opts || {};
