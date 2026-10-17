@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AdoCapacity, AdoClient, AdoWorkItem, IterationNode } from "./client";
 import { availabilityFrom, forecastWindow, pacePool, paceWiql, readForecast, simulate } from "./forecast";
+import { readStateMap } from "./states";
 import { normalizePlan, workDays } from "@/features/timeline/epic-tools.js";
 import type { Plan, ReleaseItem, Sprint } from "@/features/timeline/merge";
 
@@ -87,7 +88,13 @@ describe("pacePool", () => {
     expect(pool.names.get("thm@skytale.no")).toBe("Tor Håkon Moen");
   });
   it("the query asks for the bugs and stories resolved from the first sprint's start through the last one's finish", () => {
-    expect(paceWiql([S69, S70])).toBe("SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.WorkItemType] IN ('Bug', 'User Story') AND [System.State] IN ('Resolved', 'Closed') AND [Microsoft.VSTS.Common.ResolvedDate] >= '2026-09-07' AND [Microsoft.VSTS.Common.ResolvedDate] <= '2026-10-02'");
+    expect(paceWiql([S69, S70])).toBe("SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.WorkItemType] IN ('Bug', 'User Story') AND [Microsoft.VSTS.Common.ResolvedDate] >= '2026-09-07' AND [Microsoft.VSTS.Common.ResolvedDate] <= '2026-10-02'");
+  });
+  it("R18: with ADO's categories a bug in QA counts and one back in Codereview does not; the query names no states", async () => {
+    const states = await readStateMap({ states: async () => [{ name: "Codereview", category: "InProgress" }, { name: "QA", category: "Resolved" }, { name: "Closed", category: "Completed" }] }, ["Bug"]);
+    const pool = pacePool([wi(1, 3, "2026-09-07T10:00:00Z", THM, null, "Fixed", "QA"), wi(2, 5, "2026-09-07T15:00:00Z", THM, null, "Fixed", "Codereview")], [S69], states);
+    expect(pool.days[0]).toEqual({ "thm@skytale.no": 3 });
+    expect(paceWiql([S69, S70])).not.toMatch(/System\.State/);
   });
 });
 
@@ -179,5 +186,11 @@ describe("readForecast", () => {
     expect(calls.filter((c) => c === "wiql").length).toBe(1);
     expect(calls.filter((c) => c.startsWith("capacities")).length).toBe(1);
     expect(workDays("2026-10-13", "2026-10-20")).toBe(6);
+  });
+  it("R18: with «Klar for QA» the window runs to the QA day, not the release day", async () => {
+    const plan = planWith([S68, S69, S70, S71, S72]);
+    plan.releases![0].qaDate = "2026-10-20";
+    const { client } = fakeClient(CAP);
+    expect(await readForecast(plan, plan.releases![0], items, client, NOW, {})).toMatchObject({ days: 5 });   // 13–19 Oct
   });
 });

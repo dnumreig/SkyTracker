@@ -62,10 +62,20 @@ describe("sprintReportMarkdown", () => {
       { key: "r2", version: "2.0.2", targetDate: "2026-11-12" },
     ] }).releases;
     const md = sprintReportMarkdown({ title: "Sprintrapport Sprint 71", strip: STRIP, path: path(), plan: p, laneName, todayUnit: TODAY, todayDay: "2026-10-12" });
-    expect(md).toContain("## Releaser\n- 2.0.1: mål 22. okt · 1 bug, 1 story · 10/79 SP levert · 13 % levert · 43 % av tiden brukt · med dagens tempo ferdig 9. des, 34 arbeidsdager etter målet · rød · 44 % sjanse (forventet 64 av 69 SP)\n- 2.0.2: mål 12. nov · ikke lest fra ADO\n");
+    expect(md).toContain("## Releaser\n- 2.0.1: mål 22. okt · 1 bug, 1 story · 10/79 SP utviklet · 13 % utviklet · 43 % av tiden brukt · med dagens tempo ferdig 9. des, 34 arbeidsdager etter målet · rød · 44 % sjanse (forventet 64 av 69 SP)\n- 2.0.2: mål 12. nov · ikke lest fra ADO\n");
     expect(md).not.toContain("2.0.0");   // out before the period
     const order = ["## Fremdrift per feature", "## Releaser", "## Utredninger som kom videre"].map((h) => md.indexOf(h));
     expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+  it("R18: the release line names both dates once «Klar for QA» is set, and «sluppet …» once out, «Klar for QA» or not (D4, D7)", () => {
+    const p = plan();
+    p.releases = normalizePlan({ lanes: [], tasks: [], releases: [
+      { key: "r0", version: "2.0.0", targetDate: "2026-11-05", qaDate: "2026-11-02", shippedDate: "2026-11-06" },   // out in the period (its first event is 6.11)
+      { key: "r1", version: "2.0.1", targetDate: "2026-11-27", qaDate: "2026-11-20" },
+      { key: "r2", version: "2.0.2", targetDate: "2026-12-11" },
+    ] }).releases;
+    const md = sprintReportMarkdown({ title: "Sprintrapport Sprint 73", strip: STRIP, path: path(), plan: p, laneName, todayUnit: TODAY, todayDay: "2026-11-09" });
+    expect(md).toContain("## Releaser\n- 2.0.0: sluppet 6. nov · ikke lest fra ADO\n- 2.0.1: klar for QA 20. nov · release 27. nov · ikke lest fra ADO\n- 2.0.2: mål 11. des · ikke lest fra ADO\n");
   });
 });
 

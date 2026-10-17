@@ -34,9 +34,20 @@ for (const c = new Date("2026-09-21T12:00:00Z"); c.toISOString() < "2026-10-03";
   if (c.getUTCDay() % 6) PAST.push({ id: 9000 + PAST.length, fields: { "System.WorkItemType": "Bug", "System.State": "Closed", "Microsoft.VSTS.Scheduling.StoryPoints": 2, "Microsoft.VSTS.Common.ResolvedDate": c.toISOString(), "Microsoft.VSTS.Common.ResolvedReason": "Fixed", "System.AssignedTo": { displayName: "Gjermund Østby", uniqueName: "GO@Skytale.no" } } });
 }
 const GO_FULL: AdoCapacity = { teamMember: { displayName: "Gjermund Østby", uniqueName: "GO@Skytale.no" }, activities: [{ name: "Development", capacityPerDay: 7.5 }], daysOff: [] };
-function fake(capacity: AdoCapacity[] = [], failCapacity?: Error) {
+// R18: the process's own states and their categories, and two items in them
+const STATES_OF: Record<string, { name: string; category: string }[]> = {
+  Bug: [{ name: "New", category: "Proposed" }, { name: "Codereview", category: "InProgress" }, { name: "Develop", category: "Resolved" }, { name: "QA", category: "Resolved" }, { name: "Closed", category: "Completed" }, { name: "Removed", category: "Removed" }],
+  "User Story": [{ name: "New", category: "Proposed" }, { name: "Codereview", category: "InProgress" }, { name: "Develop", category: "Resolved" }, { name: "QA", category: "Resolved" }, { name: "Closed", category: "Completed" }],
+};
+const R18_ITEMS: AdoWorkItem[] = [
+  wi(4870, "User Story", "Merged", "Develop", 2, "2.0.1", S71, undefined, { "Microsoft.VSTS.Common.ResolvedDate": "2026-10-10T12:00:00Z" }),
+  wi(4871, "Bug", "In review", "Codereview", 1, "2.0.1", S71),
+];
+function fake(capacity: AdoCapacity[] = [], failCapacity?: Error, opts: { extra?: AdoWorkItem[]; states?: Record<string, { name: string; category: string }[]> } = {}) {
   const calls: string[] = [];
-  const client: Pick<AdoClient, "wiql" | "batch" | "capacities" | "iterations"> = {
+  const items = [...ITEMS, ...(opts.extra ?? [])];
+  const client: Pick<AdoClient, "wiql" | "batch" | "capacities" | "iterations" | "states"> = {
+    states: async (t) => opts.states?.[t] ?? [],
     capacities: async (id) => { calls.push("capacities " + id); if (failCapacity) throw failCapacity; return { members: id === "s71" ? capacity : [], teamDaysOff: [] }; },
     iterations: async () => { calls.push("iterations"); return { name: "Skytale", children: [
       { name: "Sprint 70", identifier: "s70", attributes: { startDate: "2026-09-21T00:00:00Z", finishDate: "2026-10-02T00:00:00Z" } },
@@ -46,11 +57,11 @@ function fake(capacity: AdoCapacity[] = [], failCapacity?: Error) {
       calls.push(q);
       if (/ResolvedDate/.test(q)) return PAST.map((w) => w.id);
       const path = /\[System\.IterationPath\] = '([^']*)'/.exec(q)?.[1];
-      if (path) return ITEMS.filter((w) => w.fields["System.IterationPath"] === path && !w.fields["Custom.Release"] && ["Bug", "User Story"].includes(String(w.fields["System.WorkItemType"])) && !["Closed", "Removed"].includes(String(w.fields["System.State"]))).map((w) => w.id);
+      if (path) return items.filter((w) => w.fields["System.IterationPath"] === path && !w.fields["Custom.Release"] && ["Bug", "User Story"].includes(String(w.fields["System.WorkItemType"])) && !["Closed", "Removed"].includes(String(w.fields["System.State"]))).map((w) => w.id);
       const label = /\[Custom\.Release\] = '([^']*)'/.exec(q)?.[1];
-      return ITEMS.filter((w) => w.fields["Custom.Release"] === label && w.fields["System.State"] !== "Removed").map((w) => w.id);
+      return items.filter((w) => w.fields["Custom.Release"] === label && w.fields["System.State"] !== "Removed").map((w) => w.id);
     },
-    batch: async (ids) => { calls.push("batch " + ids.join(",")); return ids.map((id) => ITEMS.find((w) => w.id === id) ?? PAST.find((w) => w.id === id)).filter((w): w is AdoWorkItem => !!w); },
+    batch: async (ids) => { calls.push("batch " + ids.join(",")); return ids.map((id) => items.find((w) => w.id === id) ?? PAST.find((w) => w.id === id)).filter((w): w is AdoWorkItem => !!w); },
   };
   return { client, calls };
 }
@@ -68,16 +79,16 @@ describe("refreshReleases (R10 + R11)", () => {
       { id: 4536, type: "Bug", title: "Nav bar", state: "New", points: 8, assignee: "Tor Håkon Moen", iteration: "Sprint 71" },
       { id: 4769, type: "Bug", title: "Group call drop", state: "Resolved", points: 5, assignee: null, iteration: "Sprint 72", delivered: "2026-10-11" },
       { id: 4804, type: "User Story", title: "Receipts", state: "New", points: 3, assignee: null, iteration: "Sprint 71" },
-      { id: 4817, type: "User Story", title: "Otel", state: "Closed", points: 3, assignee: null, iteration: "Sprint 71", delivered: "2026-10-09" },   // resolved, not closed: delivered is when the work was done
-    ], history: [{ day: DAY, pointsDone: 8, pointsTotal: 19, done: 2, total: 4 }], sprints: [{ name: "Sprint 71", unlabelled: 1 }, { name: "Sprint 72", unlabelled: 0 }],
+      { id: 4817, type: "User Story", title: "Otel", state: "Closed", points: 3, assignee: null, iteration: "Sprint 71", delivered: "2026-10-09", closed: "2026-10-12" },   // delivered is the resolved day, when the work was done; closed is the closed day (R18)
+    ], history: [{ day: DAY, pointsDone: 8, pointsTotal: 19, done: 2, total: 4, closedPoints: 3, closed: 1 }], sprints: [{ name: "Sprint 71", unlabelled: 1 }, { name: "Sprint 72", unlabelled: 0 }],
       forecast: { day: DAY, missing: "capacity", sprints: ["Sprint 71"], unplanned: 0 } });   // R12: Sprint 71 has no Capacity in this fake
     expect(a.v).toBe(2);
-    expect(r.plan.releases![1].ado).toEqual({ at: NOW.toISOString(), label: "2.0.2", items: [{ id: 4999, type: "Bug", title: "Other", state: "New", points: 2, assignee: null }], history: [{ day: DAY, pointsDone: 0, pointsTotal: 2, done: 0, total: 1 }], sprints: [{ name: "Sprint 71", unlabelled: 1 }],
+    expect(r.plan.releases![1].ado).toEqual({ at: NOW.toISOString(), label: "2.0.2", items: [{ id: 4999, type: "Bug", title: "Other", state: "New", points: 2, assignee: null }], history: [{ day: DAY, pointsDone: 0, pointsTotal: 2, done: 0, total: 1, closedPoints: 0, closed: 0 }], sprints: [{ name: "Sprint 71", unlabelled: 1 }],
       forecast: { day: DAY, missing: "capacity", sprints: ["Sprint 71"], unplanned: 13 } });   // 26.10–11.11 lies in no sprint
     expect(r.read).toEqual({ releases: 2, items: 5 });
     expect(r.events.map((e) => [e.code, e.targetType, e.targetId, e.targetLabel, e.cause, e.summary])).toEqual([
-      ["release.lest", "release", "r1", "Release 2.0.1", "ado", "Lest fra ADO: 2 bugs, 2 stories · 8/19 SP levert"],
-      ["release.lest", "release", "r2", "Release 2.0.2", "ado", "Lest fra ADO: 1 bug, 0 stories · 0/2 SP levert"],
+      ["release.lest", "release", "r1", "Release 2.0.1", "ado", "Lest fra ADO: 2 bugs, 2 stories · 8/19 SP utviklet"],
+      ["release.lest", "release", "r2", "Release 2.0.2", "ado", "Lest fra ADO: 1 bug, 0 stories · 0/2 SP utviklet"],
     ]);
     expect(calls.filter((c) => c.startsWith("SELECT")).length).toBe(4);   // two labels, two sprint paths (the current sprint's count is shared by both releases)
   });
@@ -97,7 +108,7 @@ describe("refreshReleases (R10 + R11)", () => {
     const r = await refreshReleases(plan(), client, NOW);
     const a = r.plan.releases![0].ado!;   // 11 SP left; GO does 2 a day and has eight days (12.–21.10)
     expect(a.forecast).toEqual({ day: DAY, need: 11, days: 8, p: 1, mean: 16, p10: 16, p90: 16, people: [{ name: "Gjermund Østby", days: 8, pace: 2, expected: 16 }], basis: ["Sprint 70"], capacity: ["Sprint 71"] });
-    expect(a.history).toEqual([{ day: DAY, pointsDone: 8, pointsTotal: 19, done: 2, total: 4, forecast: { p: 1, mean: 16 } }]);
+    expect(a.history).toEqual([{ day: DAY, pointsDone: 8, pointsTotal: 19, done: 2, total: 4, closedPoints: 3, closed: 1, forecast: { p: 1, mean: 16 } }]);
     expect(calls.filter((c) => /ResolvedDate/.test(c)).length).toBe(1);   // the past is read once for both releases
     const again = await refreshReleases(r.plan, client, new Date("2026-10-12T15:00:00.000Z"));
     expect(again.plan.releases![0].v).toBe(r.plan.releases![0].v);   // the same data gives the same number: nothing to bump
@@ -142,6 +153,29 @@ describe("refreshReleases (R10 + R11)", () => {
     const h = historyWith(many, pt("2026-12-31", 0));
     expect(h.length).toBe(120);
     expect(h[h.length - 1].day).toBe("2026-12-31");
+  });
+  it("R18: a story in Develop or QA counts as developed by its category, with the resolved day; Closed is closed with its closed day", async () => {
+    const { client } = fake([], undefined, { extra: R18_ITEMS, states: STATES_OF });
+    const p = (await refreshReleases(plan(), client, NOW)).plan;
+    const items = p.releases!.find((r) => r.key === "r1")!.ado!.items;
+    expect(items.find((i) => i.id === 4870)).toMatchObject({ state: "Develop", category: "Resolved", delivered: "2026-10-10" });
+    expect(items.find((i) => i.id === 4871)).toMatchObject({ state: "Codereview", category: "InProgress" });
+    expect(items.find((i) => i.id === 4871)!.delivered).toBeUndefined();
+    expect(items.find((i) => i.id === 4817)).toMatchObject({ category: "Completed", closed: "2026-10-12" });
+  });
+  it("R18: a good read of the states leaves «statesMissing» unset on every release, also on one the last read flagged", async () => {
+    const { client } = fake([], undefined, { states: STATES_OF });
+    const before = plan();
+    before.releases![0].ado = { at: "2026-10-11T10:00:00.000Z", label: "2.0.1", items: [], statesMissing: true };   // the last read did not find them
+    const p = (await refreshReleases(before, client, NOW)).plan;
+    p.releases!.forEach((r) => expect(r.ado).not.toHaveProperty("statesMissing"));
+    expect(p.releases![0].ado!.items.find((i) => i.id === 4817)!.category).toBe("Completed");   // and the read counted by the categories
+  });
+  it("R18: when the states call fails the release is still read by the names, and says so", async () => {
+    const { client } = fake([], undefined, { states: STATES_OF });
+    const p = (await refreshReleases(plan(), { ...client, states: async () => { throw new Error("no access"); } }, NOW)).plan;
+    expect(p.releases![0].ado!.statesMissing).toBe(true);
+    expect(p.releases![0].ado!.items.every((i) => i.category === undefined)).toBe(true);
   });
 });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { exportMarkdown, sinceLabel, snapshotForDay, summarizeNet, summaryLine, type PathEvent } from "./compare";
-import type { PlanEvent } from "./events";
+import { normalizePlan } from "./epic-tools.js";
+import { diffPlans, type PlanEvent } from "./events";
 
 const ev = (code: PlanEvent["code"], over: Partial<PlanEvent> = {}): PlanEvent =>
   ({ targetType: code.startsWith("epic") ? "epic" : "feature", targetId: "t", targetLabel: "T", laneKey: "x", code, cause: "bruker", summary: code, ...over });
@@ -119,5 +120,14 @@ describe("deliveries (R16) in the summary strip and the export", () => {
     expect(summaryLine("5. nov", { ...zero, leveranser: 1 })).toBe("Siden 5. nov: 1 leveranse endret");
     const path = { ...ev("leveranse.lovet"), summary: "Lovet dato: 30. nov → 11. des", at: "2026-11-06T10:00:00.000Z", editor: "COO", changeset: { id: "c", at: "2026-11-06T10:00:00.000Z", editor: "COO", reason: "Mindre scope", reasonCode: "omfang", source: "bruker" } } as PathEvent;
     expect(exportMarkdown("Siden 5. nov", "x", [path], () => "")).toContain("\n## Leveranser\n- Leveranse Skytale 2.0: Lovet dato: 30. nov → 11. des — Omfanget endret: Mindre scope (COO, 6. nov)\n");
+  });
+});
+
+describe("R18: «Klar for QA» in the export", () => {
+  it("a «Klar for QA» moved later is listed under «Releaser» with its reason", () => {
+    const planWith = (qaDate: string) => normalizePlan({ lanes: [], tasks: [], releases: [{ key: "r1", v: 1, version: "2.0.1", targetDate: "2026-10-27", qaDate }] });
+    const moved = diffPlans(planWith("2026-10-20"), planWith("2026-10-23")).find((e) => e.code === "release.qa")!;
+    const md = exportMarkdown("Siden 5. nov", "x", [path({ ...moved, changeset: { id: "c", at: "2026-11-06T10:00:00.000Z", editor: "GO", reason: "To stories lagt til", reasonCode: "omfang", source: "bruker" } })], () => "");
+    expect(md).toContain("\n## Releaser\n- Release 2.0.1: Klar for QA: 20. okt → 23. okt — Omfanget endret: To stories lagt til (GO, 6. nov)\n");
   });
 });

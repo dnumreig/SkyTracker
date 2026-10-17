@@ -1,4 +1,4 @@
-import type { Plan, PlanLane, PlanTask, Sprint, TaskFieldGroup, Wish, WishSource, WishStatus, Release, Delivery } from "./merge";
+import type { Plan, PlanLane, PlanTask, Sprint, TaskFieldGroup, Wish, WishSource, WishStatus, Release, ReleaseItem, Delivery, SprintCheck } from "./merge";
 
 export declare function progressFraction(p: PlanTask["progress"] | undefined | null): number | null;
 export declare function progressSignal(task: PlanTask, todayUnit: number): { code: "gronn" | "gul" | "rod"; done: number; elapsed: number } | null;
@@ -91,8 +91,9 @@ export declare const RELEASE_DONE_STATES: string[];
 export declare function dayToUnit(day: string): number;
 export declare function releaseScope(r: Release): string;
 export declare function releaseSegments(plan: Plan, todayUnit?: number): { release: Release; start: number; end: number; shipped: boolean; overdue: boolean }[];
-export declare function releaseItemDone(item: { state: string }): boolean;
-export declare function releaseProgress(r: Release): { fraction: number | null; text: string; bugs: number; stories: number; done: number; total: number; pointsDone: number; pointsTotal: number };
+export declare function releaseItemDone(item: { state: string; category?: string }): boolean;
+export declare function releaseItemClosed(item: { state: string; category?: string }): boolean;
+export declare function releaseProgress(r: Release): { fraction: number | null; text: string; bugs: number; stories: number; done: number; total: number; pointsDone: number; pointsTotal: number; closed: number; pointsClosed: number; closedFraction: number | null };
 export declare function releaseWiql(label: string): string;
 export declare function releaseQueryUrl(label: string): string;
 
@@ -108,16 +109,22 @@ export declare function calendarDays(a: string, b: string): number;
 export declare function releaseStartDay(plan: Plan, r: Release): string;
 export type ReleasePace = { code: PaceCode; text: string; done: number; elapsed: number; startDay: string; elapsedDays: number; totalDays: number; tempo: number | null; forecastDay: string | null; deltaDays: number | null; readings: number };
 export declare function releasePace(plan: Plan, r: Release, todayDay: string): ReleasePace | null;
-export declare function nextReleaseText(plan: Plan, todayDay: string): { text: string; code: PaceCode | null; release: Release } | null;
-export declare function releaseStateCounts(r: Release): { state: string; count: number }[];
+export declare function nextReleaseText(plan: Plan, todayDay: string): { text: string; code: PaceCode | null; release: Release; phase: "utvikling" | "qa" | "sluppet" } | null;
+export declare function releaseStateCounts(r: Release): { state: string; count: number; category?: ReleaseItem["category"]; type?: "Bug" | "User Story" }[];
 export declare function releaseSprintText(r: Release): string;
-export declare function releaseBurndownData(plan: Plan, r: Release, todayDay: string): { startDay: string; axisStart: string; targetDay: string; endDay: string; todayDay: string; total: number; unit: "SP" | "items"; actual: { day: string; remaining: number }[]; forecastDay: string | null; firstScope: { day: string; total: number } | null; chances: { day: string; p: number; mean: number }[] } | null;
+export declare function releaseBurndownData(plan: Plan, r: Release, todayDay: string): { startDay: string; axisStart: string; targetDay: string; releaseDay: string; qaDay: string | null; endDay: string; todayDay: string; total: number; unit: "SP" | "items"; actual: { day: string; remaining: number }[]; closedActual: { day: string; remaining: number }[]; forecastDay: string | null; firstScope: { day: string; total: number } | null; chances: { day: string; p: number; mean: number }[] } | null;
+/* R18: a release in two phases */
+export declare function releaseDevTarget(r: Release): string;
+export declare function releasePhase(r: Release): "utvikling" | "qa" | "sluppet";
+export declare function releaseExpected(plan: Plan, r: Release, todayDay: string): string;
+export declare function releaseExpectedLate(plan: Plan, r: Release, todayDay: string): string | null;
+export declare function releaseQaText(r: Release, todayDay: string, plan?: Plan): string;
 /* R12: the chance a release is done by its target day */
 export declare function releaseForecastText(r: Release, todayDay: string): { short: string | null; text: string; detail?: string; basis?: string; people?: { name: string; days: number; pace: number; expected: number }[] } | null;
 export declare function sprintUnlabelledWiql(iterationPath: string): string;
 
 /* R14: the shared top bar and the status strip in words */
-export declare function navTabsHtml(active: "inntak" | "timeline" | "board" | "kunder", hosted: boolean): string;
+export declare function navTabsHtml(active: "inntak" | "timeline" | "board" | "kunder" | "sprint", hosted: boolean): string;
 export declare function epicStatusWords(plan: Plan): string;
 
 /* R15: the forum view */
@@ -148,3 +155,40 @@ export declare function epicWeight(c: EpicCustomers): { code: "tyngst" | "flere"
 export declare function deliverySegments(plan: Plan, todayDay: string): { delivery: Delivery; start: number; end: number; promised: number; status: DeliveryStatus }[];
 export type DeliveryInvestor = { key: string; name: string; customers: string; owner: string; promised: string; computed: string | null; weeks: number | null; colour: string; code: DeliveryCode; by: string | null; pending: boolean; epicsDone: number; epicsTotal: number; bugsLeft: number; text: string };
 export declare function deliveryInvestor(plan: Plan, d: Delivery, todayDay: string): DeliveryInvestor;
+
+/* R17: «Per leveranse» */
+export type DeliveryEpicPart = { kind: "epic"; key: string; lane: PlanLane; code: string; window: string; shared: string[]; start: number | null; likelyEnd: number | null; end: number | null; pending: boolean };
+export type DeliveryReleasePart = { kind: "release"; key: string; release: Release; start: number | null; end: number | null; shipped: boolean };
+export type DeliveryPart = DeliveryEpicPart | DeliveryReleasePart;
+export type DeliveryGroup = { delivery: Delivery; status: DeliveryStatus; segment: { start: number; end: number; promised: number }; parts: DeliveryPart[] };
+export declare function deliveryRows(plan: Plan, todayDay: string): { groups: DeliveryGroup[]; loose: DeliveryEpicPart[] };
+
+/* R19: the Sprint tab */
+export declare function nextSprint(sprints: Sprint[] | undefined | null, date: Date): Sprint | null;
+/** The part of a sprint for bugs and issues: 1 − the mix's feature share (transition 0.45, normal 0.4). */
+export declare function budgetShare(plan: Partial<Plan> | null | undefined): number;
+/** «26. okt – 6. nov» */
+export declare function sprintRangeText(s: Sprint): string;
+/** The features the read asks ADO about: in an epic, aktiv, with an ADO id, the bar starting on or before the next sprint's last day. */
+export declare function dueFeatureIds(plan: Plan, todayDay: string): string[];
+export type DueStatus = "i gang" | "ikke startet" | "sent" | "planlagt" | "uten stories" | "ikke i ADO";
+export type Due = { task: PlanTask; epic: PlanLane | null; start: string; status: DueStatus; inNext?: number; open?: number; inNextPoints?: number; inCurrent?: number };
+export declare function sprintDue(plan: Plan, check: SprintCheck | null | undefined, todayDay: string): { sprint: Sprint | null; discoveries: Due[]; features: Due[] };
+/** The features in work today: in an epic, aktiv, today inside the bar; by epic, then start. */
+export declare function sprintInWork(plan: Plan, todayDay: string): PlanTask[];
+export type SlipCost = { weeks: number; sprint: string; epic: { key: string; name: string; before: EpicStatusCode; after: EpicStatusCode; goalDate: number | null } | null };
+export declare function slipCost(plan: Plan, taskId: string, todayDay: string): SlipCost | null;
+export declare function slipCostText(cost: SlipCost): string;
+export type HealthForecast = { now: number; afterRelease: { label: string; value: number } | null; endOfNext: { value: number; closed: number; created: number } | null };
+export declare function healthForecast(check: SprintCheck, release: Release | null | undefined): HealthForecast;
+export declare function budgetText(check: SprintCheck): string;
+/** «43 åpne bugs · 17 issues»; "" without a check. */
+export declare function healthStripText(check: SprintCheck | null | undefined): string;
+export declare function sprintCheckMarkdown(plan: Plan, check: SprintCheck, todayDay: string): string;
+
+/* R17: modals and drawers as dialogs (browser only) */
+export declare function wireDialogs(doc: Document): void;
+
+/* R17: the focus across a re-render (browser only) */
+export declare function focusKey(doc: Document): string | null;
+export declare function restoreFocus(doc: Document, key: string | null): void;

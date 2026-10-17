@@ -9,33 +9,37 @@ import type { PlanEvent } from "@/features/timeline/events";
 import { currentSprint, osloDay, releaseProgress, releaseQueryUrl, releaseScope, releaseWiql, sprintUnlabelledWiql, RELEASE_HISTORY_MAX } from "@/features/timeline/epic-tools.js";
 import { AdoRequestError, type AdoClient, type AdoWorkItem } from "./client";
 import { readForecast, type ForecastMemo } from "./forecast";
+import { categoryOf, isDeveloped, readStateMap, type StateMap } from "./states";
 
 export { releaseQueryUrl, releaseWiql, sprintUnlabelledWiql };
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
-const DONE = ["Resolved", "Closed"];
-/** When the work was done: the resolved day (QA closing it later is not delivery), the closed day for an item closed without resolving. */
-function releaseDelivered(w: AdoWorkItem): string | null {
-  if (!DONE.includes(str(w.fields["System.State"]))) return null;
-  const d = str(w.fields["Microsoft.VSTS.Common.ResolvedDate"]) || str(w.fields["Microsoft.VSTS.Common.ClosedDate"]);
-  return d ? osloDay(new Date(d)) : null;   // ADO's stamp is UTC; the day is the Oslo day it was done
-}
+const osloDayOf = (stamp: string) => (stamp ? osloDay(new Date(stamp)) : null);   // ADO's stamp is UTC; the day is the Oslo day it happened
 const leaf = (path: string) => path.split("\\").pop() ?? path;
-/** A work item as the release keeps it: enough for the drawer's list, nothing that changes every hour. */
-export function releaseItemOf(w: AdoWorkItem): ReleaseItem {
+/** A work item as the release keeps it: enough for the drawer's list, nothing that changes every hour. R18: with ADO's category of its
+ *  state; `delivered` is the day it was developed (the resolved day: QA closing it later is not delivery; the closed day for an item closed
+ *  without resolving), `closed` the day it was closed. Without the states, the names Resolved and Closed decide. */
+export function releaseItemOf(w: AdoWorkItem, states: StateMap | null = null): ReleaseItem {
   const who = w.fields["System.AssignedTo"] as { displayName?: string } | string | undefined;
   const assignee = typeof who === "string" ? who : who?.displayName ?? null;
   const iteration = leaf(str(w.fields["System.IterationPath"]));
-  const delivered = releaseDelivered(w);
+  const type = w.fields["System.WorkItemType"] === "Bug" ? "Bug" : "User Story";
+  const state = str(w.fields["System.State"]);
+  const found = categoryOf(states, type, state);
+  const category = found === "Removed" ? undefined : found;
+  const delivered = isDeveloped(states, type, state) ? osloDayOf(str(w.fields["Microsoft.VSTS.Common.ResolvedDate"]) || str(w.fields["Microsoft.VSTS.Common.ClosedDate"])) : null;
+  const closed = (category ? category === "Completed" : state === "Closed") ? osloDayOf(str(w.fields["Microsoft.VSTS.Common.ClosedDate"])) : null;
   return {
     id: w.id,
-    type: w.fields["System.WorkItemType"] === "Bug" ? "Bug" : "User Story",
+    type,
     title: str(w.fields["System.Title"]).slice(0, 200),
-    state: str(w.fields["System.State"]) || "New",
+    state: state || "New",
     points: Number(w.fields["Microsoft.VSTS.Scheduling.StoryPoints"] ?? 0) || 0,
     assignee: assignee || null,
     ...(iteration ? { iteration } : {}),
     ...(delivered ? { delivered } : {}),
+    ...(category ? { category } : {}),
+    ...(closed ? { closed } : {}),
   };
 }
 
@@ -48,7 +52,7 @@ export type ReleaseRefreshResult = { plan: Plan; events: PlanEvent[]; read: { re
 
 /** One query per release (plus one per sprint the items sit in); the release keeps the items (bugs first, then by id), the day's
  *  point and the sprint counts; `at` is always the last read, `v` bumps when the data changed, `release.lest` is logged when the items did. */
-export async function refreshReleases(plan: Plan, client: Pick<AdoClient, "wiql" | "batch" | "capacities" | "iterations">, now: Date, opts: { only?: string } = {}): Promise<ReleaseRefreshResult> {
+export async function refreshReleases(plan: Plan, client: Pick<AdoClient, "wiql" | "batch" | "capacities" | "iterations" | "states">, now: Date, opts: { only?: string } = {}): Promise<ReleaseRefreshResult> {
   const p: Plan = JSON.parse(JSON.stringify(plan));
   const events: PlanEvent[] = [];
   let items = 0;
@@ -61,12 +65,13 @@ export async function refreshReleases(plan: Plan, client: Pick<AdoClient, "wiql"
   const current = currentSprint(p.sprints?.items, now);
   const memo: ForecastMemo = {};   // Capacity and the past, read once for every release
   const wanted = (p.releases ?? []).filter((r) => !opts.only || r.key === opts.only);   // R14: the release drawer reads only its own release
+  const states = await readStateMap(client, ["Bug", "User Story"]);   // R18: once for every release; null = counted by the names
   for (const r of wanted) {
     const label = releaseScope(r);
     const ids = await client.wiql(releaseWiql(label));
     const found: AdoWorkItem[] = [];
     for (let i = 0; i < ids.length; i += 200) found.push(...(await client.batch(ids.slice(i, i + 200))));
-    const list = found.map(releaseItemOf).sort((a, b) => (a.type === b.type ? a.id - b.id : a.type === "Bug" ? -1 : 1));
+    const list = found.map((w) => releaseItemOf(w, states)).sort((a, b) => (a.type === b.type ? a.id - b.id : a.type === "Bug" ? -1 : 1));
     items += list.length;
     const paths = [...new Set([...found.map((w) => str(w.fields["System.IterationPath"])).filter(Boolean), ...(current ? [current.path] : [])])].sort();
     const sprints: { name: string; unlabelled: number }[] = [];
@@ -74,14 +79,14 @@ export async function refreshReleases(plan: Plan, client: Pick<AdoClient, "wiql"
     const pr = releaseProgress({ ...r, ado: { at: "", label, items: list } });
     let forecast: ReleaseForecast | null = null;
     try {
-      forecast = await readForecast(p, r, list, client, now, memo);
+      forecast = await readForecast(p, r, list, client, now, memo, states);
     } catch (e) {
       if (e instanceof AdoRequestError && e.status === 401) throw e;   // a rejected token stops the read as before
       console.warn("release forecast skipped:", e instanceof Error ? e.message : e);   // e.g. no access to the team's Capacity: the release is still read
     }
     const chance = forecast && "p" in forecast ? { forecast: { p: forecast.p, mean: forecast.mean } } : {};
-    const history = historyWith(r.ado?.history, { day: osloDay(now), pointsDone: pr.pointsDone, pointsTotal: pr.pointsTotal, done: pr.done, total: pr.total, ...chance });
-    const next: ReleaseAdo = { at: now.toISOString(), label, items: list, history, ...(sprints.length ? { sprints } : {}), ...(forecast ? { forecast } : {}) };
+    const history = historyWith(r.ado?.history, { day: osloDay(now), pointsDone: pr.pointsDone, pointsTotal: pr.pointsTotal, done: pr.done, total: pr.total, closedPoints: pr.pointsClosed, closed: pr.closed, ...chance });   // R18: what is closed too
+    const next: ReleaseAdo = { at: now.toISOString(), label, items: list, history, ...(sprints.length ? { sprints } : {}), ...(forecast ? { forecast } : {}), ...(states ? {} : { statesMissing: true }) };
     const itemsKey = (a?: ReleaseAdo) => JSON.stringify(a ? { label: a.label, items: a.items } : null);
     const dataKey = (a?: ReleaseAdo) => JSON.stringify(a ? { label: a.label, items: a.items, history: a.history ?? [], sprints: a.sprints ?? [], forecast: a.forecast ?? null } : null);
     const itemsChanged = itemsKey(next) !== itemsKey(r.ado), changed = dataKey(next) !== dataKey(r.ado);

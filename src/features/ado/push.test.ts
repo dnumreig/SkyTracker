@@ -39,6 +39,7 @@ function fakeAdo(seed: AdoWorkItem[] = []) {
     wiql: async () => [],
     remove: async (id) => { calls.push("remove " + id); items.delete(id); },
     gitItem: async () => null,
+    states: async () => [],
   };
   return { items, client, calls };
 }

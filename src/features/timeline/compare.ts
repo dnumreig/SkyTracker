@@ -72,7 +72,7 @@ const SECTIONS: [string, PlanEvent["code"][]][] = [
   ["Nye og fjernet", ["epic.ny", "epic.slettet", "feature.ny", "feature.slettet", "feature.utredning"]],
   ["ADO", ["ado.push", "ado.konflikt", "ado.lest", "feature.ado", "epic.ado"]],
   ["Sprintmål", ["plan.sprintmaal"]],
-  ["Releaser", ["release.ny", "release.slettet", "release.versjon", "release.maldato", "release.skippet", "release.notat", "release.scope", "release.lest"]],
+  ["Releaser", ["release.ny", "release.slettet", "release.versjon", "release.maldato", "release.qa", "release.skippet", "release.notat", "release.scope", "release.lest"]],
   ["Leveranser", ["leveranse.ny", "leveranse.slettet", "leveranse.navn", "leveranse.lovet", "leveranse.kunder", "leveranse.epics", "leveranse.releaser", "leveranse.eier", "leveranse.notat"]],
 ];
 const SHELF_NAME = "Klar for veikart";   // the reserved lane key never leaks into a text people read

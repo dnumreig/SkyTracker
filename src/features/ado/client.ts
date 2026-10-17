@@ -25,6 +25,8 @@ export type AdoClient = {
   capacities(iterationId: string): Promise<{ members: AdoCapacity[]; teamDaysOff: { start: string; end: string }[] }>;
   /** A file's text from a git repository, null when the path does not exist. */
   gitItem(repoId: string, path: string): Promise<string | null>;
+  /** R18: a work item type's states and their categories. */
+  states(type: string): Promise<{ name: string; category: string }[]>;
 };
 export class AdoRequestError extends Error {
   constructor(public status: number, message: string) {
@@ -75,5 +77,6 @@ export function createAdoClient(authHeader: string, fetchImpl: typeof fetch = (.
       const r = await request<{ content?: string }>("GET", `${adoProjectUrl()}/_apis/git/repositories/${repoId}/items?path=${encodeURIComponent(path)}&includeContent=true&${v}`, undefined, undefined, true);
       return r?.content ?? null;
     },
+    states: async (type) => ((await request<{ value: { name: string; category: string }[] }>("GET", `${adoProjectUrl()}/_apis/wit/workitemtypes/${encodeURIComponent(type)}/states?${v}`))?.value ?? []),
   };
 }

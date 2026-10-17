@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergePlans, type Plan, type PlanTask, type Wish } from "./merge";
+import { mergePlans, type Plan, type PlanTask, type SprintCheck, type Wish } from "./merge";
 
 function task(over: Partial<PlanTask>): PlanTask {
   return { id: "t1", lane: "x", label: "Feature", kind: "estimate", start: 1, endLikely: 1.5, end: 2, deps: [], fv: {}, ...over };
@@ -199,5 +199,30 @@ describe("mergePlans - deliveries (R16)", () => {
     const revived = mergePlans(m, plan([], { deliveries: [d("c", 2, "2027-01-15")] }));
     expect(revived.deliveries!.some((x) => x.key === "c")).toBe(true);
     expect(mergePlans(plan([]), plan([])).deliveries).toEqual([]);
+  });
+});
+
+describe("sprintCheck (R19)", () => {
+  const check = (at: string, open: number): SprintCheck => ({
+    at,
+    current: null,
+    next: null,
+    bugs: { open, A: 0, B: 0, C: 0, D: 0, none: 0, inRelease: {}, inNext: 0, inNextPoints: 0, closedCurrent: 0 },
+    issues: { open: 0 },
+    sprints: [],
+    budget: { points: 53, share: 0.45 },
+    features: {},
+  });
+  it("keeps the newer sprintCheck by its read time, the incoming one on a tie", () => {
+    const base = { lanes: [], tasks: [] } as Plan;
+    expect(mergePlans({ ...base, sprintCheck: check("2026-10-17T10:00:00Z", 40) }, { ...base, sprintCheck: check("2026-10-17T09:00:00Z", 30) }).sprintCheck!.bugs.open).toBe(40);
+    expect(mergePlans({ ...base, sprintCheck: check("2026-10-17T09:00:00Z", 40) }, { ...base, sprintCheck: check("2026-10-17T10:00:00Z", 30) }).sprintCheck!.bugs.open).toBe(30);
+    expect(mergePlans({ ...base, sprintCheck: check("2026-10-17T10:00:00Z", 40) }, { ...base, sprintCheck: check("2026-10-17T10:00:00Z", 30) }).sprintCheck!.bugs.open).toBe(30);
+  });
+  it("keeps a sprintCheck only one side has", () => {
+    const base = { lanes: [], tasks: [] } as Plan;
+    expect(mergePlans({ ...base, sprintCheck: check("2026-10-17T10:00:00Z", 40) }, base).sprintCheck!.bugs.open).toBe(40);
+    expect(mergePlans(base, { ...base, sprintCheck: check("2026-10-17T10:00:00Z", 40) }).sprintCheck!.bugs.open).toBe(40);
+    expect("sprintCheck" in mergePlans(base, base)).toBe(false);
   });
 });

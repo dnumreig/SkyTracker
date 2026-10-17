@@ -10,7 +10,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <div className="max-w-sm w-full flex flex-col gap-6 text-center">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ocean-1 dark:text-white">SkyTracker</h1>
-          <p className="text-sm text-slate-500 dark:text-skyblue-2 mt-1">Sign in to continue.</p>
+          <p className="text-sm text-slate-500 dark:text-skyblue-2 mt-1">Logg inn på SkyTracker</p>
         </div>
         <form
           action={async () => {
@@ -20,9 +20,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         >
           <button
             type="submit"
-            className="w-full rounded-md bg-ocean-5 text-white py-2.5 text-sm font-medium hover:bg-ocean-6 transition"
+            className="w-full rounded-md bg-ocean-5 text-white py-2.5 text-sm font-medium hover:bg-[#2f5f8f] transition"
           >
-            Sign in with Microsoft Entra ID
+            Logg inn med Skytale-kontoen din
           </button>
         </form>
       </div>

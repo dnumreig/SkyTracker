@@ -2,8 +2,9 @@
 // fast each person has been (the bugs and stories they resolved in the two last finished sprints). Read only, never
 // written to ADO. Design: docs/superpowers/specs/2026-10-12-planning-system-r12-release-forecast-design.md.
 import type { Plan, Release, ReleaseForecast, ReleaseItem, Sprint } from "@/features/timeline/merge";
-import { dayKey, osloDay, releaseItemDone } from "@/features/timeline/epic-tools.js";
+import { dayKey, osloDay, releaseDevTarget, releaseItemDone } from "@/features/timeline/epic-tools.js";
 import type { AdoCapacity, AdoClient, AdoWorkItem } from "./client";
+import { isDeveloped, type StateMap } from "./states";
 import { parseSprints } from "./sync";
 
 /** A full working day on the Capacity tab (GO filled Sprint 71 with 7.5). */
@@ -63,21 +64,23 @@ export function availabilityFrom(caps: SprintCapacity[], days: string[]): { peop
   return { people, missing: [...missing], unplanned };
 }
 
-/** The bugs and stories resolved from the first sprint's start through the last one's finish. */
+/** The bugs and stories resolved from the first sprint's start through the last one's finish. R18: the resolved day selects them, no
+ *  state names (the pool keeps those still developed, by their state's category). */
 export function paceWiql(sprints: Sprint[]): string {
-  return "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.WorkItemType] IN ('Bug', 'User Story') AND [System.State] IN ('Resolved', 'Closed') AND [Microsoft.VSTS.Common.ResolvedDate] >= '" + sprints[0].start + "' AND [Microsoft.VSTS.Common.ResolvedDate] <= '" + sprints[sprints.length - 1].finish + "'";
+  return "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.WorkItemType] IN ('Bug', 'User Story') AND [Microsoft.VSTS.Common.ResolvedDate] >= '" + sprints[0].start + "' AND [Microsoft.VSTS.Common.ResolvedDate] <= '" + sprints[sprints.length - 1].finish + "'";
 }
 
 /** One row per working day of the sprints: each person's points resolved that day, credited to the assignee, else the one who
- *  resolved it. Weekend work, items without points and items resolved without delivering are left out. */
-export function pacePool(items: AdoWorkItem[], sprints: Sprint[]): { days: Record<string, number>[]; names: Map<string, string> } {
+ *  resolved it. Weekend work, items without points, items resolved without delivering and (R18) items not developed by their state's
+ *  category (one back in Codereview) are left out. */
+export function pacePool(items: AdoWorkItem[], sprints: Sprint[], states: StateMap | null = null): { days: Record<string, number>[]; names: Map<string, string> } {
   const list = sprints.flatMap((s) => workingDays(s.start, s.finish));
   const index = new Map(list.map((d, i) => [d, i]));
   const days = list.map(() => ({}) as Record<string, number>);
   const names = new Map<string, string>();
   for (const w of items) {
     const f = w.fields;
-    if (!["Resolved", "Closed"].includes(String(f["System.State"] ?? ""))) continue;
+    if (!isDeveloped(states, String(f["System.WorkItemType"] ?? ""), String(f["System.State"] ?? ""))) continue;
     if (NOT_DELIVERED.includes(String(f["Microsoft.VSTS.Common.ResolvedReason"] ?? ""))) continue;
     const points = Number(f["Microsoft.VSTS.Scheduling.StoryPoints"] ?? 0) || 0;
     const i = index.get(String(f["Microsoft.VSTS.Common.ResolvedDate"] ?? "").slice(0, 10));
@@ -128,13 +131,15 @@ export type ForecastMemo = {
 };
 type Client = Pick<AdoClient, "wiql" | "batch" | "capacities" | "iterations">;
 
-/** The release's forecast for today, or null when there is nothing to forecast: shipped, nothing left, no points, or the target day reached. */
-export async function readForecast(plan: Plan, r: Release, items: ReleaseItem[], client: Client, now: Date, memo: ForecastMemo): Promise<ReleaseForecast | null> {
+/** The release's forecast for today, or null when there is nothing to forecast: shipped, nothing left, no points, or the target day reached.
+ *  R18: `states` (ADO's state categories, read once per refresh) decides which past items count for the pace; the target is
+ *  development's (`releaseDevTarget`: «Klar for QA» when it is set, else «Release»). */
+export async function readForecast(plan: Plan, r: Release, items: ReleaseItem[], client: Client, now: Date, memo: ForecastMemo, states: StateMap | null = null): Promise<ReleaseForecast | null> {
   if (r.shippedDate) return null;
   const need = items.filter((i) => !releaseItemDone(i)).reduce((s, i) => s + (i.points || 0), 0);
   if (need <= 0 || !items.some((i) => i.points > 0)) return null;
   const today = osloDay(now);
-  const window = forecastWindow(today, r.targetDate);
+  const window = forecastWindow(today, releaseDevTarget(r));
   if (!window.length) return null;
   const cached = plan.sprints?.items ?? [];
   const sprints = await (memo.sprints ??= cached.length && cached.every((s) => s.id) ? Promise.resolve(cached) : client.iterations().then(parseSprints));
@@ -148,7 +153,7 @@ export async function readForecast(plan: Plan, r: Release, items: ReleaseItem[],
   if (avail.missing.length || avail.unplanned || !avail.people.size) return { day: today, missing: "capacity", sprints: avail.missing.length || avail.unplanned ? avail.missing : caps.map((c) => c.sprint.name), unplanned: avail.unplanned };
   const finished = sprints.filter((s) => s.finish < today).slice(-2);
   memo.pool ??= finished.length
-    ? client.wiql(paceWiql(finished)).then((ids) => client.batch(ids)).then((ws) => ({ days: pacePool(ws, finished).days, basis: finished.map((s) => s.name) }))
+    ? client.wiql(paceWiql(finished)).then((ids) => client.batch(ids)).then((ws) => ({ days: pacePool(ws, finished, states).days, basis: finished.map((s) => s.name) }))
     : Promise.resolve({ days: [], basis: [] });
   const pool = await memo.pool;
   if (!pool.days.some((d) => Object.keys(d).length)) return { day: today, missing: "history" };

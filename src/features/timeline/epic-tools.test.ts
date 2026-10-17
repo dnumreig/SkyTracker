@@ -6,15 +6,16 @@ import {
   shelfTasks, epicCounts, sizeClass, bufferLabel, rawLabel, previewPlacement,
   currentSprint, sprintDay, sprintLabel, progressFraction, progressSignal, epicProgressSignal, progressText,
   resolveQueue, queueFloor, capacityFactor, elapsedWeeks, wishesByStatus, WISH_STATUS_LABEL, WISH_SOURCE_LABEL, sizeClassDerived, sizeClassText, FEATURE_TYPE_LABEL, AREAS,
-  dayToUnit, releaseSegments, releaseProgress, releaseScope,
+  dayToUnit, releaseSegments, releaseProgress, releaseScope, releaseItemDone, releaseItemClosed,
   workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, dayKey,
-  releaseForecastText,
+  releaseForecastText, focusKey, restoreFocus, releaseDevTarget, releasePhase, releaseExpected, releaseExpectedLate, releaseQaText,
   BACKLOG, canMarkDelivered, markDelivered, canRestartDiscovery, applyLaneChange, boardColumn, featureTransition,
   navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
   osloDay, osloDate,
-  DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor,
+  DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor, deliveryRows,
+  nextSprint, budgetShare, sprintRangeText, dueFeatureIds, sprintDue, sprintInWork, slipCost, slipCostText, healthForecast, budgetText, healthStripText, sprintCheckMarkdown,
 } from "./epic-tools.js";
-import type { Delivery, Plan, PlanTask } from "./merge";
+import type { Delivery, Plan, PlanTask, Sprint, SprintCheck } from "./merge";
 
 const est = (over: Partial<PlanTask>): PlanTask =>
   ({ id: "e", lane: "x", label: "Est", kind: "estimate", start: 4, endLikely: 5, end: 6, deps: [], fv: {}, ...over });
@@ -583,9 +584,9 @@ describe("releases (R10): the normaliser, the band segments and the progress tex
       { id: 3, type: "User Story", title: "c", state: "Resolved", points: 2, assignee: null },
     ];
     const r = normalizePlan({ lanes: [], tasks: [], releases: [rel({ ado: { at: "2026-10-12T20:00:00.000Z", label: "2.0.1", items } })] }).releases![0];
-    expect(releaseProgress(r)).toMatchObject({ fraction: 0.7, text: "2 bugs, 1 story · 7/10 SP levert", bugs: 2, stories: 1, done: 2, total: 3, pointsDone: 7, pointsTotal: 10 });
+    expect(releaseProgress(r)).toMatchObject({ fraction: 0.7, text: "2 bugs, 1 story · 7/10 SP utviklet", bugs: 2, stories: 1, done: 2, total: 3, pointsDone: 7, pointsTotal: 10 });
     const noPoints = normalizePlan({ lanes: [], tasks: [], releases: [rel({ ado: { at: "x", label: "2.0.1", items: items.map((i) => ({ ...i, points: 0 })) } })] }).releases![0];
-    expect(releaseProgress(noPoints)).toMatchObject({ fraction: 2 / 3, text: "2 bugs, 1 story · 2 av 3 levert" });
+    expect(releaseProgress(noPoints)).toMatchObject({ fraction: 2 / 3, text: "2 bugs, 1 story · 2 av 3 utviklet" });
     expect(releaseProgress(normalizePlan({ lanes: [], tasks: [], releases: [rel({})] }).releases![0])).toMatchObject({ fraction: null, text: "ikke lest fra ADO" });
     expect(releaseScope(rel({ label: "2.0.1+ota.2" }) as never)).toBe("2.0.1+ota.2");
     expect(releaseScope(rel({}) as never)).toBe("2.0.1");
@@ -649,14 +650,14 @@ describe("R11: the tempo of a release", () => {
   it("day one of a short release is green with nothing delivered: the straight line allows one working day, at least 10 %", () => {
     const c = mk({ items: items([], [82]), history: hist(["2026-10-13"]) });   // 13.10–22.10: eight working days
     expect(releasePace(c.p, c.r, "2026-10-13")).toMatchObject({ code: "gronn", startDay: "2026-10-13", elapsedDays: 1, totalDays: 8, tempo: null });
-    expect(releasePace(c.p, c.r, "2026-10-13")!.text).toBe("0 % levert · 13 % av tiden brukt · ingenting levert ennå");
+    expect(releasePace(c.p, c.r, "2026-10-13")!.text).toBe("0 % utviklet · 13 % av tiden brukt · ingenting utviklet ennå");
     expect(releasePace(c.p, c.r, "2026-10-14")!.code).toBe("gul");   // two days in, nothing delivered
   });
   it("the straight line until something is delivered after the start: green when delivered keeps up with the time used, yellow behind, red past the target", () => {
     const today = "2026-10-12";   // 6 of 14 working days from 5.10 to 22.10
     const g = mk({ items: items([30], [49], "2026-10-02"), history: hist(["2026-10-05"]) });   // 38 % delivered, all of it before the start; 43 % of the time
     expect(releasePace(g.p, g.r, today)).toMatchObject({ code: "gronn", tempo: null, forecastDay: null, elapsedDays: 6, totalDays: 14, startDay: "2026-10-05" });
-    expect(releasePace(g.p, g.r, today)!.text).toBe("38 % levert · 43 % av tiden brukt · ingenting levert siden 5. okt");
+    expect(releasePace(g.p, g.r, today)!.text).toBe("38 % utviklet · 43 % av tiden brukt · ingenting utviklet siden 5. okt");
     const y = mk({ items: items([10], [69], "2026-10-02"), history: hist(["2026-10-05"]) });   // 13 % delivered
     expect(releasePace(y.p, y.r, today)!.code).toBe("gul");
     expect(releasePace(y.p, y.r, "2026-10-23")!.code).toBe("rod");   // the target day is past
@@ -669,10 +670,10 @@ describe("R11: the tempo of a release", () => {
     const lp = releasePace(late.p, late.r, today)!;
     expect(lp).toMatchObject({ code: "rod", readings: 1, forecastDay: "2026-12-09", deltaDays: 34 });
     expect(lp.tempo).toBeCloseTo(10 / 6);
-    expect(lp.text).toBe("13 % levert · 43 % av tiden brukt · med dagens tempo ferdig 9. des, 34 arbeidsdager etter målet");
+    expect(lp.text).toBe("13 % utviklet · 43 % av tiden brukt · med dagens tempo ferdig 9. des, 34 arbeidsdager etter målet");
     const ok = mk({ items: items([42], [37]), history: two });   // 7/day: 37 left → 6 more → 20 Oct, two days before
     expect(releasePace(ok.p, ok.r, today)).toMatchObject({ code: "gronn", forecastDay: "2026-10-20", deltaDays: -2 });
-    expect(releasePace(ok.p, ok.r, today)!.text).toBe("53 % levert · 43 % av tiden brukt · med dagens tempo ferdig 20. okt, to arbeidsdager før målet");
+    expect(releasePace(ok.p, ok.r, today)!.text).toBe("53 % utviklet · 43 % av tiden brukt · med dagens tempo ferdig 20. okt, to arbeidsdager før målet");
     const yel = mk({ items: items([30], [49]), history: two });   // 5/day: 49 left → 10 more → 26 Oct, two days after
     expect(releasePace(yel.p, yel.r, today)).toMatchObject({ code: "gul", forecastDay: "2026-10-26", deltaDays: 2 });
     const three = mk({ items: items([28], [51]), history: two }); // 4.67/day: 51 left → 11 more → 27 Oct, three days after: still yellow
@@ -700,9 +701,9 @@ describe("R11: the tempo of a release", () => {
     expect(releasePace(empty.p, empty.r, "2026-10-12")).toBeNull();
     const all = mk({ items: items([79], []), history: hist(["2026-10-05", "2026-10-12"]) });
     expect(releasePace(all.p, all.r, "2026-10-12")).toMatchObject({ code: "gronn", forecastDay: null });
-    expect(releasePace(all.p, all.r, "2026-10-12")!.text).toBe("100 % levert · 43 % av tiden brukt · alt levert · sett «Skippet» når den er ute");
+    expect(releasePace(all.p, all.r, "2026-10-12")!.text).toBe("100 % utviklet · 43 % av tiden brukt · alt utviklet · sett «Sluppet» når den er ute");
     const none = mk({ items: items([], [79]), history: hist(["2026-10-05", "2026-10-12"]) });
-    expect(releasePace(none.p, none.r, "2026-10-12")!.text).toBe("0 % levert · 43 % av tiden brukt · ingenting levert ennå");
+    expect(releasePace(none.p, none.r, "2026-10-12")!.text).toBe("0 % utviklet · 43 % av tiden brukt · ingenting utviklet ennå");
   });
   it("nextReleaseText: the first unshipped release by target day, calendar days away, the share delivered and the colour in words", () => {
     const p = normalizePlan({ lanes: [], tasks: [], sprints, releases: [
@@ -714,7 +715,7 @@ describe("R11: the tempo of a release", () => {
     expect(nextReleaseText(p, "2026-10-22")!.text).toBe("Neste release 2.0.1 i dag · 38 % · gul");
     expect(nextReleaseText(p, "2026-10-25")!.text).toBe("Neste release 2.0.1 3 dager på overtid · 38 % · rød");
     const unread = normalizePlan({ lanes: [], tasks: [], releases: [{ key: "c", version: "2.0.2", targetDate: "2026-11-13" }] });
-    expect(nextReleaseText(unread, "2026-11-12")).toEqual({ text: "Neste release 2.0.2 om 1 dag · ikke lest fra ADO", code: null, release: unread.releases![0] });
+    expect(nextReleaseText(unread, "2026-11-12")).toEqual({ text: "Neste release 2.0.2 om 1 dag · ikke lest fra ADO", code: null, release: unread.releases![0], phase: "utvikling" });
     expect(nextReleaseText(normalizePlan({ lanes: [], tasks: [] }), "2026-10-12")).toBeNull();
   });
   it("releaseStateCounts and releaseSprintText: ADO's states in order, the items per sprint and the sprint's unlabelled items", () => {
@@ -738,8 +739,9 @@ describe("R11: the tempo of a release", () => {
     ];
     const h = [{ day: "2026-10-05", pointsDone: 0, pointsTotal: 70, done: 0, total: 2 }, { day: today, pointsDone: 10, pointsTotal: 79, done: 2, total: 3 }];
     const a = mk({ items: its, history: h });
-    expect(releaseBurndownData(a.p, a.r, today)).toEqual({ startDay: "2026-10-05", axisStart: "2026-10-05", targetDay: "2026-10-22", endDay: "2026-10-22", todayDay: today, total: 79, unit: "SP",
+    expect(releaseBurndownData(a.p, a.r, today)).toEqual({ startDay: "2026-10-05", axisStart: "2026-10-05", targetDay: "2026-10-22", releaseDay: "2026-10-22", qaDay: null, endDay: "2026-10-22", todayDay: today, total: 79, unit: "SP",
       actual: [{ day: "2026-10-05", remaining: 79 }, { day: "2026-10-06", remaining: 79 }, { day: "2026-10-07", remaining: 75 }, { day: "2026-10-08", remaining: 75 }, { day: "2026-10-09", remaining: 69 }, { day: today, remaining: 69 }],
+      closedActual: [{ day: "2026-10-05", remaining: 79 }, { day: "2026-10-06", remaining: 79 }, { day: "2026-10-07", remaining: 75 }, { day: "2026-10-08", remaining: 75 }, { day: "2026-10-09", remaining: 75 }, { day: today, remaining: 75 }],   // R18: the Closed bug has no closed day, so it counts from its developed day (7.10)
       forecastDay: "2026-12-09", firstScope: { day: "2026-10-05", total: 70 }, chances: [] });
     expect(releaseBurndownData(a.p, a.r, "2026-10-30")!.endDay).toBe("2026-10-30");
     const same = mk({ items: its, history: [{ ...h[0], pointsTotal: 79 }] });
@@ -783,7 +785,7 @@ describe("R11: a release whose clock starts after today (items in a coming sprin
   it("says where the tempo counts from instead of «ingenting levert ennå», and stays green", () => {
     const pace = releasePace(p, p.releases![0], "2026-10-13")!;
     expect(pace).toMatchObject({ code: "gronn", elapsedDays: 0, tempo: null, startDay: "2026-10-26" });
-    expect(pace.text).toBe("31 % levert · 0 % av tiden brukt · tempo regnes fra 26. okt");
+    expect(pace.text).toBe("31 % utviklet · 0 % av tiden brukt · tempo regnes fra 26. okt");
   });
   it("the burndown's axis starts at the earlier of the clock's start and the first reading", () => {
     const d = releaseBurndownData(p, p.releases![0], "2026-10-13")!;
@@ -801,7 +803,7 @@ describe("R12: the chance a release is done by its target day, in words and in t
   it("the chance, what is expected and the range, the people and what it rests on", () => {
     expect(releaseForecastText(rel(FC), "2026-10-13")).toEqual({
       short: "44 % sjanse",
-      text: "44 % sjanse for at alt er levert til 22. okt",
+      text: "44 % sjanse for at alt er utviklet til 22. okt",
       detail: "Forventet 78 av 82 SP på 7 arbeidsdager · 8 av 10 utfall mellom 37 og 121 SP",
       basis: "Tempo per person fra Sprint 69 og Sprint 70 · tilgjengelighet fra Capacity i Sprint 71 (Development-timer, 7,5 t = full dag) · ikke regnet med: hvem som kan ta hvilken oppgave",
       people: FC.people,
@@ -810,14 +812,14 @@ describe("R12: the chance a release is done by its target day, in words and in t
   it("never says 0 or 100 %, and says when the forecast is from an earlier day", () => {
     expect(releaseForecastText(rel({ ...FC, p: 1 }), "2026-10-13")!.short).toBe("over 99 % sjanse");
     expect(releaseForecastText(rel({ ...FC, p: 0 }), "2026-10-13")!.short).toBe("under 1 % sjanse");
-    expect(releaseForecastText(rel(FC), "2026-10-14")!.text).toBe("44 % sjanse for at alt er levert til 22. okt · regnet 13. okt");
+    expect(releaseForecastText(rel(FC), "2026-10-14")!.text).toBe("44 % sjanse for at alt er utviklet til 22. okt · regnet 13. okt");
     expect(releaseForecastText(rel({ ...FC, p10: 26, p90: 26, mean: 26 }), "2026-10-13")!.detail).toBe("Forventet 26 av 82 SP på 7 arbeidsdager · 8 av 10 utfall rundt 26 SP");
   });
   it("tells what is missing: Capacity for a sprint, sprints up to the target, the past to measure a pace from", () => {
     expect(releaseForecastText(rel({ day: "2026-10-13", missing: "capacity", sprints: ["Sprint 71"], unplanned: 0 }), "2026-10-13")).toEqual({ short: null, text: "Fyll inn Capacity i ADO for Sprint 71 (Development-timer per dag og fridager) for å få sannsynligheten" });
     expect(releaseForecastText(rel({ day: "2026-10-13", missing: "capacity", sprints: ["Sprint 71", "Sprint 72"], unplanned: 3 }), "2026-10-13")!.text).toBe("Fyll inn Capacity i ADO for Sprint 71 og Sprint 72 (Development-timer per dag og fridager) og lag sprintene fram til målet (3 arbeidsdager er uten sprint) for å få sannsynligheten");
     expect(releaseForecastText(rel({ day: "2026-10-13", missing: "capacity", sprints: [], unplanned: 13 }), "2026-10-13")!.text).toBe("Lag sprintene fram til målet i ADO og fyll inn Capacity (13 arbeidsdager er uten sprint) for å få sannsynligheten");
-    expect(releaseForecastText(rel({ day: "2026-10-13", missing: "history" }), "2026-10-13")).toEqual({ short: null, text: "Ingen leverte poeng i de to siste sprintene å regne tempo fra" });
+    expect(releaseForecastText(rel({ day: "2026-10-13", missing: "history" }), "2026-10-13")).toEqual({ short: null, text: "Ingen utviklede poeng i de to siste sprintene å regne tempo fra" });
   });
   it("nothing when there is no forecast or the release is shipped", () => {
     expect(releaseForecastText(rel(undefined), "2026-10-13")).toBeNull();
@@ -915,20 +917,22 @@ describe("R14: the top bar's words", () => {
   const discT = (id: string, lane: string, end: number): PlanTask => ({ id, label: id, lane, kind: "discovery", start: 0, endLikely: end, end, deps: [], fv: {}, state: "utredes" });
   const words = (lanes: ReturnType<typeof ln>[], tasks: PlanTask[]) => epicStatusWords({ lanes, tasks } as unknown as Plan);
 
-  it("navTabsHtml keeps the process order, marks the active tab and shows all four when hosted", () => {
+  it("navTabsHtml keeps the process order, marks the active tab and shows all five when hosted", () => {
     const html = navTabsHtml("timeline", true);
-    expect([...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1])).toEqual(["/inntak", "/timeline", "/", "/kunder"]);
-    expect(html).toContain('<a class="tab on" id="tab-timeline" data-tab="timeline" href="/timeline" aria-current="page">Tidslinjen</a>');
-    expect(html).toContain('<a class="tab" id="tab-board" data-tab="board" href="/">Brettet</a>');
+    expect([...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1])).toEqual(["/inntak", "/timeline", "/", "/kunder", "/sprint"]);   // R19: «Sprint» last
+    expect(html).toContain('<a class="tab on" id="tab-timeline" data-tab="timeline" data-label="Tidslinjen" href="/timeline" aria-current="page">Tidslinjen</a>');
+    expect(html).toContain('<a class="tab" id="tab-board" data-tab="board" data-label="Brettet" href="/">Brettet</a>');   // R17: the label reserves the bold width (sky.css)
     expect(html).not.toContain("hidden");
   });
 
   it("navTabsHtml hides the other tabs when the page is opened from a file", () => {
     const html = navTabsHtml("board", false);
-    expect(html).toContain('id="tab-board" data-tab="board" href="/" aria-current="page">');
-    expect(html).toContain('id="tab-inntak" data-tab="inntak" href="/inntak" hidden>');
-    expect(html).toContain('id="tab-timeline" data-tab="timeline" href="/timeline" hidden>');
-    expect(html).toContain('id="tab-kunder" data-tab="kunder" href="/kunder" hidden>');
+    expect(html).toContain('id="tab-board" data-tab="board" data-label="Brettet" href="/" aria-current="page">');
+    expect(html).toContain('id="tab-inntak" data-tab="inntak" data-label="Inntak" href="/inntak" hidden>');
+    expect(html).toContain('id="tab-timeline" data-tab="timeline" data-label="Tidslinjen" href="/timeline" hidden>');
+    expect(html).toContain('id="tab-kunder" data-tab="kunder" data-label="Kunder" href="/kunder" hidden>');
+    expect(html).toContain('id="tab-sprint" data-tab="sprint" data-label="Sprint" href="/sprint" hidden>');
+    expect(navTabsHtml("sprint", true)).toContain('<a class="tab on" id="tab-sprint" data-tab="sprint" data-label="Sprint" href="/sprint" aria-current="page">Sprint</a>');
   });
 
   it("epicStatusWords counts the active epics by colour, in Norwegian words", () => {
@@ -1110,5 +1114,415 @@ describe("minors after R16: the Oslo day and the numeric sprint order", () => {
       { id: 3, type: "Bug", title: "c", state: "New", points: 1, assignee: null, iteration: "Sprint 9" },
     ] } } as unknown as Parameters<typeof releaseSprintText>[0];
     expect(releaseSprintText(r)).toBe("3 items i 2.1: 2 i Sprint 9, 1 i Sprint 10");
+  });
+});
+
+describe("R17: «Per leveranse», the deliveries with what they hang on", () => {
+  const D = (y: number, m: number, d: number) => dateToUnit(new Date(y, m - 1, d));
+  const TODAY = "2026-10-16";
+  const del = (over: Record<string, unknown>): Delivery => ({ key: "d1", name: "Skytale 2.0", customers: [], allCustomers: true, promisedDate: "2026-11-30", epics: [], releases: [], ...over }) as unknown as Delivery;
+  const f = (id: string, lane: string, start: number, likely: number, end: number, over: Partial<PlanTask> = {}): PlanTask =>
+    ({ id, lane, label: id.toUpperCase(), kind: "estimate", start, endLikely: likely, end, deps: [], fv: {}, state: "aktiv", ...over }) as PlanTask;
+  const base = (deliveries: Delivery[]) => normalizePlan({
+    lanes: [
+      { key: "a", name: "Epic A", priority: 1, goalDate: D(2026, 12, 18) }, { key: "b", name: "Epic B", priority: 2 },
+      { key: "c", name: "Epic C", priority: 3, state: "avsluttet", outcome: "nådd" }, { key: "p", name: "Epic P", priority: 4, state: "forslag" },
+      { key: "e", name: "Epic E", priority: 5 },
+    ],
+    tasks: [
+      f("a1", "a", D(2026, 11, 2), D(2026, 11, 30), D(2026, 12, 11)),
+      f("a2", "a", D(2026, 10, 12), D(2026, 10, 26), D(2026, 11, 2), { state: "levert", deliveredAt: "2026-11-02" }),
+      { id: "b1", lane: "b", label: "B1", kind: "discovery", start: D(2026, 10, 19), end: D(2026, 11, 13), deps: [], fv: {}, state: "utredes" } as PlanTask,
+      f("c1", "c", D(2026, 9, 1), D(2026, 9, 20), D(2026, 9, 30), { state: "levert", deliveredAt: "2026-09-30" }),
+      f("p1", "p", D(2027, 1, 4), D(2027, 2, 1), D(2027, 2, 15)),
+    ],
+    releases: [{ key: "r1", version: "2.0.1", targetDate: "2026-10-22" }, { key: "r0", version: "2.0.0", targetDate: "2026-10-07", shippedDate: "2026-10-07" }],
+    deliveries,
+  });
+
+  it("one group per delivery in the plan's order; its parts by end, so the last one is what pulls the date", () => {
+    const p = base([del({ key: "d1", epics: ["a", "b"], releases: ["r1"] }), del({ key: "d0", name: "Proxy", allCustomers: false, customers: ["Telenor"], promisedDate: "2026-11-15", epics: ["b"] })]);
+    const { groups } = deliveryRows(p, TODAY);
+    expect(groups.map((g) => g.delivery.key)).toEqual(["d0", "d1"]);
+    expect(groups[1].parts.map((x) => x.key)).toEqual(["r1", "b", "a"]);
+    expect(groups[1].status.by).toEqual({ kind: "epic", key: "a", name: "Epic A" });
+    expect(groups[1].segment.promised).toBeCloseTo(dayToUnit("2026-11-30"), 9);
+  });
+  it("an epic part spans its open features, darker to the latest likely end, striped while a discovery runs", () => {
+    const g = deliveryRows(base([del({ epics: ["a", "b"] })]), TODAY).groups[0];
+    const a = g.parts.find((x) => x.key === "a")!, b = g.parts.find((x) => x.key === "b")!;
+    expect(a).toMatchObject({ kind: "epic", code: "gronn", start: D(2026, 11, 2), likelyEnd: D(2026, 11, 30), end: D(2026, 12, 11), pending: false });
+    expect(a.kind === "epic" && a.window).toMatch(/^Leveres uke /);
+    expect(b).toMatchObject({ kind: "epic", code: "venter", start: D(2026, 10, 19), end: D(2026, 11, 13), pending: true });
+  });
+  it("shared: an epic two deliveries hang on shows under both, each naming the other", () => {
+    const [g1, g2] = deliveryRows(base([del({ key: "d1", epics: ["b"] }), del({ key: "d2", name: "Proxy", promisedDate: "2026-12-15", epics: ["b"] })]), TODAY).groups;
+    expect(g1.parts[0].kind === "epic" && g1.parts[0].shared).toEqual(["Proxy"]);
+    expect(g2.parts[0].kind === "epic" && g2.parts[0].shared).toEqual(["Skytale 2.0"]);
+  });
+  it("a closed epic spans its delivered features; a release part is its segment, a shipped one marked", () => {
+    const parts = deliveryRows(base([del({ epics: ["c"], releases: ["r0", "r1"] })]), TODAY).groups[0].parts;
+    expect(parts.map((x) => x.key)).toEqual(["r0", "c", "r1"]);   // the shipped release and the closed epic pull nothing: first, by name
+    expect(parts[1]).toMatchObject({ start: D(2026, 9, 1), end: D(2026, 9, 30) });
+    expect(parts[0]).toMatchObject({ kind: "release", shipped: true, end: dayToUnit("2026-10-07") });
+    expect(parts[2]).toMatchObject({ kind: "release", shipped: false, end: dayToUnit("2026-10-22") });
+  });
+  it("a release whose tempo forecast is past its target pulls the date: it is the last row, after an epic that ends between the two", () => {
+    const sprints = { at: "2026-10-12T00:00:00.000Z", items: [{ name: "Sprint 71", path: "Skytale\\Sprint 71", start: "2026-10-05", finish: "2026-10-23" }] };
+    const item = (id: number, state: string, points: number) => ({ id, type: "Bug", title: "b" + id, state, points, assignee: null, iteration: "Sprint 71", ...(state === "Closed" ? { delivered: "2026-10-09" } : {}) });
+    const p = normalizePlan({
+      lanes: [{ key: "a", name: "Epic A", priority: 1 }], tasks: [f("a1", "a", D(2026, 10, 19), D(2026, 10, 26), D(2026, 11, 2))], sprints,
+      releases: [{ key: "r1", version: "2.0.1", targetDate: "2026-10-22", ado: { at: "2026-10-12T10:00:00.000Z", label: "2.0.1", items: [item(1, "Closed", 30), item(2, "Active", 49)] } }],
+      deliveries: [del({ epics: ["a"], releases: ["r1"] })],
+    });
+    expect(releasePace(p, p.releases![0], TODAY)!.forecastDay).toBe("2026-11-10");   // 30 SP in ten working days: 49 left → 17 more
+    expect(deliveryRows(p, TODAY).groups[0].parts.map((x) => x.key)).toEqual(["a", "r1"]);   // the epic ends 2 Nov, the release's segment 22 Oct
+    expect(deliveryStatus(p, p.deliveries![0], TODAY).by!.key).toBe("r1");
+  });
+  it("equal days: the part «dratt av» names is the last row (two overdue epics, both clamped to today)", () => {
+    const p = normalizePlan({
+      lanes: [{ key: "a", name: "Alpha", priority: 1 }, { key: "b", name: "Beta", priority: 2 }],
+      tasks: [f("a1", "a", D(2026, 9, 7), D(2026, 9, 21), D(2026, 9, 28)), f("b1", "b", D(2026, 9, 7), D(2026, 9, 21), D(2026, 9, 28))],
+      deliveries: [del({ epics: ["a", "b"] })],
+    });
+    const keys = deliveryRows(p, TODAY).groups[0].parts.map((x) => x.key);
+    expect(keys[keys.length - 1]).toBe(deliveryStatus(p, p.deliveries![0], TODAY).by!.key);
+  });
+  it("a deleted key: the group stays, with no parts and «henger ikke på noe ennå»", () => {
+    const [g] = deliveryRows(base([del({ epics: ["gone"], releases: ["gone-too"] })]), TODAY).groups;
+    expect(g.parts).toEqual([]);
+    expect(g.status).toMatchObject({ code: "ingen", text: "henger ikke på noe ennå" });
+  });
+  it("loose: the open epics no delivery hangs on, in the plan's order; one without features has no span", () => {
+    const { loose } = deliveryRows(base([del({ epics: ["a"] })]), TODAY);
+    expect(loose.map((x) => x.key)).toEqual(["b", "p", "e"]);
+    expect(loose[2]).toMatchObject({ start: null, end: null, likelyEnd: null, pending: false, shared: [] });
+    expect(deliveryRows(normalizePlan({ lanes: [], tasks: [] }), TODAY)).toEqual({ groups: [], loose: [] });
+  });
+});
+
+describe("R17 review: the focus helpers never break a render", () => {
+  it("a selector the browser can't parse, or an element that throws, leaves the focus where it is", () => {
+    const doc = { querySelector: () => { throw new SyntaxError("unsupported selector"); }, activeElement: { id: "", closest: () => { throw new Error("detached"); } } };
+    expect(() => restoreFocus(doc as never, ":nth-child(1 of tr)")).not.toThrow();
+    expect(focusKey(doc as never)).toBeNull();
+  });
+});
+
+describe("R18: developed and closed by category", () => {
+  it("category first, the old names without one", () => {
+    const i = (state: string, category?: string) => ({ id: 1, type: "Bug", title: "", state, points: 1, assignee: null, ...(category ? { category } : {}) }) as never;
+    expect(releaseItemDone(i("QA", "Resolved"))).toBe(true);
+    expect(releaseItemDone(i("Codereview", "InProgress"))).toBe(false);
+    expect(releaseItemClosed(i("QA", "Resolved"))).toBe(false);
+    expect(releaseItemClosed(i("Closed", "Completed"))).toBe(true);
+    expect(releaseItemDone(i("Resolved"))).toBe(true);
+    expect(releaseItemClosed(i("Resolved"))).toBe(false);
+  });
+  it("the state counts carry the category and come in its order; the normaliser keeps the fallback flag", () => {
+    const it2 = (id: number, state: string, category: string) => ({ id, type: "Bug", title: "", state, category, points: 1, assignee: null });
+    const r = normalizePlan({ lanes: [], tasks: [], releases: [{ key: "r1", version: "2.0.1", targetDate: "2026-10-27", ado: { at: "x", label: "2.0.1", statesMissing: true,
+      items: [it2(1, "Closed", "Completed"), it2(2, "QA", "Resolved"), it2(3, "Codereview", "InProgress"), it2(4, "Develop", "Resolved"), it2(5, "New", "Proposed"), it2(6, "QA", "Resolved")] } }] }).releases![0];
+    expect(releaseStateCounts(r)).toEqual([
+      { state: "New", category: "Proposed", count: 1 }, { state: "Codereview", category: "InProgress", count: 1 },
+      { state: "Develop", category: "Resolved", count: 1 }, { state: "QA", category: "Resolved", count: 2 }, { state: "Closed", category: "Completed", count: 1 },
+    ]);
+    expect(r.ado!.statesMissing).toBe(true);
+  });
+  it("a state name in two categories gives one entry per category, each in its category's place and named by its type (a story's «Resolved» is InProgress, a bug's is Resolved)", () => {
+    const it3 = (id: number, type: string, state: string, category: string) => ({ id, type, title: "", state, category, points: 1, assignee: null });
+    const r = normalizePlan({ lanes: [], tasks: [], releases: [{ key: "r1", version: "2.0.1", targetDate: "2026-10-27", ado: { at: "x", label: "2.0.1",
+      items: [it3(1, "Bug", "Resolved", "Resolved"), it3(2, "Bug", "Develop", "Resolved"), it3(3, "User Story", "Resolved", "InProgress"), it3(4, "User Story", "Codereview", "InProgress")] } }] }).releases![0];
+    const counts = releaseStateCounts(r);
+    expect(counts).toEqual([
+      { state: "Codereview", category: "InProgress", count: 1 }, { state: "Resolved", category: "InProgress", type: "User Story", count: 1 },
+      { state: "Resolved", category: "Resolved", type: "Bug", count: 1 }, { state: "Develop", category: "Resolved", count: 1 },
+    ]);
+    expect(releaseItemDone(counts[1])).toBe(false);
+    expect(releaseItemDone(counts[2])).toBe(true);
+  });
+});
+
+describe("R18: a release in two phases", () => {
+  const TODAY = "2026-10-16";
+  const it_ = (id: number, state: string, category: string, points: number, delivered?: string, closed?: string) =>
+    ({ id, type: "User Story", title: "s" + id, state, category, points, assignee: null, ...(delivered ? { delivered } : {}), ...(closed ? { closed } : {}) });
+  const rel = (over: Record<string, unknown> = {}, items = [it_(1, "Develop", "Resolved", 3, "2026-10-12"), it_(2, "Codereview", "InProgress", 5), it_(3, "Closed", "Completed", 2, "2026-10-08", "2026-10-14")]) =>
+    normalizePlan({ lanes: [], tasks: [], sprints: { at: "", items: [{ name: "Sprint 71", path: "Skytale\\Sprint 71", start: "2026-10-05", finish: "2026-10-23" }] },
+      releases: [{ key: "r1", version: "2.0.1", targetDate: "2026-10-27", qaDate: "2026-10-20", ado: { at: TODAY + "T08:00:00Z", label: "2.0.1", items, history: [] }, ...over }] }).releases![0];
+
+  it("the normaliser keeps «Klar for QA» as a valid day and the open ids only while «Sluppet» is set", () => {
+    expect(rel().qaDate).toBe("2026-10-20");
+    expect(rel({ qaDate: "2026-02-30" }).qaDate).toBeUndefined();
+    expect(rel({ shippedDate: "2026-10-27", openAtShip: [2, 2, -1, "x"] }).openAtShip).toEqual([2]);
+    expect(rel({ openAtShip: [2] }).openAtShip).toBeUndefined();
+  });
+  it("progress counts developed and closed apart; the dev target is «Klar for QA», else «Release»", () => {
+    const pr = releaseProgress(rel());
+    expect(pr).toMatchObject({ pointsDone: 5, pointsTotal: 10, pointsClosed: 2 });
+    expect(pr.closedFraction).toBeCloseTo(0.2, 9);
+    expect(releaseDevTarget(rel())).toBe("2026-10-20");
+    expect(releaseDevTarget(rel({ qaDate: undefined }))).toBe("2026-10-27");
+  });
+  it("the phase: development while something is not developed, QA when all is, sluppet once out", () => {
+    expect(releasePhase(rel())).toBe("utvikling");
+    expect(releasePhase(rel({}, [it_(1, "QA", "Resolved", 3, "2026-10-12"), it_(2, "Closed", "Completed", 5, "2026-10-13", "2026-10-15")]))).toBe("qa");
+    expect(releasePhase(rel({ shippedDate: "2026-10-27" }))).toBe("sluppet");
+  });
+  it("a late handover pushes the expected release by the same working days; on time it is the release date", () => {
+    const p = (r: unknown) => normalizePlan({ lanes: [], tasks: [], releases: [r] });
+    const onTime = rel({}, [it_(1, "QA", "Resolved", 3, "2026-10-12")]);
+    expect(releaseExpected(p(onTime), onTime, TODAY)).toBe("2026-10-27");
+    // «Klar for QA» passed, a story in review, no tempo (nothing developed since the clock started 12.10):
+    // development runs at least to today, two working days late (15, 16) → 27.10 + 2
+    const stalled = rel({ qaDate: "2026-10-14" }, [it_(2, "Codereview", "InProgress", 5), it_(3, "Closed", "Completed", 2, "2026-10-08", "2026-10-09")]);
+    expect(releaseExpected(p(stalled), stalled, TODAY)).toBe("2026-10-29");
+    // with a tempo (3 SP in the five working days since 12.10) development ends on the tempo's day 29.10,
+    // eleven working days after 14.10 → 27.10 + 11
+    const late = rel({ qaDate: "2026-10-14" });
+    expect(releaseExpected(p(late), late, TODAY)).toBe("2026-11-11");
+  });
+  it("the tempo aims at «Klar for QA» and says «utviklet»", () => {
+    const late = rel({ qaDate: "2026-10-14" });
+    expect(releasePace(normalizePlan({ lanes: [], tasks: [], releases: [late] }), late, TODAY)!.text)
+      .toBe("50 % utviklet · 100 % av tiden brukt · med dagens tempo klar for QA 29. okt, elleve arbeidsdager etter");
+  });
+  it("R18: the chance's sentence aims at «Klar for QA» when it is set", () => {
+    const fc = { day: "2026-10-16", need: 8, days: 3, p: 0.44, mean: 7, p10: 4, p90: 9, people: [], basis: [], capacity: [] };
+    const r = { key: "r1", version: "2.0.1", targetDate: "2026-10-27", qaDate: "2026-10-20", ado: { at: "x", label: "2.0.1", items: [], forecast: fc } };
+    expect(releaseForecastText(r as never, "2026-10-16")!.text).toBe("44 % sjanse for at alt er utviklet til klar for QA 20. okt");
+    expect(releaseForecastText({ ...r, qaDate: undefined } as never, "2026-10-16")!.text).toBe("44 % sjanse for at alt er utviklet til 27. okt");   // D9
+    const developed = { ...r, ado: { ...r.ado, items: [{ id: 1, type: "Bug", title: "", state: "QA", category: "Resolved", points: 3, assignee: null }] } };
+    expect(releaseForecastText(developed as never, "2026-10-16")).toBeNull();   // in QA there is no chance (spec §5)
+    expect(releaseForecastText({ ...developed, qaDate: undefined } as never, "2026-10-16")).not.toBeNull();   // one phase reads as today (D7)
+  });
+  it("R18: the missing-Capacity sentences say «fram til klar for QA» when it is set, and «fram til målet» without it (D7)", () => {
+    const miss = (sprints: string[], unplanned: number) => ({ day: "2026-10-16", missing: "capacity", sprints, unplanned });
+    const r = (f: unknown, qaDate?: string) => ({ key: "r1", version: "2.0.1", targetDate: "2026-10-27", ...(qaDate ? { qaDate } : {}), ado: { at: "x", label: "2.0.1", items: [], forecast: f } });
+    expect(releaseForecastText(r(miss([], 3), "2026-10-20") as never, "2026-10-16")!.text).toBe("Lag sprintene fram til klar for QA i ADO og fyll inn Capacity (3 arbeidsdager er uten sprint) for å få sannsynligheten");
+    expect(releaseForecastText(r(miss(["Sprint 71"], 2), "2026-10-20") as never, "2026-10-16")!.text).toBe("Fyll inn Capacity i ADO for Sprint 71 (Development-timer per dag og fridager) og lag sprintene fram til klar for QA (2 arbeidsdager er uten sprint) for å få sannsynligheten");
+    expect(releaseForecastText(r(miss([], 3)) as never, "2026-10-16")!.text).toBe("Lag sprintene fram til målet i ADO og fyll inn Capacity (3 arbeidsdager er uten sprint) for å få sannsynligheten");
+    expect(releaseForecastText(r(miss(["Sprint 71"], 2)) as never, "2026-10-16")!.text).toBe("Fyll inn Capacity i ADO for Sprint 71 (Development-timer per dag og fridager) og lag sprintene fram til målet (2 arbeidsdager er uten sprint) for å få sannsynligheten");
+  });
+  it("the QA sentence per phase", () => {
+    expect(releaseQaText(rel(), TODAY)).toBe("Klar for QA 20. okt · release 27. okt");
+    expect(releaseQaText(rel({}, [it_(1, "QA", "Resolved", 3, "2026-10-12"), it_(2, "Closed", "Completed", 5, "2026-10-13", "2026-10-15")]), TODAY)).toBe("I QA: 1 av 2 lukket · release 27. okt");
+    expect(releaseQaText(rel({ shippedDate: "2026-10-27", openAtShip: [2] }), TODAY)).toBe("Sluppet 27. okt · 1 åpen ved release");
+  });
+  it("R18 (D6): given the plan, the QA sentence names the expected release when it is later than «Release»; on time, with one date (D7) or once out, it does not", () => {
+    const p = (r: unknown) => normalizePlan({ lanes: [], tasks: [], releases: [r] });
+    const late = rel({ qaDate: "2026-10-14" });   // the review's probe: «Klar for QA» 14.10 passed, a story still in Codereview, the tempo's day 29.10 → 27.10 + 11
+    expect(releaseExpectedLate(p(late), late, TODAY)).toBe("2026-11-11");
+    expect(releaseQaText(late, TODAY, p(late))).toBe("Klar for QA 14. okt · release 27. okt · forventet release 11. nov");
+    expect(releaseQaText(late, TODAY)).toBe("Klar for QA 14. okt · release 27. okt");   // without the plan, only the release's own dates
+    const handedLate = rel({ qaDate: "2026-10-14" }, [it_(1, "QA", "Resolved", 3, "2026-10-16"), it_(3, "Closed", "Completed", 2, "2026-10-08", "2026-10-14")]);   // all developed 16.10: two working days late
+    expect(releaseQaText(handedLate, TODAY, p(handedLate))).toBe("I QA: 1 av 2 lukket · release 27. okt · forventet release 29. okt");
+    const onTime = rel({}, [it_(1, "QA", "Resolved", 3, "2026-10-12")]);
+    expect(releaseExpectedLate(p(onTime), onTime, TODAY)).toBeNull();
+    expect(releaseQaText(onTime, TODAY, p(onTime))).toBe("I QA: 0 av 1 lukket · release 27. okt");
+    const one = rel({ qaDate: undefined });   // one date: the tempo's day 29.10 is past «Release», and still nothing is added
+    expect(releaseExpected(p(one), one, TODAY)).toBe("2026-10-29");
+    expect(releaseExpectedLate(p(one), one, TODAY)).toBeNull();
+    expect(releaseQaText(one, TODAY, p(one))).toBe("Release 27. okt");
+    const out = rel({ qaDate: "2026-10-14", shippedDate: "2026-11-11" });
+    expect(releaseExpectedLate(p(out), out, TODAY)).toBeNull();
+    expect(releaseQaText(out, TODAY, p(out))).toBe("Sluppet 11. nov");
+  });
+  it("the burndown carries a second series (not closed yet) and the QA day", () => {
+    const d = releaseBurndownData(normalizePlan({ lanes: [], tasks: [], releases: [rel()] }), rel(), TODAY)!;
+    expect(d).toMatchObject({ qaDay: "2026-10-20", targetDay: "2026-10-20", releaseDay: "2026-10-27" });   // the ideal line ends at «Klar for QA»
+    expect(d.closedActual.at(-1)).toEqual({ day: TODAY, remaining: 8 });   // 10 SP, 2 closed
+  });
+  it("a closed item without a closed day counts as closed from the day it was developed, so «ikke lukket» never dips below «ikke utviklet»", () => {
+    const r = rel({}, [it_(1, "Closed", "Completed", 2, "2026-10-14"), it_(2, "Codereview", "InProgress", 5)]);
+    const d = releaseBurndownData(normalizePlan({ lanes: [], tasks: [], releases: [r] }), r, TODAY)!;
+    expect(d.closedActual.map((x) => [x.day, x.remaining])).toEqual([["2026-10-12", 7], ["2026-10-13", 7], ["2026-10-14", 5], ["2026-10-15", 5], ["2026-10-16", 5]]);
+    d.closedActual.forEach((c, k) => expect(c.remaining).toBeGreaterThanOrEqual(d.actual[k].remaining));
+  });
+  it("R16 under R18: a late handover moves the delivery by the slip, and its colour follows", () => {
+    const at = (r: ReturnType<typeof rel>) => {
+      const p = normalizePlan({ lanes: [], tasks: [], releases: [r], deliveries: [{ key: "d1", name: "Skytale 2.0.1", allCustomers: true, customers: [], promisedDate: "2026-10-27", epics: [], releases: ["r1"] }] });
+      return [deliveryComputed(p, p.deliveries![0], TODAY).day, deliveryStatus(p, p.deliveries![0], TODAY).code];
+    };
+    expect(at(rel({}, [it_(1, "QA", "Resolved", 3, "2026-10-12")]))).toEqual(["2026-10-27", "gronn"]);   // handed over on time: the release date
+    // «Klar for QA» 14.10 passed with a story still in review (the brief's releaseExpected numbers)
+    expect(at(rel({ qaDate: "2026-10-14" }, [it_(2, "Codereview", "InProgress", 5), it_(3, "Closed", "Completed", 2, "2026-10-08", "2026-10-09")]))).toEqual(["2026-10-29", "gul"]);   // two working days late
+    expect(at(rel({ qaDate: "2026-10-14" }))).toEqual(["2026-11-11", "rod"]);   // eleven working days late
+  });
+  it("R16 under R18: a bug developed but not closed is still a bug left", () => {
+    const bug = (id: number, state: string, category: string, delivered?: string, closed?: string) => ({ ...it_(id, state, category, 1, delivered, closed), type: "Bug" });
+    const p = normalizePlan({ lanes: [], tasks: [], releases: [rel({}, [bug(1, "QA", "Resolved", "2026-10-12"), bug(2, "Resolved", "", "2026-10-12"), bug(3, "Closed", "Completed", "2026-10-12", "2026-10-14")])],
+      deliveries: [{ key: "d1", name: "Skytale 2.0.1", allCustomers: true, customers: [], promisedDate: "2026-10-27", epics: [], releases: ["r1"] }] });
+    expect(deliveryBugsLeft(p, p.deliveries![0])).toBe(2);   // in QA, and «Resolved» by name (no category); the closed one is not left
+  });
+});
+
+describe("normalizePlan: sprintCheck (R19)", () => {
+  const VALID: SprintCheck = {
+    at: "2026-10-17T10:00:00Z",
+    current: "Sprint 71",
+    next: "Sprint 72",
+    statesMissing: true,
+    bugs: { open: 40, A: 3, B: 12, C: 15, D: 4, none: 6, inRelease: { "2.0.1": 11 }, inNext: 9, inNextPoints: 14, closedCurrent: 7 },
+    issues: { open: 17 },
+    sprints: [
+      { name: "Sprint 69", end: "2026-09-25", openBugs: 35, openIssues: 15, created: 12, closed: 10, closedPoints: 21 },
+      { name: "Sprint 70", end: "2026-10-09", openBugs: 38, openIssues: 16, created: 14, closed: 11, closedPoints: 24.5 },
+    ],
+    budget: { points: null, share: 0.45, missing: "capacity" },
+    features: { f1: { stories: 6, open: 4, inNext: 2, inNextPoints: 5, inCurrent: 1 } },
+  };
+  it("keeps a valid sprintCheck as it is", () => {
+    expect(normalizePlan({ lanes: [], tasks: [], sprintCheck: structuredClone(VALID) }).sprintCheck).toEqual(VALID);
+  });
+  /* eslint-disable @typescript-eslint/no-explicit-any -- the spoilers write values the type forbids */
+  it.each([
+    ["no read time", (c: any) => { delete c.at; }],
+    ["a negative count", (c: any) => { c.bugs.C = -1; }],
+    ["a count that is not a number", (c: any) => { c.issues.open = "17"; }],
+    ["a label count that is not finite", (c: any) => { c.bugs.inRelease["2.0.1"] = Infinity; }],
+    ["a sprint without a name", (c: any) => { c.sprints[0].name = 7; }],
+    ["a sprint end that is not a day", (c: any) => { c.sprints[0].end = "17.10"; }],
+    ["a share above 1", (c: any) => { c.budget.share = 1.2; }],
+    ["an unknown missing reason", (c: any) => { c.budget.missing = "tid"; }],
+    ["a feature count missing", (c: any) => { delete c.features.f1.inCurrent; }],
+    ["a next sprint that is not a string", (c: any) => { c.next = 72; }],
+  ])("drops the whole sprintCheck on %s", (_, spoil) => {
+    const c = structuredClone(VALID); spoil(c);
+    expect("sprintCheck" in normalizePlan({ lanes: [], tasks: [], sprintCheck: c })).toBe(false);
+  });
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  it("keeps only the known fields", () => {
+    const c = { ...structuredClone(VALID), extra: 1, bugs: { ...structuredClone(VALID).bugs, extra: 2 } };
+    expect(normalizePlan({ lanes: [], tasks: [], sprintCheck: c }).sprintCheck).toEqual(VALID);
+  });
+});
+
+describe("R19: the Sprint tab", () => {
+  const U = (y: number, m: number, d: number) => dateToUnit(new Date(y, m - 1, d));
+  const sprint = (n: number, start: string, finish: string): Sprint => ({ name: "Sprint " + n, path: "Skytale\\Sprint " + n, start, finish });
+  const SPR: Sprint[] = [sprint(70, "2026-09-28", "2026-10-09"), sprint(71, "2026-10-12", "2026-10-23"), sprint(72, "2026-10-26", "2026-11-06"), sprint(73, "2026-11-09", "2026-11-20")];
+  const TODAY = "2026-10-16";
+  // estimates: likely four and late six weeks after their start; discoveries two weeks long
+  const feat = (id: string, lane: string, start: number, over: Partial<PlanTask> = {}): PlanTask =>
+    ({ id, lane, label: "Feature " + id.slice(1), kind: "estimate", start, endLikely: start + 4 * WEEK, end: start + 6 * WEEK, deps: [], fv: {}, ...over });
+  const discovery = (id: string, lane: string, start: number, state: "utredes" | "ny"): PlanTask =>
+    ({ id, lane, label: "Utredning " + id.slice(1), kind: "discovery", state, start, end: start + 2 * WEEK, deps: [], fv: {} });
+  const PLAN: Plan = normalizePlan({
+    lanes: [{ key: "a", name: "Epic A" }, { key: "b", name: "Epic B" }],
+    sprints: { at: "2026-10-16T08:00:00Z", items: SPR },
+    tasks: [
+      discovery("d1", BACKLOG, U(2026, 10, 12), "utredes"),
+      discovery("d2", BACKLOG, U(2026, 10, 19), "ny"),
+      discovery("d3", BACKLOG, U(2026, 10, 28), "ny"),
+      discovery("d4", "a", U(2026, 11, 16), "utredes"),   // in an epic, after the next sprint: not due
+      feat("f1", "a", U(2026, 10, 26), { adoId: 101 }),
+      feat("f2", "a", U(2026, 10, 30), { adoId: 102 }),
+      feat("f3", "b", U(2026, 10, 5), { adoId: 103 }),
+      feat("f4", "b", U(2026, 10, 19), { adoId: 104 }),
+      feat("f5", "a", U(2026, 11, 2)),
+      feat("f8", "b", U(2026, 11, 2), { adoId: 108 }),
+      feat("f6", "a", U(2026, 10, 5), { adoId: 106, state: "levert", deliveredAt: "2026-10-14" }),   // delivered: never due, never in work
+      feat("f7", BACKLOG, U(2026, 10, 26), { adoId: 107 }),   // on the shelf (klar): not a feature of an epic
+    ],
+  });
+  const fc = (stories: number, open: number, inNext: number, inNextPoints: number, inCurrent: number) => ({ stories, open, inNext, inNextPoints, inCurrent });
+  const HC: SprintCheck = {
+    at: "2026-10-17T10:40:00Z",
+    current: "Sprint 71",
+    next: "Sprint 72",
+    bugs: { open: 43, A: 1, B: 12, C: 21, D: 9, none: 0, inRelease: { "2.0.1": 11 }, inNext: 6, inNextPoints: 18, closedCurrent: 7 },
+    issues: { open: 17 },
+    sprints: [   // oldest first; only the last two count
+      { name: "Sprint 67", end: "2026-08-28", openBugs: 30, openIssues: 12, created: 9, closed: 2, closedPoints: 3 },
+      { name: "Sprint 68", end: "2026-09-11", openBugs: 35, openIssues: 14, created: 7, closed: 3, closedPoints: 9 },
+      { name: "Sprint 69", end: "2026-09-25", openBugs: 40, openIssues: 15, created: 5, closed: 8, closedPoints: 16 },
+      { name: "Sprint 70", end: "2026-10-09", openBugs: 41, openIssues: 16, created: 3, closed: 12, closedPoints: 24 },
+    ],
+    budget: { points: 53, share: 0.45 },
+    features: {},
+  };
+  const CHECK: SprintCheck = { ...HC, features: { f1: fc(4, 3, 3, 8, 0), f2: fc(2, 2, 0, 0, 0), f3: fc(5, 2, 0, 0, 2), f4: fc(1, 1, 0, 0, 0), gone: fc(1, 1, 1, 1, 0) } };
+  const SLIP: Plan = normalizePlan({
+    lanes: [{ key: "t", name: "Telenor kan bygge på oss", goalDate: U(2026, 12, 15) }],
+    sprints: { at: "2026-10-16T08:00:00Z", items: SPR },
+    tasks: [{ id: "x", lane: "t", label: "Kontaktkort", kind: "estimate", start: U(2026, 10, 26), endLikely: U(2026, 11, 27), end: U(2026, 12, 11), deps: [], fv: {} }],
+  });
+
+  it("nextSprint: the sprint after the current one, the first after a gap, none after the last", () => {
+    expect(nextSprint(SPR, new Date(2026, 9, 16))!.name).toBe("Sprint 72");
+    expect(nextSprint(SPR, new Date(2026, 9, 24))!.name).toBe("Sprint 72");   // the weekend between 71 and 72
+    expect(nextSprint([...SPR].reverse(), new Date(2026, 9, 16))!.name).toBe("Sprint 72");
+    const xmas = [{ name: "Sprint 75", path: "p", start: "2026-12-07", finish: "2026-12-18" }, { name: "Sprint 76", path: "p", start: "2027-01-04", finish: "2027-01-15" }];
+    expect(nextSprint(xmas, new Date(2026, 11, 28))!.name).toBe("Sprint 76");
+    expect(nextSprint(SPR, new Date(2026, 10, 12))).toBeNull();
+    expect(nextSprint(undefined, new Date(2026, 9, 16))).toBeNull();
+  });
+  it("budgetShare and sprintRangeText", () => {
+    expect(budgetShare({ capacity: { mode: "transition", at: "x" } })).toBe(0.45);
+    expect(budgetShare({ capacity: { mode: "normal", at: "x" } })).toBe(0.4);
+    expect(budgetShare(null)).toBe(0.45);
+    expect(sprintRangeText(SPR[2])).toBe("26. okt – 6. nov");
+  });
+  it("sprintDue: discoveries and features by D6, in start order, a stale cache ignored", () => {
+    const due = sprintDue(PLAN, CHECK, TODAY);
+    expect(due.sprint!.name).toBe("Sprint 72");
+    expect(due.discoveries.map((d) => [d.task.id, d.status])).toEqual([["d1", "i gang"], ["d2", "sent"], ["d3", "ikke startet"]]);
+    expect(due.features.map((d) => [d.task.id, d.status])).toEqual([["f3", "planlagt"], ["f4", "sent"], ["f1", "planlagt"], ["f2", "uten stories"], ["f5", "ikke i ADO"], ["f8", "uten stories"]]);
+    expect(due.features[2]).toMatchObject({ start: "2026-10-26", inNext: 3, inNextPoints: 8, open: 3 });
+    expect(due.discoveries[0].epic).toBeNull();
+    expect(due.features[0].epic!.key).toBe("b");
+    expect(dueFeatureIds(PLAN, TODAY).sort()).toEqual(["f1", "f2", "f3", "f4", "f8"]);
+  });
+  it("sprintDue without sprints or without a check", () => {
+    expect(sprintDue({ ...PLAN, sprints: undefined }, CHECK, TODAY)).toEqual({ sprint: null, discoveries: [], features: [] });
+    expect(sprintDue(PLAN, null, TODAY).features.map((d) => d.status)).toEqual(["sent", "sent", "uten stories", "uten stories", "ikke i ADO", "uten stories"]);
+  });
+  it("sprintInWork: the features whose bar holds today", () => {
+    expect(sprintInWork(PLAN, TODAY).map((t) => t.id)).toEqual(["f3"]);
+  });
+  it("slipCost: one sprint later moves the end two weeks and turns the epic amber", () => {
+    const c = slipCost(SLIP, "x", TODAY)!;
+    expect(c).toMatchObject({ weeks: 2, sprint: "Sprint 73", epic: { key: "t", before: "gronn", after: "gul", goalDate: U(2026, 12, 15) } });
+    expect(slipCostText(c)).toBe("starter tidligst Sprint 73 → slutt +2 uker → «Telenor kan bygge på oss» blir gul (mål 15. des)");
+  });
+  it("slipCost: nothing moves for a feature already after the next sprint, none without a sprint after next", () => {
+    const late = normalizePlan(structuredClone(SLIP)); const x = late.tasks[0]; x.start = U(2026, 11, 9); x.endLikely = U(2026, 11, 27); x.end = U(2026, 12, 11);
+    expect(slipCostText(slipCost(late, "x", TODAY)!)).toBe("starter tidligst Sprint 73 → slutten flytter seg ikke");
+    expect(slipCost({ ...SLIP, sprints: { at: "x", items: SPR.slice(0, 3) } }, "x", TODAY)).toBeNull();
+  });
+  it("slipCostText: no epic, and a colour that stays", () => {
+    expect(slipCostText({ weeks: 1, sprint: "Sprint 73", epic: null })).toBe("starter tidligst Sprint 73 → slutt +1 uke");
+    expect(slipCostText({ weeks: 2, sprint: "Sprint 73", epic: { key: "a", name: "A", before: "gronn", after: "gronn", goalDate: null } })).toBe("starter tidligst Sprint 73 → slutt +2 uker · «A» er fortsatt grønn");
+  });
+  it("healthForecast: after the release and at the end of the next sprint (D3, D4)", () => {
+    const r = { key: "r", version: "2.0.1", targetDate: "2026-10-22" };
+    expect(healthForecast(HC, r)).toEqual({ now: 43, afterRelease: { label: "2.0.1", value: 32 }, endOfNext: { value: 35, closed: 12, created: 4 } });
+    expect(healthForecast(HC, { ...r, label: "2.0.1+ota.2" }).afterRelease).toEqual({ label: "2.0.1+ota.2", value: 43 });
+    expect(healthForecast(HC, null).afterRelease).toBeNull();
+  });
+  it("healthForecast: by count when the bugs had no points; none without a budget or history", () => {
+    const noPts = { ...HC, sprints: HC.sprints.map((s) => ({ ...s, closedPoints: 0 })) };
+    expect(healthForecast(noPts, null).endOfNext).toEqual({ value: 37, closed: 10, created: 4 });
+    expect(healthForecast({ ...HC, budget: { points: null, share: 0.45, missing: "capacity" } }, null).endOfNext).toBeNull();
+    expect(healthForecast({ ...HC, sprints: [] }, null).endOfNext).toBeNull();
+  });
+  it("budgetText and healthStripText", () => {
+    expect(budgetText(HC)).toBe("45 % ≈ 24 SP av ~53 · 18 SP planlagt på bugs");
+    expect(budgetText({ ...HC, bugs: { ...HC.bugs, inNextPoints: 0 } })).toBe("45 % ≈ 24 SP av ~53 · ingen SP planlagt på bugs ennå");
+    expect(budgetText({ ...HC, budget: { points: null, share: 0.45, missing: "capacity" } })).toBe("Ingen budsjett: fyll inn Capacity i ADO for Sprint 72 (Development-timer per dag og fridager)");
+    expect(budgetText({ ...HC, budget: { points: null, share: 0.45, missing: "history" } })).toBe("Ingen budsjett: ingen utviklede poeng i de to siste sprintene å regne tempo fra");
+    expect(budgetText({ ...HC, next: null, budget: { points: null, share: 0.45 } })).toBe("Ingen budsjett: ingen neste sprint i ADO");
+    expect(healthStripText(HC)).toBe("43 åpne bugs · 17 issues");
+    expect(healthStripText({ ...HC, bugs: { ...HC.bugs, open: 1 }, issues: { open: 1 } })).toBe("1 åpen bug · 1 issue");
+    expect(healthStripText(null)).toBe("");
+  });
+  it("sprintCheckMarkdown: the head, the lists, a flagged row's cost and the read time", () => {
+    const md = sprintCheckMarkdown({ ...PLAN, releases: [{ key: "r", version: "2.0.1", targetDate: "2026-10-22" }] } as Plan, { ...HC, features: CHECK.features, at: "2026-10-17T10:40:00Z" }, TODAY);
+    expect(md.split("\n").slice(0, 8).join("\n")).toBe("## Sprint 72 · 26. okt – 6. nov\n\n**App-helse:** 43 åpne bugs (A 1 · B 12 · C 21 · D 9) · 17 issues\n- Etter 2.0.1: ≈ 32\n- Ved slutten av Sprint 72: ≈ 35 (lukker ~12, ~4 nye)\n\n**Budsjett for bugs og issues:** 45 % ≈ 24 SP av ~53 · 18 SP planlagt på bugs\n");
+    expect(md).toContain("### Utredninger som skal i gang\n- Hylla › ");
+    expect(md).toMatch(/- Epic B › .+ · sent · starter tidligst Sprint 73 → /);
+    expect(md.trim().endsWith("_Lest fra ADO 17. okt 12:40_")).toBe(true);
+    expect(sprintCheckMarkdown(PLAN, { ...HC, statesMissing: true, at: "2026-10-17T10:40:00Z" }, TODAY)).toContain("_ADOs tilstander ble ikke funnet: alt unntatt Closed og Removed er telt som åpent._");
   });
 });

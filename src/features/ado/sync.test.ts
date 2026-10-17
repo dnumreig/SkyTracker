@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { AdoWorkItem, IterationNode } from "./client";
+import { ADO_CHILD_REL } from "./config";
+import type { StateMap } from "./states";
 import { deliveredDay, parseSprints, readStories } from "./sync";
 
 const fixture = <T>(name: string): T => JSON.parse(readFileSync(path.join(process.cwd(), "src/features/ado/fixtures", name), "utf8")) as T;
@@ -30,5 +32,13 @@ describe("readStories and deliveredDay", () => {
     expect(deliveredDay({ id: 1, fields: { "System.State": "Closed", "Microsoft.VSTS.Common.ClosedDate": "2026-12-03T14:12:00Z" } })).toBe("2026-12-03");
     expect(deliveredDay({ id: 1, fields: { "System.State": "Resolved", "Microsoft.VSTS.Common.ResolvedDate": "2026-12-01T09:00:00Z" } })).toBe("2026-12-01");
     expect(deliveredDay({ id: 1, fields: { "System.State": "Active" } })).toBeNull();
+  });
+  it("R18: with ADO's categories a story in Develop or QA counts as done; without them only Resolved and Closed do", () => {
+    const story = (id: number, state: string, points: number): AdoWorkItem => ({ id, fields: { "System.WorkItemType": "User Story", "System.State": state, "Microsoft.VSTS.Scheduling.StoryPoints": points } });
+    const feat: AdoWorkItem = { id: 1, fields: { "System.WorkItemType": "Feature" }, relations: [10, 11, 12].map((id) => ({ rel: ADO_CHILD_REL, url: "https://dev.azure.com/SkytaleAS/_apis/wit/workItems/" + id })) };
+    const byId = new Map([story(10, "Develop", 3), story(11, "QA", 2), story(12, "Codereview", 5)].map((w) => [w.id, w]));
+    const map: StateMap = new Map([["User Story/Develop", "Resolved"], ["User Story/QA", "Resolved"], ["User Story/Codereview", "InProgress"]]);
+    expect(readStories(feat, byId, undefined, map)).toMatchObject({ count: 3, pointsTotal: 10, pointsDone: 5 });
+    expect(readStories(feat, byId).pointsDone).toBe(0);
   });
 });

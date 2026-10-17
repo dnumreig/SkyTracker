@@ -53,9 +53,13 @@ export type Wish = {
 };
 /** What the last push wrote to ADO, field by field, so a refresh can tell «changed in ADO» from «changed here». */
 /** A release (R10): a version with a target day, shipped once out; its scope is the release label in ADO. Versioned like a lane (`v`). */
-export type ReleaseItem = { id: number; type: "Bug" | "User Story"; title: string; state: string; points: number; assignee: string | null; iteration?: string; delivered?: string };
+export type ReleaseItem = { id: number; type: "Bug" | "User Story"; title: string; state: string; points: number; assignee: string | null; iteration?: string; delivered?: string;
+  /** R18: ADO's category of the state (none on items read before R18, or when the states were not found); `closed` is the day it was closed. */
+  category?: "Proposed" | "InProgress" | "Resolved" | "Completed"; closed?: string };
 /** One reading per day (R11): what the label held and how much of it was done, for the burndown and the tempo. */
-export type ReleaseHistoryPoint = { day: string; pointsDone: number; pointsTotal: number; done: number; total: number; forecast?: { p: number; mean: number } };
+export type ReleaseHistoryPoint = { day: string; pointsDone: number; pointsTotal: number; done: number; total: number; forecast?: { p: number; mean: number };
+  /** R18: what was closed (through QA) that day; `pointsDone` and `done` are what was developed. None on readings before R18. */
+  closedPoints?: number; closed?: number };
 /** R12: the chance the release is done by its target day, from ADO's Capacity and each person's pace in the two last finished sprints. */
 export type ReleaseForecastPerson = { name: string; days: number; pace: number; expected: number };
 export type ReleaseForecast =
@@ -63,13 +67,21 @@ export type ReleaseForecast =
   | { day: string; missing: "capacity"; sprints: string[]; unplanned: number }
   | { day: string; missing: "history" };
 /** Written by the server (refresh), never by the page: the bugs and stories carrying the label, the daily readings and the sprints' unlabelled counts. */
-export type ReleaseAdo = { at: string; label: string; items: ReleaseItem[]; history?: ReleaseHistoryPoint[]; sprints?: { name: string; unlabelled: number }[]; forecast?: ReleaseForecast };
+export type ReleaseAdo = { at: string; label: string; items: ReleaseItem[]; history?: ReleaseHistoryPoint[]; sprints?: { name: string; unlabelled: number }[]; forecast?: ReleaseForecast;
+  /** R18: ADO's states were not found on the last read, so the items were counted by the names Resolved and Closed. */
+  statesMissing?: true };
 export type Release = {
   key: string;
   v?: number;
   version: string;
+  /** «Release» (R18: Operations' date; development's ends at `qaDate` when it is set). */
   targetDate: string;
+  /** R18: «Klar for QA», the development lead's date: development ends here, QA runs from here to «Release». */
+  qaDate?: string;
+  /** «Sluppet», set by hand once it is out. */
   shippedDate?: string;
+  /** R18: the items not closed when «Sluppet» was set, written with `shippedDate`. */
+  openAtShip?: number[];
   note?: string;
   /** The `Custom.Release` label when it differs from the version (e.g. `2.0.1+ota.2`). */
   label?: string;
@@ -91,6 +103,22 @@ export type Delivery = {
   epics: string[];
   /** Release keys. */
   releases: string[];
+};
+/** R19: the Sprint tab's read of ADO (sprint-check.ts), cached in the plan; written by the server, merged by `at`. */
+export type SprintCheckSprint = { name: string; end: string; openBugs: number; openIssues: number; created: number; closed: number; closedPoints: number };
+export type SprintCheckFeature = { stories: number; open: number; inNext: number; inNextPoints: number; inCurrent: number };
+export type SprintCheck = {
+  at: string;
+  current: string | null;
+  next: string | null;
+  statesMissing?: true;
+  bugs: { open: number; A: number; B: number; C: number; D: number; none: number; inRelease: Record<string, number>; inNext: number; inNextPoints: number; closedCurrent: number };
+  issues: { open: number };
+  /** The last four finished sprints, oldest first. */
+  sprints: SprintCheckSprint[];
+  /** `points`: the next sprint's expected points (null when it could not be computed); `share`: the part for bugs and issues. */
+  budget: { points: number | null; share: number; missing?: "capacity" | "history" };
+  features: Record<string, SprintCheckFeature>;
 };
 export type AdoSnapshot = Partial<Record<"title" | "description" | "state" | "targetDate" | "startDate", string | null>>;
 export type AdoConflict = { field: string; ours: string | null; theirs: string | null };
@@ -174,6 +202,7 @@ export type Plan = {
   sprintGoals?: Record<string, { text: string; at: string }>;
   /** The sprint mix: the share of a sprint that goes to planned features (R5); the factor from raw weeks to elapsed time. */
   capacity?: { mode: "transition" | "normal"; at: string };
+  sprintCheck?: SprintCheck;
   [key: string]: unknown;
 };
 
@@ -286,17 +315,20 @@ export function mergePlans(stored: Plan, incoming: Plan): Plan {
     tasks.push(candidate);
   }
 
-  // plan-level caches: the sprint list and each sprint's goal carry an `at`; the newer one wins (incoming on ties)
+  // plan-level caches: the sprint list, each sprint's goal and the Sprint tab's read (R19) carry an `at`; the newer one wins (incoming on ties)
   const newer = <T extends { at: string }>(a?: T, b?: T) => (!a ? b : !b ? a : b.at >= a.at ? b : a);
   const sprints = newer(stored.sprints, incoming.sprints);
+  const sprintCheck = newer(stored.sprintCheck, incoming.sprintCheck);
   const capacity = newer(stored.capacity, incoming.capacity);
   const sprintGoals: Record<string, { text: string; at: string }> = {};
   for (const src of [stored.sprintGoals, incoming.sprintGoals]) for (const [k, g] of Object.entries(src ?? {})) sprintGoals[k] = newer(sprintGoals[k], g)!;
   const out: Plan = { ...stored, ...incoming, lanes: liveLanes, tasks, deleted, deletedLanes, wishes: liveWishes, deletedWishes, releases: liveReleases, deletedReleases, deliveries: liveDeliveries, deletedDeliveries };
   delete out.sprints;
+  delete out.sprintCheck;
   delete out.sprintGoals;
   delete out.capacity;
   if (sprints) out.sprints = sprints;
+  if (sprintCheck) out.sprintCheck = sprintCheck;
   if (capacity) out.capacity = capacity;
   if (Object.keys(sprintGoals).length) out.sprintGoals = sprintGoals;
   return out;

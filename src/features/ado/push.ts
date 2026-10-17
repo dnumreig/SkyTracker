@@ -7,6 +7,7 @@ import { adoEvent, type PlanEvent } from "@/features/timeline/events";
 import type { AdoClient, AdoWorkItem, JsonPatch } from "./client";
 import { ADO_CHILD_REL, ADO_PARENT_REL, ADO_WORK_ITEM_TYPE } from "./config";
 import { adoValue, epicFields, F, featureFields, fieldPatch, FIELD_LABEL, htmlToText, OWNED_FIELDS, planFieldWrites, relationPatch, relTarget, snapshotAfter, storyFields, type Fields, type OwnedField, type Snapshot } from "./plan-mappers";
+import { readStateMap } from "./states";
 import { deliveredDay, parseSprints, readStories } from "./sync";
 
 export type PushTarget = { kind: "epic" | "feature"; id: string };
@@ -111,6 +112,7 @@ export async function refreshPlan(plan: Plan, client: AdoClient, now: Date): Pro
   const childIds = new Set<number>();
   for (const t of p.tasks) for (const r of (t.adoId && byId.get(t.adoId)?.relations) || []) if (r.rel === ADO_CHILD_REL && !byId.has(relTarget(r))) childIds.add(relTarget(r));
   for (const w of childIds.size ? await client.batch([...childIds]) : []) byId.set(w.id, w);
+  const states = await readStateMap(client, ["User Story"]);   // R18: the stories' points done by their state's category, once per refresh
   const events: PlanEvent[] = [], conflicts: RefreshConflict[] = [], read = { epics: 0, features: 0, stories: 0, levert: 0 };
   const check = (t: Target & { kind: "epic" | "feature" }, fields: Fields, prev: LaneAdo | undefined, current: AdoWorkItem): AdoConflict[] => {
     const c = planFieldWrites(fields, current, prev?.snapshot ?? null).conflicts;
@@ -152,7 +154,7 @@ export async function refreshPlan(plan: Plan, client: AdoClient, now: Date): Pro
     const day = deliveredDay(w);
     if (day && t.state !== "levert") { t.state = "levert"; t.deliveredAt = day; bump(t, "state"); read.levert++; }
     const next = withConflicts(t.ado, check({ kind: "feature", targetType: "feature", targetId: t.id, targetLabel: t.label, laneKey: t.lane }, featureFields(p, t), t.ado, w));
-    const stories = readStories(w, byId, t.ado?.storyId);
+    const stories = readStories(w, byId, t.ado?.storyId, states);
     read.stories += stories.count;
     if (stories.pointsTotal > 0) { // ADO's points replace a typed progress (spec R4); without points the typed value stays
       const prog = { pointsDone: stories.pointsDone, pointsTotal: stories.pointsTotal, sprint: stories.iteration, at: now.toISOString(), source: "ado" as const };
