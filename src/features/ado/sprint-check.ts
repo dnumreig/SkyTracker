@@ -1,10 +1,10 @@
-// R19: the Sprint tab's read of ADO, as the signed-in person and never written. Today's open bugs and issues (by severity,
-// release label and the next sprint), their trend over the last four finished sprints (rebuilt back from today's counts),
-// the next sprint's expected points for bugs (Capacity × the pace of the two last finished sprints, R12's pieces) and,
+// R19: the Sprint tab's read of ADO, as the signed-in person and never written. Today's open bugs and issues (by severity
+// and the next sprint; those carrying the next release's label left out and counted apart, D2), their trend over the last
+// four finished sprints (rebuilt back from today's counts), the next sprint's expected points for bugs (Capacity × the pace of the two last finished sprints, R12's pieces) and,
 // for the features the timeline expects in the next sprint, their stories. Cached in the plan as `sprintCheck`.
 // Design: docs/superpowers/specs/2026-10-16-planning-system-r19-sprint-tab-design.md §2.
 import type { Plan, Sprint, SprintCheck, SprintCheckFeature, SprintCheckSprint } from "@/features/timeline/merge";
-import { budgetShare, currentSprint, dayKey, dueFeatureIds, nextSprint, osloDate, osloDay } from "@/features/timeline/epic-tools.js";
+import { budgetShare, currentSprint, dayKey, dueFeatureIds, nextRelease, nextSprint, osloDate, osloDay, releaseScope } from "@/features/timeline/epic-tools.js";
 import { AdoRequestError, type AdoClient, type AdoWorkItem } from "./client";
 import { ADO_CHILD_REL } from "./config";
 import { availabilityFrom, forecastWindow, pacePool, paceWiql } from "./forecast";
@@ -152,27 +152,30 @@ export async function readSprintCheck(plan: Plan, client: SprintCheckClient, now
   const finished = sprints.filter((s) => s.finish < today).slice(-4);
   const states = await readStateMap(client, ["Bug", "Issue", "User Story"]);   // null = counted by the names
 
+  // D2: the next release's bugs and issues are on their way out (in development or QA): left out of the counts and the trend
+  const rel = nextRelease(plan), release = rel ? { label: releaseScope(rel), bugs: 0, issues: 0 } : null;
+  const inRelease = (w: AdoWorkItem) => !!release && str(w.fields["Custom.Release"]).trim() === release.label;
   const open = (await read(client, await client.wiql(openWiql(states)))).filter((w) => COUNTED.includes(typeOf(w)) && isOpen(states, typeOf(w), stateOf(w)));
-  const bugs: SprintCheck["bugs"] = { open: 0, A: 0, B: 0, C: 0, D: 0, none: 0, inRelease: {}, inNext: 0, inNextPoints: 0, closedCurrent: 0 };
+  const bugs: SprintCheck["bugs"] = { open: 0, A: 0, B: 0, C: 0, D: 0, none: 0, inNext: 0, inNextPoints: 0, closedCurrent: 0 };
   let issues = 0;
   for (const w of open) {
-    if (typeOf(w) === "Issue") { issues++; continue; }
+    const bug = typeOf(w) === "Bug";
+    if (bug && next && pathOf(w) === next.path) { bugs.inNext++; bugs.inNextPoints += pointsOf(w); }   // the budget sees every bug planned there
+    if (release && inRelease(w)) { if (bug) release.bugs++; else release.issues++; continue; }
+    if (!bug) { issues++; continue; }
     bugs.open++;
     bugs[severityOf(w.fields["Microsoft.VSTS.Common.Severity"])]++;
-    const label = str(w.fields["Custom.Release"]).trim();
-    if (label) bugs.inRelease[label] = (bugs.inRelease[label] ?? 0) + 1;
-    if (next && pathOf(w) === next.path) { bugs.inNext++; bugs.inNextPoints += pointsOf(w); }
   }
 
   let trend: SprintCheckSprint[] = [];
   const since = finished[0]?.start ?? current?.start;
   if (since) {
     const items = await read(client, await client.wiql(trendWiql(since)));
-    trend = trendOf({ bugs: bugs.open, issues }, items, finished, states);
+    trend = trendOf({ bugs: bugs.open, issues }, items.filter((w) => !inRelease(w)), finished, states);
     if (current) bugs.closedCurrent = factsOf(items, states).filter((f) => f.bug && f.closed && f.closed >= current.start).length;
   }
 
   const budget = await readBudget(plan, client, next, finished, states);
   const features = await readFeatures(plan, client, today, current, next, states);
-  return { at: now.toISOString(), current: current?.name ?? null, next: next?.name ?? null, ...(states ? {} : { statesMissing: true as const }), bugs, issues: { open: issues }, sprints: trend, budget, features };
+  return { at: now.toISOString(), current: current?.name ?? null, next: next?.name ?? null, ...(states ? {} : { statesMissing: true as const }), bugs, issues: { open: issues }, ...(release ? { release } : {}), sprints: trend, budget, features };
 }

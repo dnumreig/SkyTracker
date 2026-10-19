@@ -40,7 +40,7 @@ const wi = (id: number, type: string, state: string, o: Over = {}): AdoWorkItem 
   },
 });
 // the open bugs and issues today
-const OPEN: AdoWorkItem[] = [
+const OPEN_ITEMS: AdoWorkItem[] = [
   wi(1, "Bug", "New", { severity: "1 - Critical", release: "2.0.1", path: S(72), points: 3, created: "2026-10-01" }),
   wi(2, "Bug", "QA", { severity: "2 - High", release: "2.0.1", path: S(71), points: 2, created: "2026-09-15" }),
   wi(3, "Bug", "Active", { severity: "3 - Medium", release: "", path: S(72), points: 5, created: "2026-07-01" }),
@@ -56,7 +56,7 @@ const TREND_ONLY: AdoWorkItem[] = [
   wi(13, "Bug", "Removed", { created: "2026-09-16" }),
   wi(20, "Issue", "Closed", { created: "2026-10-02", closed: "2026-10-05" }),
 ];
-const TREND: AdoWorkItem[] = [...OPEN.filter((w) => String(w.fields["System.CreatedDate"]) >= "2026-08-17"), ...TREND_ONLY];
+const TREND: AdoWorkItem[] = [...OPEN_ITEMS.filter((w) => String(w.fields["System.CreatedDate"]) >= "2026-08-17"), ...TREND_ONLY];
 // the pace: GO resolved 2 points every working day of Sprint 70
 const GO = { displayName: "Gjermund Østby", uniqueName: "GO@Skytale.no" };
 const PACE: AdoWorkItem[] = [];
@@ -77,11 +77,12 @@ const CHILDREN: AdoWorkItem[] = [
   wi(599, "User Story", "Active", { path: S(72) }),
 ];
 
-type FakeOpts = { capacity?: AdoCapacity[]; capacityError?: Error; pace?: AdoWorkItem[]; statesError?: Error; wiqlError?: Error };
+type FakeOpts = { capacity?: AdoCapacity[]; capacityError?: Error; pace?: AdoWorkItem[]; statesError?: Error; wiqlError?: Error; open?: AdoWorkItem[] };
 function fake(o: FakeOpts = {}) {
   const queries: string[] = [];
   const batches: number[][] = [];
   const pace = o.pace ?? PACE;
+  const OPEN = o.open ?? OPEN_ITEMS;
   const all = [...OPEN, ...TREND_ONLY, ...pace, FEATURE, ...CHILDREN];
   const client: Pick<AdoClient, "wiql" | "batch" | "capacities" | "iterations" | "states"> = {
     iterations: async () => ITERATIONS,
@@ -125,9 +126,31 @@ describe("the Sprint tab's read of ADO (R19)", () => {
   it("reads the open bugs and issues by category, severity, label and the next sprint", async () => {
     const c = await readSprintCheck(PLAN, fake().client, NOW);
     expect(c).toMatchObject({ current: "Sprint 71", next: "Sprint 72", at: NOW.toISOString() });
-    expect(c.bugs).toEqual({ open: 4, A: 1, B: 1, C: 1, D: 0, none: 1, inRelease: { "2.0.1": 2, "2.0.2": 1 }, inNext: 2, inNextPoints: 8, closedCurrent: 1 });
+    expect(c.bugs).toEqual({ open: 4, A: 1, B: 1, C: 1, D: 0, none: 1, inNext: 2, inNextPoints: 8, closedCurrent: 1 });
     expect(c.issues).toEqual({ open: 2 });
     expect("statesMissing" in c).toBe(false);
+    expect("release" in c).toBe(false);   // no release in the plan: nothing is left out
+  });
+  it("leaves the next release's open bugs and issues out of the count, the grades and the trend; the budget still sees them", async () => {
+    const plan = { ...PLAN, releases: [{ key: "r0", version: "2.0.0", targetDate: "2026-10-07", shippedDate: "2026-10-07" }, { key: "r2", version: "2.0.2", targetDate: "2026-11-20" }, { key: "r1", version: "2.0.1", targetDate: "2026-10-27" }] };
+    const c = await readSprintCheck(plan, fake().client, NOW);
+    expect(c.release).toEqual({ label: "2.0.1", bugs: 2, issues: 0 });   // 2.0.0 is out, 2.0.2 comes after
+    expect(c.bugs).toEqual({ open: 2, A: 0, B: 0, C: 1, D: 0, none: 1, inNext: 2, inNextPoints: 8, closedCurrent: 1 });   // bug 1 is in Sprint 72 and still planned there
+    expect(c.issues).toEqual({ open: 2 });
+    expect(c.sprints).toEqual([
+      { name: "Sprint 67", end: "2026-08-28", openBugs: 3, openIssues: 2, created: 1, closed: 0, closedPoints: 0 },
+      { name: "Sprint 68", end: "2026-09-11", openBugs: 3, openIssues: 2, created: 1, closed: 1, closedPoints: 2 },
+      { name: "Sprint 69", end: "2026-09-25", openBugs: 3, openIssues: 2, created: 0, closed: 0, closedPoints: 0 },
+      { name: "Sprint 70", end: "2026-10-09", openBugs: 3, openIssues: 2, created: 1, closed: 1, closedPoints: 0 },
+    ]);
+  });
+  it("matches the release by its label, trimmed, and counts its issues apart", async () => {
+    const plan = { ...PLAN, releases: [{ key: "r1", version: "2.0.1", label: "2.0.1+ota.2", targetDate: "2026-10-27" }] };
+    const open = [...OPEN_ITEMS, wi(7, "Issue", "New", { release: " 2.0.1+ota.2 ", created: "2026-07-05" }), wi(8, "Bug", "New", { release: "2.0.1", created: "2026-07-06" })];
+    const c = await readSprintCheck(plan, fake({ open }).client, NOW);
+    expect(c.release).toEqual({ label: "2.0.1+ota.2", bugs: 0, issues: 1 });
+    expect(c.bugs.open).toBe(5);   // «2.0.1» is not the label of the release on its way out
+    expect(c.issues).toEqual({ open: 2 });
   });
   it("reconstructs the open counts at the end of the last four finished sprints", async () => {
     const f = fake(); const c = await readSprintCheck(PLAN, f.client, NOW);
