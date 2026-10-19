@@ -614,7 +614,9 @@ function sprintCheckOf(c, isDay) {
   const nameOrNull = (s) => s === null || typeof s === "string";
   if (!isMap(c) || typeof c.at !== "string" || !nameOrNull(c.current) || !nameOrNull(c.next)) return null;
   const bugs = pick(c.bugs, ["open", "A", "B", "C", "D", "none", "inNext", "inNextPoints", "closedCurrent"]), issues = pick(c.issues, ["open"]);
-  if (!bugs || !issues || !isMap(c.bugs.inRelease) || !Object.values(c.bugs.inRelease).every(isCount)) return null;
+  if (!bugs || !issues) return null;
+  const release = c.release === undefined ? null : pick(c.release, ["bugs", "issues"]);
+  if (c.release !== undefined && !(release && typeof c.release.label === "string" && c.release.label)) return null;
   const sprints = Array.isArray(c.sprints) ? c.sprints.map((s) => { const n = pick(s, ["openBugs", "openIssues", "created", "closed", "closedPoints"]); return n && typeof s.name === "string" && s.name && isDay(s.end) ? { name: s.name, end: s.end, ...n } : null; }) : [null];
   const b = c.budget;
   if (sprints.includes(null) || !isMap(b) || !(b.points === null || isCount(b.points)) || !(Number.isFinite(b.share) && b.share >= 0 && b.share <= 1) || !(b.missing === undefined || b.missing === "capacity" || b.missing === "history")) return null;
@@ -623,8 +625,8 @@ function sprintCheckOf(c, isDay) {
   if (features.some(([, f]) => !f)) return null;
   return {
     at: c.at, current: c.current, next: c.next, ...(c.statesMissing === true ? { statesMissing: true } : {}),
-    bugs: { open: bugs.open, A: bugs.A, B: bugs.B, C: bugs.C, D: bugs.D, none: bugs.none, inRelease: Object.fromEntries(Object.entries(c.bugs.inRelease)), inNext: bugs.inNext, inNextPoints: bugs.inNextPoints, closedCurrent: bugs.closedCurrent },
-    issues, sprints, budget: { points: b.points, share: b.share, ...(b.missing ? { missing: b.missing } : {}) }, features: Object.fromEntries(features),
+    bugs: { open: bugs.open, A: bugs.A, B: bugs.B, C: bugs.C, D: bugs.D, none: bugs.none, inNext: bugs.inNext, inNextPoints: bugs.inNextPoints, closedCurrent: bugs.closedCurrent },
+    issues, ...(release ? { release: { label: c.release.label, ...release } } : {}), sprints, budget: { points: b.points, share: b.share, ...(b.missing ? { missing: b.missing } : {}) }, features: Object.fromEntries(features),
   };
 }
 const andList = (xs) => (xs.length <= 1 ? xs.join("") : xs.slice(0, -1).join(", ") + " og " + xs[xs.length - 1]);
@@ -733,9 +735,13 @@ function releasePace(plan, r, todayDay) {
     : units.done === 0 ? "ingenting utviklet ennå" : "ingenting utviklet siden " + dayWords(startDay);
   return { code, text: head + " · " + tail, done, elapsed, startDay, elapsedDays, totalDays, tempo, forecastDay, deltaDays, readings };
 }
+/** The next release: the first not shipped, by «Release»; null when there is none. */
+function nextRelease(plan) {
+  return ((plan && plan.releases) || []).filter((x) => !x.shippedDate).sort((a, b) => (a.targetDate < b.targetDate ? -1 : a.targetDate > b.targetDate ? 1 : 0))[0] || null;
+}
 /** The legend's status strip: the next release not yet out, how far away it is, the share developed and the tempo colour in words; R18: and its phase. */
 function nextReleaseText(plan, todayDay) {
-  const r = ((plan && plan.releases) || []).filter((x) => !x.shippedDate).sort((a, b) => (a.targetDate < b.targetDate ? -1 : a.targetDate > b.targetDate ? 1 : 0))[0];
+  const r = nextRelease(plan);
   if (!r) return null;
   const n = calendarDays(todayDay, r.targetDate);
   const when = n > 0 ? "om " + n + (n === 1 ? " dag" : " dager") : n === 0 ? "i dag" : -n + (n === -1 ? " dag" : " dager") + " på overtid";
@@ -1153,16 +1159,11 @@ function slipCostText(c) {
   const goal = typeof e.goalDate === "number" ? " (mål " + fmtDate(unitToDate(e.goalDate)) + ")" : "";
   return shift + (e.before !== e.after ? " → «" + e.name + "» blir " : " · «" + e.name + "» er fortsatt ") + SLIP_WORD[e.after] + goal;
 }
-/** D3, D4: the open bugs now, after the next release (its label's open bugs close with it) and at the end of the next sprint
- *  (open − the budget's points at the closed bugs' average points + the average created, over the last two finished sprints;
- *  by count when those bugs had no points). `endOfNext` is null without a budget or without history. */
-function healthForecast(check, release) {
+/** D4: the open bugs now (the next release's already left out, D2) and at the end of the next sprint (open − the budget's
+ *  points at the closed bugs' average points + the average created, over the last two finished sprints; by count when
+ *  those bugs had no points). `endOfNext` is null without a budget or without history. */
+function healthForecast(check) {
   const open = check.bugs.open;
-  let afterRelease = null;
-  if (release) {
-    const label = releaseScope(release), inRelease = check.bugs.inRelease;
-    afterRelease = { label, value: Math.max(0, open - (Object.prototype.hasOwnProperty.call(inRelease, label) ? inRelease[label] : 0)) };
-  }
   let endOfNext = null;
   const last = check.sprints.slice(-2), n = last.length;
   if (check.budget.points !== null && n) {
@@ -1172,7 +1173,7 @@ function healthForecast(check, release) {
     const created = Math.round(sum("created") / n);
     endOfNext = { value: Math.max(0, open - closed + created), closed, created };
   }
-  return { now: open, afterRelease, endOfNext };
+  return { now: open, endOfNext };
 }
 /** «45 % ≈ 24 SP av ~53 · 18 SP planlagt på bugs», or why there is no budget. */
 function budgetText(check) {
@@ -1190,6 +1191,13 @@ const openBugsWords = (n) => n + (n === 1 ? " åpen bug" : " åpne bugs");
 const issuesWords = (n) => n + (n === 1 ? " issue" : " issues");
 /** «43 åpne bugs · 17 issues»; "" without a check. */
 function healthStripText(check) { return check ? openBugsWords(check.bugs.open) + " · " + issuesWords(check.issues.open) : ""; }
+/** D2: «Ikke telt: 9 bugs merket 2.0.1, på vei ut med releasen»; "" without a check, a release or anything left out. */
+function releaseLeftOutText(check) {
+  const r = check && check.release;
+  if (!r || !(r.bugs + r.issues)) return "";
+  const what = [r.bugs ? r.bugs + (r.bugs === 1 ? " bug" : " bugs") : "", r.issues ? issuesWords(r.issues) : ""].filter(Boolean).join(" og ");
+  return "Ikke telt: " + what + " merket " + r.label + ", på vei ut med releasen";
+}
 /** HH:MM in Oslo, built from the parts so the locale's separator does not matter. */
 function osloTime(d) {
   const parts = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Oslo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(d);
@@ -1200,11 +1208,11 @@ function osloTime(d) {
  *  cost of every «sent» row, and when ADO was read. */
 function sprintCheckMarkdown(plan, check, todayDay) {
   const due = sprintDue(plan, check, todayDay), s = due.sprint, next = s ? s.name : check.next || "neste sprint";
-  const nr = nextReleaseText(plan, todayDay), fc = healthForecast(check, nr ? nr.release : null), b = check.bugs;
+  const fc = healthForecast(check), left = releaseLeftOutText(check), b = check.bugs;
   const grades = "A " + b.A + " · B " + b.B + " · C " + b.C + " · D " + b.D + (b.none > 0 ? " · uten grad " + b.none : "");
   const lines = ["## " + (s ? s.name + " · " + sprintRangeText(s) : next.charAt(0).toUpperCase() + next.slice(1)), "",
     "**App-helse:** " + openBugsWords(b.open) + " (" + grades + ") · " + issuesWords(check.issues.open)];
-  if (fc.afterRelease) lines.push("- Etter " + fc.afterRelease.label + ": ≈ " + fc.afterRelease.value);
+  if (left) lines.push("- " + left);
   if (fc.endOfNext) lines.push("- Ved slutten av " + next + ": ≈ " + fc.endOfNext.value + " (lukker ~" + fc.endOfNext.closed + ", ~" + fc.endOfNext.created + " nye)");
   lines.push("", "**Budsjett for bugs og issues:** " + budgetText(check), "");
   const row = (d) => {
@@ -1301,11 +1309,11 @@ if (typeof module !== "undefined") {
     dayKey, osloDay, osloDate, currentSprint, sprintDay, sprintLabel, navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
     DELIVERY_OWNER, DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor, deliveryRows, wireDialogs,
     dayToUnit, releaseScope, releaseSegments, releaseProgress, releaseItemDone, releaseItemClosed, RELEASE_DONE_STATES, releaseWiql, releaseQueryUrl,
-    workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, releaseForecastText, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
+    workDays, workDaysBetween, addWorkDays, calendarDays, releaseStartDay, releasePace, nextRelease, nextReleaseText, releaseStateCounts, releaseSprintText, releaseBurndownData, releaseForecastText, sprintUnlabelledWiql, PACE_WORD, RELEASE_HISTORY_MAX, RELEASE_MAX_AGE_MS,
     releaseDevTarget, releasePhase, releaseExpected, releaseExpectedLate, releaseQaText,
     progressFraction, progressSignal, epicProgressSignal, progressText,
     MIX, MIX_LABEL, capacityFactor, elapsedWeeks, queueFloor, resolveQueue,
     focusKey, restoreFocus,
-    nextSprint, budgetShare, sprintRangeText, dueFeatureIds, sprintDue, sprintInWork, slipCost, slipCostText, healthForecast, budgetText, healthStripText, sprintCheckMarkdown,
+    nextSprint, budgetShare, sprintRangeText, dueFeatureIds, sprintDue, sprintInWork, slipCost, slipCostText, healthForecast, budgetText, healthStripText, releaseLeftOutText, sprintCheckMarkdown,
   };
 }

@@ -34,8 +34,8 @@ when a feature that should start does not, so a goal date can be moved early, wi
 | ID | Choice | How |
 |---|---|---|
 | D1 | A new tab «Sprint», after Kunder | Everyone can read it; everyone signed in can refresh it, since the refresh is a read cached in the plan, like the sprint ruler |
-| D2 | Open = not done, by ADO's category | Bugs and Issues whose state is Proposed, InProgress or Resolved (R18's map; a bug in QA is still open). Bugs by severity: A = 1 Critical, B = 2 High, C = 3 Medium, D = 4 Low |
-| D3 | «Etter release» | Open bugs minus the open bugs carrying the next release's label: they close when it ships |
+| D2 | Open = not done, by ADO's category, the next release left out | Bugs and Issues whose state is Proposed, InProgress or Resolved (R18's map; a bug in QA is still open). Those carrying the next release's label (the first not shipped, by «Release») are on their way out in development or QA: they are left out of the counts, the severity chips and the trend, and counted apart: «Ikke telt: 9 bugs merket 2.0.1, på vei ut med releasen» (GO 19.10). Once the release is marked «Sluppet» the rule moves to the next one. Bugs by severity: A = 1 Critical, B = 2 High, C = 3 Medium, D = 4 Low |
+| D3 | ~~«Etter release»~~ | Dropped 19.10: the headline is already without the next release (D2) |
 | D4 | «Ved slutten av neste sprint» | Open now − expected closed + expected new. Expected closed = the budget's points ÷ the average points of bugs closed in the two last finished sprints (by count when those bugs have no points). Expected new = the average created per sprint over the same two sprints. Shown as «≈ N» |
 | D5 | The budget comes from the sprint mix | (1 − `capacityFactor(plan)`) × the next sprint's expected points: each person's pace × available days from ADO Capacity, R12's rule over the next sprint's window. Without Capacity it says so, as the chance does |
 | D6 | Due by the timeline | Every feature not yet delivered whose bar starts on or before the next sprint's last day. A discovery must be under way (state «utredes»). A feature ready for development (estimate, in an epic, state «klar» or «aktiv») must have open stories in the next sprint, or in the current one if it has already started. One that should have started before the next sprint, and isn't under way or has no stories in either sprint, is «sent» |
@@ -51,7 +51,8 @@ when a feature that should start does not, so a goal date can be moved early, wi
 - **Open bugs and issues:** WIQL for Bug and Issue in the open states, then `workitemsbatch` for type, state,
   `Microsoft.VSTS.Common.Severity`, `Custom.Release`, iteration path, points and `System.CreatedDate`.
 - **The trend:** WIQL for Bugs and Issues created or closed since the end of the fourth-last finished sprint. The open count
-  at the end of each of the last four sprints is open now − created since + closed since. Per sprint it also records
+  at the end of each of the last four sprints is open now − created since + closed since, the next release's items left
+  out (D2). Per sprint it also records
   created bugs, closed bugs and closed bug points.
 - **Due features' stories:** for the due features with an ADO id, `workitemsbatch` with relations gives the child story ids.
   The stories' state, iteration and points then give, per feature:
@@ -74,8 +75,9 @@ sprintCheck?: {
   current: string | null, next: string | null,   // sprint names
   statesMissing?: true,
   bugs: { open: number, A: number, B: number, C: number, D: number, none: number,
-          inRelease: { [label: string]: number }, inNext: number, inNextPoints: number },
+          inNext: number, inNextPoints: number },     // inNext counts every bug planned there, the release's too (the budget)
   issues: { open: number },
+  release?: { label: string, bugs: number, issues: number },   // D2: the next release's open items, left out above
   sprints: { name: string, end: string, openBugs: number, openIssues: number,
              created: number, closed: number, closedPoints: number }[],   // the last four finished, oldest first
   budget: { points: number | null, share: number, missing?: "capacity" | "history" },
@@ -98,8 +100,8 @@ string. Otherwise it drops the field. `merge.ts` treats it like `sprints`: the n
   Features also carry `inNext`, `open` and `inNextPoints`. Both lists are sorted by start, then by epic.
 - `slipCost(plan, taskId, todayDay)` → `{ weeks, epic: { key, name, before, after, goalDate } }`: the end's shift and the
   epic status codes before and after, from `resolveQueue` and `epicStatus`, by D7.
-- `healthForecast(check, release)` → `{ now, afterRelease, endOfNext: { value, closed, created } }` by D3 and D4. The
-  label comes from the next release (`nextReleaseText(...).release`). `endOfNext` is null without a budget or history.
+- `healthForecast(check)` → `{ now, endOfNext: { value, closed, created } }` by D4. `endOfNext` is null without a budget
+  or history. `releaseLeftOutText(check)` → «Ikke telt: 9 bugs merket 2.0.1, på vei ut med releasen», or "" (D2).
 - `budgetText(check, plan)` → for example «45 % ≈ 24 SP av ~53 · 18 SP planlagt på bugs».
 - `sprintCheckMarkdown(plan, check, todayDay)` → the text for «Kopier som tekst».
 
@@ -110,8 +112,11 @@ NAV_TABS gains `["sprint", "Sprint", "/sprint"]`. Top to bottom:
 
 1. **App health, the headline.**
    - «43 åpne bugs · 17 issues», with the severity chips «A 1 · B 12 · C 21 · D 9».
-   - A small trend: open bugs at the end of the last four sprints.
-   - The two forecasts: «etter 2.0.1 ≈ 32» and «ved slutten av Sprint 72 ≈ 35 (lukker ~12, ~4 nye)».
+   - Under it, what the next release leaves out (D2): «Ikke telt: 9 bugs merket 2.0.1, på vei ut med releasen».
+   - A small trend with a visible caption, «Åpne bugs ved sprintslutt, uten 2.0.1»: open bugs at the end of the last four
+     sprints, the release's left out there too.
+   - The forecast: «ved slutten av Sprint 72 ≈ 35 (lukker ~12, ~4 nye)». A cached read made for another release (or before
+     D2) is read again when the tab opens.
    - Severity uses the neutral chip style. The forecast is green when the count falls and amber when it rises: health is
      the one meaning those colours carry (R17 §6).
 2. **«Sprint 72 · 26. okt – 6. nov», the next sprint.**
@@ -150,8 +155,8 @@ tab in the top bar.
     - a feature with stories in the next sprint, with none, and without an ADO id;
     - late;
   - `slipCost`: one sprint later moves the end and turns the epic from green to amber;
-  - `healthForecast`: after a release, at the end of the next sprint, by count when bugs lack points, and missing a budget
-    or history;
+  - `healthForecast`: at the end of the next sprint, by count when bugs lack points, and missing a budget or history;
+  - the read leaves the next release's bugs and issues out of the counts, the chips and the trend, by its label;
   - `budgetText`;
   - the normaliser and the merge for `sprintCheck`;
   - `sprint-check.ts` against a fake client: the states map, the WIQL strings, the batch, the relations and the

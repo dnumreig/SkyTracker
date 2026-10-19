@@ -22,6 +22,8 @@
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
   .chip{display:inline-flex;align-items:center;font-size:12px;font-weight:600;border-radius:999px;padding:2px 10px;background:var(--badge-bg);color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums}
   .health-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px 40px;margin-top:16px}
+  #relNote{font-size:13px;color:var(--text-2);margin-top:4px}
+  .trend-cap{font-size:12px;color:var(--text-2);margin-bottom:6px}
   #trend{list-style:none;display:flex;align-items:flex-end;gap:12px}
   #trend li{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:52px}
   #trend .bar{display:block;width:24px;background:var(--accent);border-radius:3px 3px 0 0}
@@ -98,11 +100,14 @@
   <section class="card" aria-labelledby="hHealth">
     <h2 id="hHealth">App-helse</h2>
     <p id="healthHead" hidden></p>
+    <p id="relNote" hidden></p>
     <div class="chips" id="sevChips" hidden></div>
     <div class="health-row" id="healthRow" hidden>
-      <ol id="trend" aria-label="Åpne bugs ved slutten av de siste sprintene" hidden></ol>
+      <div id="trendBox" hidden>
+        <p class="trend-cap" id="trendCap">Åpne bugs ved sprintslutt</p>
+        <ol id="trend" aria-labelledby="trendCap"></ol>
+      </div>
       <div class="fcs" id="fcs" hidden>
-        <p class="fc" id="fcRelease" hidden></p>
         <p class="fc" id="fcNext" hidden></p>
       </div>
     </div>
@@ -166,7 +171,7 @@ window.__bootSprint = function(){
     const due = sprintDue(state, check, day), cur = currentSprint((state.sprints && state.sprints.items) || [], now);
     shownDay = day;
     renderMissing(check, due.sprint);
-    renderHealth(check, due.sprint, day);
+    renderHealth(check, due.sprint);
     renderNext(check, due, cur, day);
     renderCurrent(check, cur, day, now);
     $('readAt').hidden = !check; $('readAt').textContent = check ? 'Lest fra ADO ' + readAtText(check.at) : '';
@@ -183,26 +188,26 @@ window.__bootSprint = function(){
     }
     $('missing').innerHTML = m.map(([k, t]) => '<p class="miss" data-missing="' + k + '">' + esc(t) + '</p>').join('');
   }
-  function renderHealth(check, next, day){   // without a check the numbers are left out
+  function renderHealth(check, next){   // without a check the numbers are left out
     $('healthHead').hidden = !check; $('healthHead').textContent = healthStripText(check);
+    const left = releaseLeftOutText(check);   // D2: the next release's bugs are on their way out and not counted
+    $('relNote').hidden = !left; $('relNote').textContent = left;
     $('sevChips').hidden = !check;
     $('sevChips').innerHTML = !check ? '' : ['A', 'B', 'C', 'D'].map(k => '<span class="chip" title="Alvorlighet ' + SEV_TITLE[k] + '">' + k + ' ' + check.bugs[k] + '</span>').join('') +
       (check.bugs.none > 0 ? '<span class="chip" title="Bugs uten alvorlighet i ADO">uten grad ' + check.bugs.none + '</span>' : '');
     const hist = check ? check.sprints : [], max = Math.max(1, ...hist.map(s => s.openBugs));
-    $('trend').hidden = !hist.length;
+    $('trendBox').hidden = !hist.length;
+    $('trendCap').textContent = 'Åpne bugs ved sprintslutt' + (check && check.release ? ', uten ' + check.release.label : '');
     $('trend').innerHTML = hist.map(s => '<li><span class="bar" aria-hidden="true" style="height:' + Math.max(2, Math.round(40 * s.openBugs / max)) + 'px"></span><span class="n">' + s.openBugs + '</span><span class="nm">' + esc(s.name) + '</span></li>').join('');
-    const nr = check ? nextReleaseText(state, day) : null, fc = check ? healthForecast(check, nr ? nr.release : null) : null;
-    const rel = $('fcRelease'), nx = $('fcNext');
-    rel.hidden = !(fc && fc.afterRelease);   // left out without a next release
-    if(!rel.hidden){ rel.textContent = 'etter ' + fc.afterRelease.label + ' ≈ ' + fc.afterRelease.value; rel.className = 'fc ' + fcClass(fc.afterRelease.value, fc.now); }
+    const fc = check ? healthForecast(check) : null, nx = $('fcNext');
     nx.hidden = !(fc && next);   // left out without a next sprint
     if(!nx.hidden){
       const e = fc.endOfNext;
       nx.textContent = 'ved slutten av ' + next.name + (e ? ' ≈ ' + e.value + ' (lukker ~' + e.closed + ', ~' + e.created + ' nye)' : ': ingen prognose uten ' + (check.budget.points === null ? 'budsjett' : 'historikk'));
       nx.className = 'fc ' + (e ? fcClass(e.value, fc.now) : 'fc-none');
     }
-    $('fcs').hidden = rel.hidden && nx.hidden;
-    $('healthRow').hidden = $('trend').hidden && $('fcs').hidden;
+    $('fcs').hidden = nx.hidden;
+    $('healthRow').hidden = $('trendBox').hidden && $('fcs').hidden;
   }
   function renderNext(check, due, cur, day){   // D6: what the timeline expects of the next sprint; the lists draw from the plan even without a check
     const next = due.sprint, nx = next ? next.name : 'neste sprint', curName = cur ? cur.name : (check && check.current) || null;
@@ -283,8 +288,9 @@ window.__bootSprint = function(){
     document.documentElement.classList.toggle('forum', forumDefault(stored, canWrite));   // D10: the forum view is the readers' default; a stored choice wins
     setNote('');
     if(j.plan) applyRemote(j.plan.data, j.plan.version); else { state = emptyPlan(); render(); }
-    const c = state.sprintCheck;
-    if(HOSTED && !(c && Date.now() - new Date(c.at).getTime() <= SPRINT_MAX_AGE_MS)) readAdo(false);
+    const c = state.sprintCheck, rel = nextRelease(state), label = rel ? releaseScope(rel) : null;
+    const sameRelease = c && ((c.release && c.release.label) || null) === label;   // D2: a read made for another release (or before the rule) is read again
+    if(HOSTED && !(c && sameRelease && Date.now() - new Date(c.at).getTime() <= SPRINT_MAX_AGE_MS)) readAdo(false);
   }
   async function poll(){
     if(!serverReady || reading) return;

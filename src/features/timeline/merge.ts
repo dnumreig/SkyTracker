@@ -112,8 +112,10 @@ export type SprintCheck = {
   current: string | null;
   next: string | null;
   statesMissing?: true;
-  bugs: { open: number; A: number; B: number; C: number; D: number; none: number; inRelease: Record<string, number>; inNext: number; inNextPoints: number; closedCurrent: number };
+  bugs: { open: number; A: number; B: number; C: number; D: number; none: number; inNext: number; inNextPoints: number; closedCurrent: number };
   issues: { open: number };
+  /** The open bugs and issues carrying the next release's label: on their way out, so left out of the counts and the trend. */
+  release?: { label: string; bugs: number; issues: number };
   /** The last four finished sprints, oldest first. */
   sprints: SprintCheckSprint[];
   /** `points`: the next sprint's expected points (null when it could not be computed); `share`: the part for bugs and issues. */

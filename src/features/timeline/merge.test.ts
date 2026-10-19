@@ -207,7 +207,7 @@ describe("sprintCheck (R19)", () => {
     at,
     current: null,
     next: null,
-    bugs: { open, A: 0, B: 0, C: 0, D: 0, none: 0, inRelease: {}, inNext: 0, inNextPoints: 0, closedCurrent: 0 },
+    bugs: { open, A: 0, B: 0, C: 0, D: 0, none: 0, inNext: 0, inNextPoints: 0, closedCurrent: 0 },
     issues: { open: 0 },
     sprints: [],
     budget: { points: 53, share: 0.45 },

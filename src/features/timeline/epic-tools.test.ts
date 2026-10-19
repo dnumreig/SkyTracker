@@ -13,7 +13,7 @@ import {
   navTabsHtml, epicStatusWords, forumBaseline, forumDefault,
   osloDay, osloDate,
   DELIVERY_WORD, deliveryOwner, deliveryCustomersText, deliveryParts, deliveryComputed, deliveryStatus, deliveryUnlabelled, deliveryBugsLeft, deliveryPartsText, deliveryLines, epicCustomers, epicCustomersText, epicWeight, deliverySegments, deliveryInvestor, deliveryRows,
-  nextSprint, budgetShare, sprintRangeText, dueFeatureIds, sprintDue, sprintInWork, slipCost, slipCostText, healthForecast, budgetText, healthStripText, sprintCheckMarkdown,
+  nextSprint, budgetShare, sprintRangeText, dueFeatureIds, sprintDue, sprintInWork, slipCost, slipCostText, healthForecast, budgetText, healthStripText, releaseLeftOutText, sprintCheckMarkdown, nextRelease,
 } from "./epic-tools.js";
 import type { Delivery, Plan, PlanTask, Sprint, SprintCheck } from "./merge";
 
@@ -1363,8 +1363,9 @@ describe("normalizePlan: sprintCheck (R19)", () => {
     current: "Sprint 71",
     next: "Sprint 72",
     statesMissing: true,
-    bugs: { open: 40, A: 3, B: 12, C: 15, D: 4, none: 6, inRelease: { "2.0.1": 11 }, inNext: 9, inNextPoints: 14, closedCurrent: 7 },
+    bugs: { open: 40, A: 3, B: 12, C: 15, D: 4, none: 6, inNext: 9, inNextPoints: 14, closedCurrent: 7 },
     issues: { open: 17 },
+    release: { label: "2.0.1", bugs: 11, issues: 1 },
     sprints: [
       { name: "Sprint 69", end: "2026-09-25", openBugs: 35, openIssues: 15, created: 12, closed: 10, closedPoints: 21 },
       { name: "Sprint 70", end: "2026-10-09", openBugs: 38, openIssues: 16, created: 14, closed: 11, closedPoints: 24.5 },
@@ -1380,7 +1381,8 @@ describe("normalizePlan: sprintCheck (R19)", () => {
     ["no read time", (c: any) => { delete c.at; }],
     ["a negative count", (c: any) => { c.bugs.C = -1; }],
     ["a count that is not a number", (c: any) => { c.issues.open = "17"; }],
-    ["a label count that is not finite", (c: any) => { c.bugs.inRelease["2.0.1"] = Infinity; }],
+    ["a release count that is not finite", (c: any) => { c.release.bugs = Infinity; }],
+    ["a release without a label", (c: any) => { c.release.label = ""; }],
     ["a sprint without a name", (c: any) => { c.sprints[0].name = 7; }],
     ["a sprint end that is not a day", (c: any) => { c.sprints[0].end = "17.10"; }],
     ["a share above 1", (c: any) => { c.budget.share = 1.2; }],
@@ -1392,6 +1394,12 @@ describe("normalizePlan: sprintCheck (R19)", () => {
     expect("sprintCheck" in normalizePlan({ lanes: [], tasks: [], sprintCheck: c })).toBe(false);
   });
   /* eslint-enable @typescript-eslint/no-explicit-any */
+  it("keeps a read without a release, and one from before the release was left out (its label counts are dropped)", () => {
+    const none = structuredClone(VALID); delete none.release;
+    expect(normalizePlan({ lanes: [], tasks: [], sprintCheck: none }).sprintCheck).toEqual(none);
+    const old = { ...structuredClone(none), bugs: { ...none.bugs, inRelease: { "2.0.1": 11 } } };
+    expect(normalizePlan({ lanes: [], tasks: [], sprintCheck: old }).sprintCheck).toEqual(none);
+  });
   it("keeps only the known fields", () => {
     const c = { ...structuredClone(VALID), extra: 1, bugs: { ...structuredClone(VALID).bugs, extra: 2 } };
     expect(normalizePlan({ lanes: [], tasks: [], sprintCheck: c }).sprintCheck).toEqual(VALID);
@@ -1431,8 +1439,9 @@ describe("R19: the Sprint tab", () => {
     at: "2026-10-17T10:40:00Z",
     current: "Sprint 71",
     next: "Sprint 72",
-    bugs: { open: 43, A: 1, B: 12, C: 21, D: 9, none: 0, inRelease: { "2.0.1": 11 }, inNext: 6, inNextPoints: 18, closedCurrent: 7 },
+    bugs: { open: 43, A: 1, B: 12, C: 21, D: 9, none: 0, inNext: 6, inNextPoints: 18, closedCurrent: 7 },
     issues: { open: 17 },
+    release: { label: "2.0.1", bugs: 9, issues: 0 },
     sprints: [   // oldest first; only the last two count
       { name: "Sprint 67", end: "2026-08-28", openBugs: 30, openIssues: 12, created: 9, closed: 2, closedPoints: 3 },
       { name: "Sprint 68", end: "2026-09-11", openBugs: 35, openIssues: 14, created: 7, closed: 3, closedPoints: 9 },
@@ -1495,17 +1504,29 @@ describe("R19: the Sprint tab", () => {
     expect(slipCostText({ weeks: 1, sprint: "Sprint 73", epic: null })).toBe("starter tidligst Sprint 73 → slutt +1 uke");
     expect(slipCostText({ weeks: 2, sprint: "Sprint 73", epic: { key: "a", name: "A", before: "gronn", after: "gronn", goalDate: null } })).toBe("starter tidligst Sprint 73 → slutt +2 uker · «A» er fortsatt grønn");
   });
-  it("healthForecast: after the release and at the end of the next sprint (D3, D4)", () => {
-    const r = { key: "r", version: "2.0.1", targetDate: "2026-10-22" };
-    expect(healthForecast(HC, r)).toEqual({ now: 43, afterRelease: { label: "2.0.1", value: 32 }, endOfNext: { value: 35, closed: 12, created: 4 } });
-    expect(healthForecast(HC, { ...r, label: "2.0.1+ota.2" }).afterRelease).toEqual({ label: "2.0.1+ota.2", value: 43 });
-    expect(healthForecast(HC, null).afterRelease).toBeNull();
+  it("healthForecast: now, and at the end of the next sprint (D4)", () => {
+    expect(healthForecast(HC)).toEqual({ now: 43, endOfNext: { value: 35, closed: 12, created: 4 } });
+  });
+  it("nextRelease: the first not shipped, by «Release»", () => {
+    const rs = [{ key: "a", version: "2.0.0", targetDate: "2026-10-07", shippedDate: "2026-10-07" }, { key: "c", version: "2.0.2", targetDate: "2026-11-20" }, { key: "b", version: "2.0.1", targetDate: "2026-10-27" }];
+    expect(nextRelease({ releases: rs } as Plan)!.key).toBe("b");
+    expect(nextRelease({ releases: rs.slice(0, 1) } as Plan)).toBeNull();
+    expect(nextRelease(null)).toBeNull();
+  });
+  it("releaseLeftOutText (D2): what the counts leave out", () => {
+    expect(releaseLeftOutText(HC)).toBe("Ikke telt: 9 bugs merket 2.0.1, på vei ut med releasen");
+    expect(releaseLeftOutText({ ...HC, release: { label: "2.0.1", bugs: 1, issues: 2 } })).toBe("Ikke telt: 1 bug og 2 issues merket 2.0.1, på vei ut med releasen");
+    expect(releaseLeftOutText({ ...HC, release: { label: "2.0.1", bugs: 0, issues: 1 } })).toBe("Ikke telt: 1 issue merket 2.0.1, på vei ut med releasen");
+    expect(releaseLeftOutText({ ...HC, release: { label: "2.0.1", bugs: 0, issues: 0 } })).toBe("");
+    const none: SprintCheck = { ...HC }; delete none.release;
+    expect(releaseLeftOutText(none)).toBe("");
+    expect(releaseLeftOutText(null)).toBe("");
   });
   it("healthForecast: by count when the bugs had no points; none without a budget or history", () => {
     const noPts = { ...HC, sprints: HC.sprints.map((s) => ({ ...s, closedPoints: 0 })) };
-    expect(healthForecast(noPts, null).endOfNext).toEqual({ value: 37, closed: 10, created: 4 });
-    expect(healthForecast({ ...HC, budget: { points: null, share: 0.45, missing: "capacity" } }, null).endOfNext).toBeNull();
-    expect(healthForecast({ ...HC, sprints: [] }, null).endOfNext).toBeNull();
+    expect(healthForecast(noPts).endOfNext).toEqual({ value: 37, closed: 10, created: 4 });
+    expect(healthForecast({ ...HC, budget: { points: null, share: 0.45, missing: "capacity" } }).endOfNext).toBeNull();
+    expect(healthForecast({ ...HC, sprints: [] }).endOfNext).toBeNull();
   });
   it("budgetText and healthStripText", () => {
     expect(budgetText(HC)).toBe("45 % ≈ 24 SP av ~53 · 18 SP planlagt på bugs");
@@ -1519,7 +1540,7 @@ describe("R19: the Sprint tab", () => {
   });
   it("sprintCheckMarkdown: the head, the lists, a flagged row's cost and the read time", () => {
     const md = sprintCheckMarkdown({ ...PLAN, releases: [{ key: "r", version: "2.0.1", targetDate: "2026-10-22" }] } as Plan, { ...HC, features: CHECK.features, at: "2026-10-17T10:40:00Z" }, TODAY);
-    expect(md.split("\n").slice(0, 8).join("\n")).toBe("## Sprint 72 · 26. okt – 6. nov\n\n**App-helse:** 43 åpne bugs (A 1 · B 12 · C 21 · D 9) · 17 issues\n- Etter 2.0.1: ≈ 32\n- Ved slutten av Sprint 72: ≈ 35 (lukker ~12, ~4 nye)\n\n**Budsjett for bugs og issues:** 45 % ≈ 24 SP av ~53 · 18 SP planlagt på bugs\n");
+    expect(md.split("\n").slice(0, 8).join("\n")).toBe("## Sprint 72 · 26. okt – 6. nov\n\n**App-helse:** 43 åpne bugs (A 1 · B 12 · C 21 · D 9) · 17 issues\n- Ikke telt: 9 bugs merket 2.0.1, på vei ut med releasen\n- Ved slutten av Sprint 72: ≈ 35 (lukker ~12, ~4 nye)\n\n**Budsjett for bugs og issues:** 45 % ≈ 24 SP av ~53 · 18 SP planlagt på bugs\n");
     expect(md).toContain("### Utredninger som skal i gang\n- Hylla › ");
     expect(md).toMatch(/- Epic B › .+ · sent · starter tidligst Sprint 73 → /);
     expect(md.trim().endsWith("_Lest fra ADO 17. okt 12:40_")).toBe(true);
